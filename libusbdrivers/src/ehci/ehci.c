@@ -397,7 +397,14 @@ _qhn_is_active(struct QHn* qhn)
 static inline int
 qhn_get_bytes_remaining(struct QHn *qhn)
 {
-    return TDTOK_GET_BYTES(qhn->qh->td_overlay.token);
+    int sum = 0;
+    int i;
+
+    for (i = 0; i < qhn->ntdns; i++) {
+       sum += TDTOK_GET_BYTES(qhn->tdns[i].td->token);
+    }
+
+    return sum;
 }
 
 static inline int
