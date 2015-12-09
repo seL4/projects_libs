@@ -27,11 +27,38 @@
 #define UBMS_DBG(...) do{}while(0)
 #endif
 
+#define UBMS_CBW_SIGN 0x43425355 //Command block wrapper signature
+#define UBMS_CSW_SIGN 0x53425355 //Command status wrapper signature
+
+#define CSW_STS_PASS 0x0
+#define CSW_STS_FAIL 0x1
+#define CSW_STS_ERR  0x2
+
+/* Command Block Wrapper */
+struct cbw {
+    uint32_t signature;
+    uint32_t tag;
+    uint32_t data_transfer_length;
+    uint8_t flags;
+    uint8_t lun:4;
+    uint8_t cb_length:5;
+    uint8_t cb[16];
+} __attribute__((packed));
+
+/* Command Status Wrapper */
+struct csw {
+    uint32_t signature;
+    uint32_t tag;
+    uint32_t residue;
+    uint8_t status;
+} __attribute__((packed));
+
+/* USB mass storage device */
 struct usb_storage_device {
-    usb_dev_t      udev;    //The handle to the underlying USB device
-    int            max_lun; //Maximum logical unit number
-    void*          buf;     //A buffer points to the current BULK transfer
-    int            len;     //Buffer length
+    usb_dev_t      udev;      //The handle to the underlying USB device
+    int            max_lun;   //Maximum logical unit number
+    int            subclass;  //Industry standard
+    int            protocol;  //Protocol code
 };
 
 static inline struct usbreq
@@ -76,6 +103,8 @@ usb_storage_config_cb(void* token, int cfg, int iface, struct anon_desc* desc)
         case INTERFACE:
             idesc = (struct iface_desc*)desc;
             ubms->udev->class = idesc->bInterfaceClass;
+            ubms->subclass = idesc->bInterfaceSubClass;
+            ubms->protocol = idesc->bInterfaceProtocol;
             break;
         case ENDPOINT:
             break;
@@ -192,11 +221,91 @@ usb_storage_bind(usb_dev_t udev)
         return -1;
     }
 
-    UBMS_DBG("start USB storage binding\n");
+    UBMS_DBG("USB storage found, subclass(%x, %x)\n", ubms->subclass, ubms->protocol);
 
     usb_storage_reset(udev);
     ubms->max_lun = usb_storage_get_max_lun(udev);
 
     return 0;
+}
+
+int
+usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
+         struct xact *data, int ndata, int direction)
+{
+    int err, i, ret;
+    struct cbw *cbw;
+    struct csw *csw;
+    struct xact xact;
+    uint32_t tag;
+
+    /* Prepare command block */
+    xact.len = sizeof(struct cbw);
+    err = usb_alloc_xact(udev->dman, &xact, 1);
+    assert(!err);
+
+    cbw = xact_get_vaddr(&xact);
+    cbw->signature = UBMS_CBW_SIGN;
+    cbw->data_transfer_length = 0;
+    for (i = 0; i < ndata; i++) {
+        cbw->data_transfer_length += data[i].len;
+    }
+    cbw->flags = (direction & 0x1) << 7;
+    cbw->lun = 0; //TODO: multiple LUN
+    cbw->cb_length = cb_len;
+    memcpy(cbw->cb, cb, cb_len);
+
+    /* Send CBW */
+    err = usbdev_schedule_xact(udev, 1, udev->max_pkt, 0, &xact, 1, NULL, NULL);
+    if (!err) {
+        assert(0);
+    }
+    tag = cbw->tag;
+    usb_destroy_xact(udev->dman, &xact, 1);
+
+    /* Send/Receive data */
+    err = usbdev_schedule_xact(udev, direction & 0x1, udev->max_pkt, 0,
+                               data, ndata, NULL, NULL);
+    if (!err) {
+        assert(0);
+    }
+
+    /* Check CSW from IN endpoint */
+    xact.len = sizeof(struct csw);
+    err = usb_alloc_xact(udev->dman, &xact, 1);
+    assert(!err);
+
+    csw = xact_get_vaddr(&xact);
+    csw->signature = UBMS_CSW_SIGN;
+    csw->tag = tag;
+
+    err = usbdev_schedule_xact(udev, 1, udev->max_pkt, 0, &xact, 1, NULL, NULL);
+    UBMS_DBG("CSW status(%u)\n", csw->status);
+    if (!err) {
+        assert(0);
+    }
+
+    switch (csw->status) {
+        case CSW_STS_PASS:
+            ret = 0;
+            break;
+        case CSW_STS_FAIL:
+            assert(0);
+            ret = -1;
+            break;
+        case CSW_STS_ERR:
+            assert(0);
+            ret = -2;
+            break;
+        default:
+            UBMS_DBG("Unknown CSW status(%u)\n", csw->status);
+            ret = -3;
+            break;
+    }
+
+    usb_destroy_xact(udev->dman, &xact, 1);
+
+    return ret;
+
 }
 

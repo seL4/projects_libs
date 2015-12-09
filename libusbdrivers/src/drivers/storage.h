@@ -13,6 +13,8 @@
 
 #include <usb/drivers/storage.h>
 
+int usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
+		 struct xact *data, int ndata, int direction);
 #endif /* _DRIVERS_STORAGE_H_ */
 
 
