@@ -252,6 +252,8 @@ phy_enable(int devid, ps_io_ops_t* o)
 {
     volatile struct usb_phy_regs* phy_regs;
     clk_t* clk;
+
+    clock_sys_init(o, &o->clock_sys);
     switch (devid) {
     case 0:
         clk = clk_get_clock(&o->clock_sys, CLK_USB1);
