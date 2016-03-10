@@ -11,9 +11,10 @@
 #ifndef _USB_STORAGE_H_
 #define _USB_STORAGE_H_
 
+#include <sync/mutex.h>
 #include <usb/usb.h>
 
-int usb_storage_bind(usb_dev_t usb_dev);
+int usb_storage_bind(usb_dev_t usb_dev, sync_mutex_t *mutex);
 
 #endif /* _USB_STORAGE_H_ */
 
