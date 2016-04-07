@@ -1287,10 +1287,11 @@ _async_complete(struct ehci_host* edev)
                     printf("------------------------\n");
                 }
 
-                assert(cur->cb);
                 /* Call the completion handler and remove cur. prev is updated to point to a new cur */
-                qhn_cb(cur, stat);
-                _async_remove_next(edev, prev);
+                if (cur->cb) {
+                    qhn_cb(cur, stat);
+                    _async_remove_next(edev, prev);
+                }
             } else {
                 /* Step over */
                 prev = cur;
