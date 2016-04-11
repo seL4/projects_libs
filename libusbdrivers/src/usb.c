@@ -469,7 +469,7 @@ usbdev_config_print(usb_dev_t udev)
         assert(0);
     }
     req = xact_get_vaddr(&xact[0]);
-    *req = __get_descriptor_req(DEVICE, 0, xact[1].len);
+    *req = __get_descriptor_req(DEVICE, 0, 0, xact[1].len);
     ret = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0,
                                xact, 2, NULL, NULL);
     if (ret < 0) {
@@ -752,7 +752,7 @@ usbdev_parse_config(usb_dev_t udev, usb_config_cb cb, void* t)
     }
     req = xact_get_vaddr(&xact[0]);
     cd = xact_get_vaddr(&xact[1]);
-    *req = __get_descriptor_req(CONFIGURATION, 0, xact[1].len);
+    *req = __get_descriptor_req(CONFIGURATION, 0, 0, xact[1].len);
     err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0,
                                xact, 2, NULL, NULL);
     if (err < 0) {
@@ -773,7 +773,7 @@ usbdev_parse_config(usb_dev_t udev, usb_config_cb cb, void* t)
     }
     req = xact_get_vaddr(&xact[0]);
     d = xact_get_vaddr(&xact[1]);
-    *req = __get_descriptor_req(CONFIGURATION, 0, tot_len);
+    *req = __get_descriptor_req(CONFIGURATION, 0, 0, tot_len);
     err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0,
                                xact, 2, NULL, NULL);
     if (err < 0) {

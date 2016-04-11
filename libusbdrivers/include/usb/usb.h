@@ -20,6 +20,9 @@
 // Maximum number of devices a host can manage
 #define USB_NDEVICES 32
 
+// Maximum size of a string descriptor
+#define MAX_STRING_SIZE 255
+
 struct usb_dev;
 typedef struct usb_dev* usb_dev_t;
 
@@ -205,7 +208,7 @@ struct endpoint_desc {
 struct string_desc {
     uint8_t bLength;
     uint8_t bDescriptorType;
-    uint8_t bString[];
+    uint8_t bString[MAX_STRING_SIZE];
 } __attribute__ ((packed));
 
 /* Class HID */
@@ -221,12 +224,12 @@ struct hid_desc {
 
 
 static inline struct usbreq
-__get_descriptor_req(enum DescriptorType t, int index, int size) {
+__get_descriptor_req(enum DescriptorType t, int value, int index, int size) {
     struct usbreq r = {
         .bmRequestType = 0b10000000,
         .bRequest      = GET_DESCRIPTOR,
-        .wValue        = (t << 8) + index,
-        .wIndex        = 0,
+        .wValue        = (t << 8) + value,
+        .wIndex        = index,
         .wLength       = size
     };
     return r;

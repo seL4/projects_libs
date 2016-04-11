@@ -92,6 +92,16 @@ __get_max_lun_req(int interface)
     return r;
 }
 
+static void print_string_desc(struct string_desc *desc)
+{
+	assert(desc);
+
+	for (int i = 0; i < desc->bLength - 2; i++) {
+		printf("%c", desc->bString[i]);
+	}
+	printf("\n");
+}
+
 static void
 usb_storage_print_cbw(struct cbw *cbw)
 {
@@ -180,64 +190,64 @@ usb_storage_set_configuration(usb_dev_t udev)
 {
     int err;
     struct usb_storage_device *ubms;
-    struct xact xact;
+    struct xact xact[2];
     struct usbreq *req;
 
     ubms = (struct usb_storage_device*)udev->dev_data;
 
     /* XXX: xact allocation relies on the xact.len */
-    xact.len = sizeof(struct usbreq);
+    xact[0].len = sizeof(struct usbreq);
+    xact[1].len = 0;
 
     /* Get memory for the request */
-    err = usb_alloc_xact(udev->dman, &xact, 1);
+    err = usb_alloc_xact(udev->dman, &xact, 2);
     if (err) {
         UBMS_DBG("Not enough DMA memory!\n");
 	assert(0);
     }
 
     /* Fill in the request */
-    xact.type = PID_SETUP;
-    req = xact_get_vaddr(&xact);
+    xact[0].type = PID_SETUP;
+    xact[1].type = PID_IN;
+    req = xact_get_vaddr(&xact[0]);
     *req = __set_configuration_req(ubms->config);
 
     /* Send the request to the host */
-    err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0, &xact, 1,
+    err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0, &xact, 2,
                                usb_storage_xfer_cb, (void*)ubms->mutex);
     sync_mutex_lock(ubms->mutex);
-    usb_destroy_xact(udev->dman, &xact, 1);
+    usb_destroy_xact(udev->dman, &xact, 2);
     if (err < 0) {
         UBMS_DBG("USB mass storage set configuration failed.\n");
     }
 }
 
 void
-usb_storage_get_string(usb_dev_t udev, int index)
+usb_storage_get_string(usb_dev_t udev, int index, int lang, struct string_desc *desc)
 {
     int err;
     struct usb_storage_device *ubms;
     struct xact xact[2];
     struct usbreq *req;
     struct string_desc *sdesc;
-    char str[255];
 
-    memset(str, 0, 255);
     ubms = (struct usb_storage_device*)udev->dev_data;
 
     /* XXX: xact allocation relies on the xact.len */
     xact[0].len = sizeof(struct usbreq);
-    xact[1].len = 255;
+    xact[1].len = sizeof(struct string_desc);
 
     /* Get memory for the request */
     err = usb_alloc_xact(udev->dman, xact, sizeof(xact) / sizeof(struct xact));
     if (err) {
         UBMS_DBG("Not enough DMA memory!\n");
-        return -1;
+        return;
     }
 
     /* Fill in the SETUP packet */
     xact[0].type = PID_SETUP;
     req = xact_get_vaddr(&xact[0]);
-    *req = __get_descriptor_req(STRING, index, 255);
+    *req = __get_descriptor_req(STRING, index, lang, sizeof(struct string_desc));
 
     /* Fill in the IN packet */
     xact[1].type = PID_IN;
@@ -249,15 +259,13 @@ usb_storage_get_string(usb_dev_t udev, int index)
 
     if (err < 0) {
        UBMS_DBG("USB mass storage get LUN failed.\n");
+       usb_destroy_xact(udev->dman, xact, 2);
+       return;
     }
 
     sdesc = (struct string_desc*)xact[1].vaddr;
-    memcpy(str, sdesc->bString, sdesc->bLength);
+    memcpy(desc, sdesc, sdesc->bLength);
     usb_destroy_xact(udev->dman, xact, 2);
-    for (int i = 0; i < 32; i++) {
-	    printf("%c", str[i]);
-    }
-    printf("\n");
 }
 
 void
@@ -347,6 +355,8 @@ usb_storage_bind(usb_dev_t udev, sync_mutex_t *mutex)
     int err;
     struct usb_storage_device *ubms;
     int class;
+    struct string_desc desc;
+    int language = 0;
 
     assert(udev);
 
@@ -376,10 +386,14 @@ usb_storage_bind(usb_dev_t udev, sync_mutex_t *mutex)
     UBMS_DBG("USB storage found, subclass(%x, %x)\n", ubms->subclass, ubms->protocol);
     sync_mutex_lock(ubms->mutex);
 
-    usb_storage_get_string(udev, 0);
-    usb_storage_get_string(udev, 2);
-    usb_storage_get_string(udev, 1);
-    usb_storage_get_string(udev, 3);
+    usb_storage_get_string(udev, 0, language, &desc);
+    language = desc.bString[1] << 8 | desc.bString[0];
+    usb_storage_get_string(udev, 2, language, &desc);
+    print_string_desc(&desc);
+    usb_storage_get_string(udev, 1, language, &desc);
+    print_string_desc(&desc);
+    usb_storage_get_string(udev, 3, language, &desc);
+    print_string_desc(&desc);
     usb_storage_set_configuration(udev);
 //    usb_storage_reset(udev);
     msdelay(1000);
@@ -409,7 +423,7 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
     xact[0].len = sizeof(struct cbw);
     xact[1].type = PID_OUT;
     xact[1].len = 0;
-    err = usb_alloc_xact(udev->dman, xact, 2);
+    err = usb_alloc_xact(udev->dman, xact, 1);
     assert(!err);
 
     cbw = xact_get_vaddr(&xact[0]);
@@ -426,7 +440,7 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
 
     /* Send CBW */
     usb_storage_print_cbw(cbw);
-    err = usbdev_schedule_xact(udev, 2, 512, 0, xact, 2, usb_storage_xfer_cb, (void*)ubms->mutex);
+    err = usbdev_schedule_xact(udev, 2, 512, 0, xact, 1, usb_storage_xfer_cb, (void*)ubms->mutex);
     sync_mutex_lock(ubms->mutex);
     if (err < 0) {
         assert(0);
