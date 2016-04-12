@@ -432,6 +432,7 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
     struct xact xact[2];
     uint32_t tag;
     struct usb_storage_device *ubms;
+    struct usb_endpoint *ep;
 
     ubms = (struct usb_storage_device*)udev->dev_data;
 
@@ -454,9 +455,12 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
     memcpy(cbw->cb, cb, cb_len);
 
     /* Send CBW */
+    ep = &ubms->ep_out;
     usb_storage_print_cbw(cbw);
-    err = usbdev_schedule_xact(udev, 2, 512, 0, 0, xact, 1, usb_storage_xfer_cb, (void*)ubms->mutex);
+    err = usbdev_schedule_xact(udev, ep->addr, ep->max_pkt, 0, ep->dt,
+                               xact, 1, usb_storage_xfer_cb, (void*)ubms->mutex);
     sync_mutex_lock(ubms->mutex);
+    ep->dt ^= 1;
     if (err < 0) {
         assert(0);
     }
@@ -464,9 +468,13 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
     usb_destroy_xact(udev->dman, &xact, 1);
 
     /* Send/Receive data */
-    err = usbdev_schedule_xact(udev, direction & 0x1, udev->max_pkt, 0, 0,
+    if (direction) {
+        ep = &ubms->ep_in;
+    }
+    err = usbdev_schedule_xact(udev, ep->addr, ep->max_pkt, 0, ep->dt,
                                data, ndata, usb_storage_xfer_cb, (void*)ubms->mutex);
     sync_mutex_lock(ubms->mutex);
+    ep->dt ^= (ndata % 2);
     if (err < 0) {
         assert(0);
     }
@@ -481,9 +489,11 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
     csw->signature = UBMS_CSW_SIGN;
     csw->tag = 0;//tag;
 
-    err = usbdev_schedule_xact(udev, 1, udev->max_pkt, 0, 0, xact, 1,
+    ep = &ubms->ep_in;
+    err = usbdev_schedule_xact(udev, ep->addr, ep->max_pkt, 0, ep->dt, xact, 1,
 		               usb_storage_xfer_cb, (void*)ubms->mutex);
     sync_mutex_lock(ubms->mutex);
+    ep->dt ^= 1;
     UBMS_DBG("CSW status(%u)\n", csw->status);
     if (err < 0) {
         assert(0);
