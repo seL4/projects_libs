@@ -88,7 +88,18 @@ struct usb_dev {
     struct usb_dev *next;
 };
 
+enum usb_endpoint_type {
+    CONTROL = 0,
+    ISOCHRONOUS,
+    BULK,
+    INTERRUPT
+};
 
+struct usb_endpoint {
+    uint8_t addr;       //Endpoint number
+    uint16_t max_pkt;   //Maximum packet size
+    uint8_t dt;         //Data toggle
+};
 
 
 /*
@@ -348,6 +359,9 @@ const char* usb_class_get_description(enum usb_class usb_class);
  * @param[in] rate    The rate at which the transaction should
  *                    be schedule. 0 if the packet should only
  *                    be scheduled once.
+ * @param[in] dt      Data toggle bit. First packet will be sent to DATA<dt>
+ *                    where dt may be either 0 or 1. This field is ignored for
+ *                    SETUP transactions.
  * @param[in] xact    A structure describing the packets to be
  *                    sent.
  * @param[in] nxact   The number of entries in the xact
@@ -361,8 +375,8 @@ const char* usb_class_get_description(enum usb_class usb_class);
  * @return            0 on success.
  */
 int usbdev_schedule_xact(usb_dev_t udev, int ep, int max_pkt,
-                         int rate, struct xact* xact, int nxact,
-                         usb_cb_t cb, void* token);
+                         int rate, int dt, struct xact* xact,
+                         int nxact, usb_cb_t cb, void* token);
 
 
 /** Print a list of registered devices

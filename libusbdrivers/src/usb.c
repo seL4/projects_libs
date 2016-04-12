@@ -470,7 +470,7 @@ usbdev_config_print(usb_dev_t udev)
     }
     req = xact_get_vaddr(&xact[0]);
     *req = __get_descriptor_req(DEVICE, 0, 0, xact[1].len);
-    ret = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0,
+    ret = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0, 0,
                                xact, 2, NULL, NULL);
     if (ret < 0) {
         assert(ret >= 0);
@@ -622,7 +622,7 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
      */
     xact[1].len = 8;
     *req = __new_desc_req(DEVICE, 8);
-    err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0,
+    err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0, 0,
                                xact, 2, NULL, NULL);
     if (err < 0) {
         usb_destroy_xact(udev->dman, xact, 2);
@@ -635,7 +635,7 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
     USB_DBG(udev, "Retrieving device descriptor\n");
     xact[1].len = sizeof(*d_desc);
     *req = __new_desc_req(DEVICE, sizeof(*d_desc));
-    err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0,
+    err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0, 0,
                                xact, 2, NULL, NULL);
     assert(err >= 0);
     udev->prod_id = d_desc->idProduct;
@@ -659,7 +659,7 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
     xact[1].type = PID_IN;
     xact[1].len = 0;
     USB_DBG(udev, "Setting address to %d\n", addr);
-    err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0,
+    err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0, 0,
                                xact, 2, NULL, NULL);
     assert(err >= 0);
     /* Device has 2ms to start responding to new address */
@@ -753,7 +753,7 @@ usbdev_parse_config(usb_dev_t udev, usb_config_cb cb, void* t)
     req = xact_get_vaddr(&xact[0]);
     cd = xact_get_vaddr(&xact[1]);
     *req = __get_descriptor_req(CONFIGURATION, 0, 0, xact[1].len);
-    err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0,
+    err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0, 0,
                                xact, 2, NULL, NULL);
     if (err < 0) {
         usb_destroy_xact(udev->dman, xact, 2);
@@ -774,7 +774,7 @@ usbdev_parse_config(usb_dev_t udev, usb_config_cb cb, void* t)
     req = xact_get_vaddr(&xact[0]);
     d = xact_get_vaddr(&xact[1]);
     *req = __get_descriptor_req(CONFIGURATION, 0, 0, tot_len);
-    err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0,
+    err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0, 0,
                                xact, 2, NULL, NULL);
     if (err < 0) {
         usb_destroy_xact(udev->dman, xact, sizeof(xact) / sizeof(*xact));
@@ -824,8 +824,8 @@ usb_handle_irq(usb_t* host)
 
 int
 usbdev_schedule_xact(usb_dev_t udev, int ep, int max_pkt,
-                     int rate, struct xact* xact, int nxact,
-                     usb_cb_t cb, void* token)
+                     int rate, int dt, struct xact* xact,
+                     int nxact, usb_cb_t cb, void* token)
 {
     int err;
     usb_host_t* hdev;
@@ -840,7 +840,7 @@ usbdev_schedule_xact(usb_dev_t udev, int ep, int max_pkt,
         hub_addr = -1;
     }
     err = usb_hcd_schedule(hdev, udev->addr, hub_addr, udev->port, udev->speed,
-                           ep, max_pkt, rate, 0, xact, nxact, cb, token);
+                           ep, max_pkt, rate, dt, xact, nxact, cb, token);
     return err;
 }
 
