@@ -468,15 +468,18 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
     usb_destroy_xact(udev->dman, &xact, 1);
 
     /* Send/Receive data */
-    if (direction) {
-        ep = &ubms->ep_in;
-    }
-    err = usbdev_schedule_xact(udev, ep->addr, ep->max_pkt, 0, ep->dt,
-                               data, ndata, usb_storage_xfer_cb, (void*)ubms->mutex);
-    sync_mutex_lock(ubms->mutex);
-    ep->dt ^= (ndata % 2);
-    if (err < 0) {
-        assert(0);
+    if (data != NULL) {
+        if (direction) {
+            ep = &ubms->ep_in;
+        }
+        err = usbdev_schedule_xact(udev, ep->addr, ep->max_pkt, 0, ep->dt,
+                                   data, ndata, usb_storage_xfer_cb,
+                                   (void*)ubms->mutex);
+        sync_mutex_lock(ubms->mutex);
+        ep->dt ^= (ndata % 2);
+        if (err < 0) {
+            assert(0);
+        }
     }
 
     /* Check CSW from IN endpoint */
@@ -487,7 +490,7 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
 
     csw = xact_get_vaddr(&xact[0]);
     csw->signature = UBMS_CSW_SIGN;
-    csw->tag = 0;//tag;
+    csw->tag = tag;
 
     ep = &ubms->ep_in;
     err = usbdev_schedule_xact(udev, ep->addr, ep->max_pkt, 0, ep->dt, xact, 1,

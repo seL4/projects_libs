@@ -71,6 +71,10 @@ struct scsi_cdb {
 	};
 } __attribute__((packed));
 
+struct scsi_disk {
+	usb_dev_t udev;
+};
+
 static void scsi_print_info(char *info)
 {
 	int i = 0;
@@ -84,8 +88,45 @@ static void scsi_print_info(char *info)
 	printf("\n");
 }
 
-int
-scsi_init_disk(usb_dev_t udev)
+static void scsi_test_unit_ready(struct scsi_disk *disk)
+{
+	int err;
+	struct scsi_cdb cdb;
+	struct xact data;
+
+	memset(&cdb, 0, sizeof(struct scsi_cdb));
+
+	/* Fill in the command */
+	cdb.opcode = TEST_UNIT_READY;
+
+	err = usb_storage_xfer(disk->udev, &cdb, sizeof(struct cdb_6) + 1, NULL, 0, 0);
+	assert(!err);
+}
+
+static void scsi_request_sense(struct scsi_disk *disk, int desc)
+{
+	int err;
+	struct scsi_cdb cdb;
+	struct xact data;
+
+	memset(&cdb, 0, sizeof(struct scsi_cdb));
+
+	/* Fill in the command */
+	cdb.opcode = REQUEST_SENSE;
+	cdb.data_6.lba[0] = desc;
+	cdb.data_6.transfer_length = 252;
+
+	data.type = PID_IN;
+	data.len = 252;
+	err = usb_alloc_xact(disk->udev->dman, &data, 1);
+	assert(!err);
+	err = usb_storage_xfer(disk->udev, &cdb, sizeof(struct cdb_6) + 1,
+				&data, 1, 1);
+	assert(!err);
+	usb_destroy_xact(disk->udev->dman, &data, 1);
+}
+
+static void scsi_inquiry(struct scsi_disk *disk)
 {
 	int err;
 	struct scsi_cdb cdb;
@@ -95,19 +136,106 @@ scsi_init_disk(usb_dev_t udev)
 
 	/* Inquiry SCSI disk */
 	cdb.opcode = INQUIRY;
-	cdb.data_6.transfer_length = 36;
+	cdb.data_6.control = 36;
 
 	data.type = PID_IN;
 	data.len = 36;
-	err = usb_alloc_xact(udev->dman, &data, 1);
+	err = usb_alloc_xact(disk->udev->dman, &data, 1);
 	assert(!err);
 
-	err = usb_storage_xfer(udev, &cdb, 6, &data, 1, 1);
+	err = usb_storage_xfer(disk->udev, &cdb, 6, &data, 1, 1);
 	assert(!err);
 
 	scsi_print_info(xact_get_vaddr(&data));
 
-	usb_destroy_xact(udev->dman, &data, 1);
+	usb_destroy_xact(disk->udev->dman, &data, 1);
+}
+
+static void scsi_read6(struct scsi_disk *disk, uint32_t lba, uint8_t count)
+{
+	int err;
+	struct scsi_cdb cdb;
+	struct xact data;
+
+	memset(&cdb, 0, sizeof(struct scsi_cdb));
+
+	/* Inquiry SCSI disk */
+	cdb.opcode = READ_6;
+	cdb.data_6.lba[0] = (lba >> 16) & 0x1F;
+	cdb.data_6.lba[1] = (lba >> 8) & 0xF;
+	cdb.data_6.lba[2] = lba & 0xF;
+	cdb.data_6.transfer_length = count;
+
+	data.type = PID_IN;
+	data.len = 512; //FIXME: should be lba * block size
+	err = usb_alloc_xact(disk->udev->dman, &data, 1);
+	assert(!err);
+
+	err = usb_storage_xfer(disk->udev, &cdb, 6, &data, 1, 1);
+	assert(!err);
+
+	usb_destroy_xact(disk->udev->dman, &data, 1);
+}
+
+static void scsi_read_capacity10(struct scsi_disk *disk)
+{
+	int err;
+	struct scsi_cdb cdb;
+	struct xact data;
+
+	memset(&cdb, 0, sizeof(struct scsi_cdb));
+
+	cdb.opcode = READ_CAPACITY_10;
+
+	data.type = PID_IN;
+	data.len = 8;
+	err = usb_alloc_xact(disk->udev->dman, &data, 1);
+	assert(!err);
+
+	err = usb_storage_xfer(disk->udev, &cdb, 6, &data, 1, 1);
+	assert(!err);
+
+	usb_destroy_xact(disk->udev->dman, &data, 1);
+}
+
+static void scsi_mode_sense6(struct scsi_disk *disk)
+{
+	int err;
+	struct scsi_cdb cdb;
+	struct xact data;
+
+	memset(&cdb, 0, sizeof(struct scsi_cdb));
+
+	cdb.opcode = MODE_SENSE_6;
+	cdb.data_6.transfer_length = 36;
+
+	data.type = PID_IN;
+	data.len = 36;
+	err = usb_alloc_xact(disk->udev->dman, &data, 1);
+	assert(!err);
+
+	err = usb_storage_xfer(disk->udev, &cdb, 6, &data, 1, 1);
+	assert(!err);
+
+	usb_destroy_xact(disk->udev->dman, &data, 1);
+}
+
+int
+scsi_init_disk(usb_dev_t udev)
+{
+	struct scsi_disk *disk;
+
+	disk = malloc(sizeof(struct scsi_disk));
+	assert(disk);
+
+	disk->udev = udev;
+
+	scsi_inquiry(disk);
+	scsi_request_sense(disk, 0);
+	scsi_test_unit_ready(disk);
+	scsi_read_capacity10(disk);
+	scsi_mode_sense6(disk);
+	scsi_read6(disk, 0, 1);
 
 	return 0;
 }
