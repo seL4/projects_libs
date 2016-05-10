@@ -8,6 +8,7 @@
  * @TAG(NICTA_BSD)
  */
 
+#include <platsupport/delay.h>
 #include <string.h>
 #include "storage.h"
 #include "scsi.h"
@@ -56,17 +57,9 @@ struct scsi_cdb {
 	uint8_t opcode;
 	union {
 		struct cdb_6 data_6;
-	};
-	union {
 		struct cdb_10 data_10;
-	};
-	union {
 		struct cdb_12 data_12;
-	};
-	union {
 		struct cdb_16 data_16;
-	};
-	union {
 		struct cdb_16_long data_16_long;
 	};
 } __attribute__((packed));
@@ -143,7 +136,8 @@ static void scsi_inquiry(struct scsi_disk *disk)
 	err = usb_alloc_xact(disk->udev->dman, &data, 1);
 	assert(!err);
 
-	err = usb_storage_xfer(disk->udev, &cdb, 6, &data, 1, 1);
+	err = usb_storage_xfer(disk->udev, &cdb, sizeof(struct cdb_6) + 1,
+				&data, 1, 1);
 	assert(!err);
 
 	scsi_print_info(xact_get_vaddr(&data));
@@ -171,7 +165,7 @@ static void scsi_read6(struct scsi_disk *disk, uint32_t lba, uint8_t count)
 	err = usb_alloc_xact(disk->udev->dman, &data, 1);
 	assert(!err);
 
-	err = usb_storage_xfer(disk->udev, &cdb, 6, &data, 1, 1);
+	err = usb_storage_xfer(disk->udev, &cdb, sizeof(struct cdb_6) + 1, &data, 1, 1);
 	assert(!err);
 
 	usb_destroy_xact(disk->udev->dman, &data, 1);
@@ -192,7 +186,8 @@ static void scsi_read_capacity10(struct scsi_disk *disk)
 	err = usb_alloc_xact(disk->udev->dman, &data, 1);
 	assert(!err);
 
-	err = usb_storage_xfer(disk->udev, &cdb, 6, &data, 1, 1);
+	err = usb_storage_xfer(disk->udev, &cdb, sizeof(struct cdb_10) + 1,
+				&data, 1, 1);
 	assert(!err);
 
 	usb_destroy_xact(disk->udev->dman, &data, 1);
@@ -214,10 +209,39 @@ static void scsi_mode_sense6(struct scsi_disk *disk)
 	err = usb_alloc_xact(disk->udev->dman, &data, 1);
 	assert(!err);
 
-	err = usb_storage_xfer(disk->udev, &cdb, 6, &data, 1, 1);
+	err = usb_storage_xfer(disk->udev, &cdb, sizeof(struct cdb_6) + 1,
+				&data, 1, 1);
 	assert(!err);
 
 	usb_destroy_xact(disk->udev->dman, &data, 1);
+}
+
+static void scsi_read10(struct scsi_disk *disk, uint32_t lba, uint16_t count)
+{
+	int err;
+	struct scsi_cdb cdb;
+	struct xact data[2];
+
+	memset(&cdb, 0, sizeof(struct scsi_cdb));
+
+	cdb.opcode = READ_10;
+	cdb.data_10.lba = __builtin_bswap32(lba);
+	cdb.data_10.transfer_length = __builtin_bswap16(count);
+
+	data[0].type = PID_IN;
+	data[0].len = 512 * count;
+
+	data[1].type = PID_IN;
+	data[1].len = 0;
+
+	err = usb_alloc_xact(disk->udev->dman, &data, 2);
+	assert(!err);
+
+	err = usb_storage_xfer(disk->udev, &cdb, sizeof(struct cdb_10) + 1,
+				&data, 2, 1);
+	assert(!err);
+
+	usb_destroy_xact(disk->udev->dman, &data, 2);
 }
 
 int
@@ -230,12 +254,13 @@ scsi_init_disk(usb_dev_t udev)
 
 	disk->udev = udev;
 
-	scsi_inquiry(disk);
+//	scsi_inquiry(disk);
 	scsi_request_sense(disk, 0);
 	scsi_test_unit_ready(disk);
 	scsi_read_capacity10(disk);
 	scsi_mode_sense6(disk);
-	scsi_read6(disk, 0, 1);
+	scsi_test_unit_ready(disk);
+	scsi_read10(disk, 0, 1);
 
 	return 0;
 }

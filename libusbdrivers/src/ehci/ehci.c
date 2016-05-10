@@ -162,6 +162,7 @@ struct TD {
 #define TDTOK_PID_OUT          (0 * BIT(8))
 #define TDTOK_PID_IN           (1 * BIT(8))
 #define TDTOK_PID_SETUP        (2 * BIT(8))
+#define TDTOK_PID_PING         (4 * BIT(8))
 #define TDTOK_SACTIVE          BIT(7)
 #define TDTOK_SHALTED          BIT(6)
 #define TDTOK_SBUFERR          BIT(5)
