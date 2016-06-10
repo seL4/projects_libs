@@ -67,6 +67,15 @@ enum usb_class {
     USB_CLASS_VEND        = 0xFF
 };
 
+struct usb_endpoint {
+    enum usb_endpoint_type type;
+    uint8_t   addr;    // Endpoint number
+    uint16_t  max_pkt; // Maximum packet size
+
+    /* For host controller driver only, actually holds queue head. */
+    void      *hcpriv;
+};
+
 struct usb_dev {
     /* Filled on creation */
     usb_t *host;
@@ -78,29 +87,23 @@ struct usb_dev {
     uint16_t prod_id;
     uint16_t vend_id;
     uint8_t  class;
-    uint8_t  max_pkt;
+    uint8_t  max_pkt;  //FIXME: max_pkt is ep specific.
     uint8_t  addr;
     /* Filled by driver */
     int (*connect)(struct usb_dev* udev);
     int (*disconnect)(struct usb_dev* udev);
-    struct udev_priv* dev_data;
+    struct udev_priv    *dev_data;
+    /*
+     * A device can have up to 16 endpoints per interface, we only deal with one
+     * IN and one OUT endpoint, which should cover most of the use cases we
+     * have.
+     */
+    struct usb_endpoint *ep_ctrl; // Control endpoint of the device
+    struct usb_endpoint *ep_in;   // In endpoint of the device
+    struct usb_endpoint *ep_out;  // Out endpoint of the device
     /* For device lists */
-    struct usb_dev *next;
+    struct usb_dev      *next;
 };
-
-enum usb_endpoint_type {
-    CONTROL = 0,
-    ISOCHRONOUS,
-    BULK,
-    INTERRUPT
-};
-
-struct usb_endpoint {
-    uint8_t addr;       //Endpoint number
-    uint16_t max_pkt;   //Maximum packet size
-    uint8_t dt;         //Data toggle
-};
-
 
 /*
  * USB requests

@@ -30,6 +30,13 @@ enum usb_speed {
     USBSPEED_HIGH = 2
 };
 
+enum usb_endpoint_type {
+    EP_CONTROL = 0,
+    EP_ISOCHRONOUS,
+    EP_BULK,
+    EP_INTERRUPT
+};
+
 enum usb_xact_type {
 /// Input PID
     PID_IN,
