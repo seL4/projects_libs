@@ -35,13 +35,6 @@
 #define IMX6_PORTSC_STS       (1UL << 29)
 #define IMX6_PORTSC_PTW       (1UL << 28)
 
-#define EHCICMD_LIGHT_RST     BIT( 7)
-#define EHCICMD_HCRESET       BIT( 1)
-#define EHCICMD_RUNSTOP       BIT( 0)
-
-#define EHCISTS_HCHALTED      BIT(12)
-#define EHCISTS_HOST_ERR      BIT( 4)
-
 struct usb_sct {
     uint32_t val;
     uint32_t set;

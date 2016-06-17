@@ -44,8 +44,8 @@ void otg_irq(void);
 #define dmb() asm volatile("dmb")
 
 static inline void*
-ps_dma_alloc_pinned(ps_dma_man_t *dma_man, size_t size, int align, int cache, ps_mem_flags_t flags,
-                    uintptr_t* paddr)
+ps_dma_alloc_pinned(ps_dma_man_t *dma_man, size_t size, int align, int cache,
+	       ps_mem_flags_t flags, uintptr_t* paddr)
 {
     void* addr;
     assert(dma_man);

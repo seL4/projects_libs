@@ -15,6 +15,11 @@ struct usb_hc_data {
     struct ehci_host edev;
 };
 
+/* FIXME: Temporary hack to record all queue heads.
+ * Index = address + endpoint
+ */
+static struct QHn *qhn_tmplist[16];
+
 /*****************
  **** Helpers ****
  *****************/
@@ -99,6 +104,45 @@ _root_irq(struct ehci_host* edev)
     resched = edev->irq_cb(edev->irq_token, XACTSTAT_SUCCESS, 0);
     if (!resched) {
         usb_assert(0);
+    }
+}
+
+/* FIXME: new API*/
+int
+new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_port,
+                   enum usb_speed speed, int ep, int max_pkt, int rate_ms,
+                   int dt, struct xact* xact, int nxact, usb_cb_t cb, void* t)
+{
+    struct QHn *qhn;
+    struct ehci_host* edev;
+    usb_assert(hdev);
+    edev = _hcd_to_ehci(hdev);
+    if (hub_addr == -1) {
+        /* Send off to root handler... No need to create QHn */
+        if (rate_ms) {
+            return ehci_schedule_periodic_root(edev, xact, nxact, cb, t);
+        } else {
+            return hubem_process_xact(edev->hubem, ep, xact, nxact, cb, t);
+        }
+    }
+
+    /* Find the queue head */
+    qhn = qhn_tmplist[addr + ep];
+    if (!qhn) {
+	    qhn = qhn_alloc(edev, addr, hub_addr, hub_port, speed, ep, max_pkt);
+	    qhn_tmplist[addr + ep] = qhn;
+    }
+    
+    /* Allocate qTD */
+    qtd_alloc(edev, ep, speed, xact, nxact);
+    /* Append qTD to the queue head */
+    qhn_update(edev, qhn);
+    
+    /* Send off over the bus */
+    if (rate_ms) {
+        return ehci_schedule_periodic(edev, qhn, rate_ms);
+    } else {
+        return ehci_schedule_async(edev, qhn);
     }
 }
 

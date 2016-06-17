@@ -143,6 +143,153 @@ td_set_buf(volatile struct TD* td, uintptr_t buf, int len)
     return 0;
 }
 
+/*
+ * TODO: The current data structure assumes one xact per TD, which means the
+ * length of an xact can not exceed 20KB.
+ */
+struct TDn*
+qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed,
+		struct xact *xact, int nxact)
+{
+	struct TDn *head_tdn, *prev_tdn, *tdn;
+	int buf_filled, cnt;
+
+	assert(xact);
+	assert(nxact > 0);
+
+	head_tdn = (struct TDn*)malloc(sizeof(struct TDn) * nxact);
+	prev_tdn = NULL;
+	for (int i = 0; i < nxact; i++) {
+		tdn = head_tdn + sizeof(struct TDn) * i;
+
+		/* Allocate TD overlay */
+		tdn->td = ps_dma_alloc_pinned(edev->dman, sizeof(*tdn->td), 32, 0,
+				PS_MEM_NORMAL, &tdn->ptd);
+		assert(tdn->td);
+		memset((void*)tdn->td, 0, sizeof(*tdn->td));
+
+		/* Fill in the TD */
+		if (prev_tdn) {
+			prev_tdn->td->next = tdn->ptd;
+			prev_tdn->td->alt = TDLP_INVALID;
+		}
+
+		/* TODO: Here we assume the control data payload never exceed
+		 * the maximum packet size. Fix this when switching to pass the
+		 * endpoint structure to this function.
+		 */
+		if (ep == 0 && xact[0].type != PID_SETUP) {
+			tdn->td->token = TDTOK_DT;
+		}
+		tdn->td->token |= TDTOK_BYTES(xact[i].len);
+		tdn->td->token |= TDTOK_C_ERR(0x3); //Maximize retries
+
+		switch (xact[i].type) {
+			case PID_SETUP:
+				tdn->td->token |= TDTOK_PID_SETUP;
+				break;
+			case PID_IN:
+				tdn->td->token |= TDTOK_PID_IN;
+				break;
+			case PID_OUT:
+				tdn->td->token |= TDTOK_PID_OUT;
+				break;
+			default:
+				assert("Invalid PID!\n");
+				break;
+		}
+
+		tdn->td->token |= TDTOK_SACTIVE;
+
+		/* Ping control */
+		if (speed == USBSPEED_HIGH && xact[i].type == PID_OUT) {
+			tdn->td->token |= TDTOK_PINGSTATE;
+		}
+
+		/* Fill in the buffer */
+		cnt = 0;
+		tdn->td->buf[cnt++] = xact[i].paddr; //First buffer has offset
+		buf_filled = 0x1000 - (xact[i].paddr & 0xFFF);
+		/* All following buffers are page aligned */
+		while (buf_filled < xact[i].len) {
+			cnt++;
+			tdn->td->buf[cnt] = (xact[i].paddr + 0x1000 * cnt) & ~0xFFF;
+			buf_filled += 0x1000;
+		}
+		assert(cnt <= 4); //We only have 5 page-sized buffers
+
+		prev_tdn = tdn;
+	}
+}
+
+struct QHn*
+qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
+	  uint8_t hub_port, enum usb_speed speed, int ep, int max_pkt)
+{
+	struct QHn *qhn;
+	volatile struct QH  *qh;
+
+	qhn = (struct QHn*)malloc(sizeof(struct QHn));
+	assert(qhn);
+
+	memset(qhn, 0, sizeof(struct QHn));
+
+	/* Allocate queue head */
+	qhn->qh = ps_dma_alloc_pinned(edev->dman, sizeof(*qh), 32, 0,
+			PS_MEM_NORMAL, &qhn->pqh);
+	assert(qhn->qh);
+	memset((void*)qhn->qh, 0, sizeof(*qh));
+
+	/* Fill in the queue head */
+	qh = qhn->qh;
+	qh->qhlptr = QHLP_INVALID; //Terminate bit, default to last QH.
+
+	/* epc0 */
+	/* TODO: Check bit 7 and 15 */
+	switch (speed) {
+	case USBSPEED_HIGH:
+		qh->epc[0] = QHEPC0_HSPEED;
+		break;
+	case USBSPEED_FULL:
+		qh->epc[0] = QHEPC0_FSPEED;
+		break;
+	case USBSPEED_LOW :
+		qh->epc[0] = QHEPC0_LSPEED;
+		break;
+	default:
+		usb_assert(0);
+	}
+
+	qh->epc[0] |= QHEPC0_MAXPKTLEN(max_pkt) | QHEPC0_ADDR(address) |
+		      QHEPC0_EP(ep) | QHEPC0_NAKCNT_RL(0x8);
+
+	/* Control endpoint manages its own data toggle */
+	if (ep == 0) {
+		qh->epc[0] |= QHEPC0_DTC;
+
+		/* For full/low speed control endpoint */
+		if (speed != USBSPEED_HIGH) {
+			qh->epc[0] |= QHEPC0_C;
+		}
+	}
+
+	/* epc1 */
+	/* TODO: Check Frame mask bits */
+	qh->epc[1] = QHEPC1_MULT(1);
+	if (speed != USBSPEED_HIGH) {
+		qh->epc[1] |= QHEPC1_HUB_ADDR(hub_addr) | QHEPC1_PORT(hub_port);
+	}
+	
+	qh->td_cur = TDLP_INVALID;
+
+	return qhn;
+}
+
+void
+qhn_update(struct ehci_host *edev, struct QHn *qhn)
+{
+}
+
 struct QHn*
 qhn_new(struct ehci_host* edev, uint8_t address, uint8_t hub_addr,
         uint8_t hub_port, enum usb_speed speed, int ep, int max_pkt,

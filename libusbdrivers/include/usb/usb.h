@@ -74,6 +74,7 @@ struct usb_endpoint {
 
     /* For host controller driver only, actually holds queue head. */
     void      *hcpriv;
+    int dt; //FIXME: To be removed.
 };
 
 struct usb_dev {

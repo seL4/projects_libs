@@ -152,13 +152,13 @@ usb_storage_config_cb(void* token, int cfg, int iface, struct anon_desc* desc)
 	    break;
         case ENDPOINT:
 	    edsc = (struct endpoint_desc*)desc;
-	    if (edsc->bmAttributes & BULK) {
+	    if (edsc->bmAttributes & EP_BULK) {
 		    if (edsc->bEndpointAddress & (1 << 7)) {
 			    ep = &ubms->ep_in;
 		    } else {
 			    ep = &ubms->ep_out;
 		    }
-	    } else if (edsc->bmAttributes & INTERRUPT) {
+	    } else if (edsc->bmAttributes & EP_INTERRUPT) {
 		    ep = &ubms->ep_int;
 	    } else {
 		UBMS_DBG("Unknown EP: ep(%x), attr(%u), maxkpt(%u)\n",

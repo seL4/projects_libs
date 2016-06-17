@@ -160,7 +160,6 @@ struct TD {
 #define TDTOK_PID_OUT          (0 * BIT(8))
 #define TDTOK_PID_IN           (1 * BIT(8))
 #define TDTOK_PID_SETUP        (2 * BIT(8))
-#define TDTOK_PID_PING         (4 * BIT(8))
 #define TDTOK_SACTIVE          BIT(7)
 #define TDTOK_SHALTED          BIT(6)
 #define TDTOK_SBUFERR          BIT(5)
@@ -223,6 +222,7 @@ struct TDn {
     volatile struct TD* td;
     uintptr_t ptd;
     struct xact xact;
+    struct TDn* next;
 };
 
 struct QHn {
@@ -300,6 +300,12 @@ enum usb_xact_status qhn_get_status(struct QHn * qhn);
 int qhn_cb(struct QHn *qhn, enum usb_xact_status stat);
 void check_doorbell(struct ehci_host* edev);
 
+/* New APIs */
+struct QHn* qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
+	  uint8_t hub_port, enum usb_speed speed, int ep, int max_pkt);
+struct TDn* qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed,
+		struct xact *xact, int nxact);
+void qhn_update(struct ehci_host *edev, struct QHn *qhn);
 /**
  * Periodic Scheduling
  */
