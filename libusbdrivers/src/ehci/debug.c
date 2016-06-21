@@ -170,9 +170,14 @@ dump_qhn(struct QHn* qhn)
            (v >> 8) & 0xff, v & 0xff );
     printf("+ current: 0x%08x\n", qh->td_cur);
     dump_qtd(&qh->td_overlay);
-    for (i = 0; i < qhn->ntdns; i++) {
-        dump_qtd(qhn->tdns[i].td);
+    struct TDn *tdn = qhn->tdns;
+    while (tdn) {
+	    dump_qtd(tdn->td);
+	    tdn = tdn->next;
     }
+//    for (i = 0; i < qhn->ntdns; i++) {
+//        dump_qtd(qhn->tdns[i].td);
+//    }
     set_colour(COL_DEF);
 }
 

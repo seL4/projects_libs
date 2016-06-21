@@ -114,6 +114,7 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
                    int dt, struct xact* xact, int nxact, usb_cb_t cb, void* t)
 {
     struct QHn *qhn;
+    struct TDn *tdn;
     struct ehci_host* edev;
     usb_assert(hdev);
     edev = _hcd_to_ehci(hdev);
@@ -126,22 +127,46 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
         }
     }
 
+ //   if (rate_ms) {
+    /* Create the QHn */
+    qhn = qhn_new(edev, addr, hub_addr, hub_port, speed, ep, max_pkt,
+                  dt, xact, nxact, cb, t);
+    if (qhn == NULL) {
+        return -1;
+    }
+    goto periodic;
+//    }
+
     /* Find the queue head */
     qhn = qhn_tmplist[addr + ep];
     if (!qhn) {
 	    qhn = qhn_alloc(edev, addr, hub_addr, hub_port, speed, ep, max_pkt);
 	    qhn_tmplist[addr + ep] = qhn;
+	    /* Add new queue head to async queue */
+	    if (edev->alist_tail) {
+		    edev->alist_tail->next = qhn;
+		    edev->alist_tail->qh->qhlptr = qhn->pqh;
+		    edev->alist_tail = qhn;
+	    } else {
+		    edev->op_regs->asynclistaddr = qhn->pqh;
+		    edev->alist_tail = qhn;
+	    }
     }
     
     /* Allocate qTD */
-    qtd_alloc(edev, ep, speed, xact, nxact);
+    tdn = qtd_alloc(edev, ep, speed, xact, nxact);
+
     /* Append qTD to the queue head */
-    qhn_update(edev, qhn);
+    qhn_update(edev, qhn, tdn);
+    qhn->ntdns = nxact;
     
+    dump_qhn(qhn);
     /* Send off over the bus */
-    if (rate_ms) {
+periodic:    if (rate_ms) {
         return ehci_schedule_periodic(edev, qhn, rate_ms);
     } else {
+//	    qhn->qh->epc[0] |= QHEPC0_H;
+//		    edev->op_regs->usbcmd |= EHCICMD_ASYNC_EN;
         return ehci_schedule_async(edev, qhn);
     }
 }
@@ -280,7 +305,7 @@ ehci_host_init(usb_host_t* hdev, uintptr_t regs,
     edev->devid = hdev->id;
     edev->cap_regs = (volatile struct ehci_host_cap*)regs;
     edev->op_regs = (volatile struct ehci_host_op*)(regs + edev->cap_regs->caplength);
-    hdev->schedule_xact = ehci_schedule_xact;
+    hdev->schedule_xact = new_schedule_xact;
     hdev->cancel_xact = ehci_cancel_xact;
     hdev->handle_irq = ehci_handle_irq;
     edev->board_pwren = board_pwren;

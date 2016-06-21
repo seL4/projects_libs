@@ -157,7 +157,7 @@ qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed,
 	assert(xact);
 	assert(nxact > 0);
 
-	head_tdn = (struct TDn*)malloc(sizeof(struct TDn) * nxact);
+	head_tdn = calloc(1, sizeof(struct TDn) * nxact);
 	prev_tdn = NULL;
 	for (int i = 0; i < nxact; i++) {
 		tdn = head_tdn + sizeof(struct TDn) * i;
@@ -171,8 +171,8 @@ qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed,
 		/* Fill in the TD */
 		if (prev_tdn) {
 			prev_tdn->td->next = tdn->ptd;
-			prev_tdn->td->alt = TDLP_INVALID;
 		}
+		tdn->td->alt = TDLP_INVALID;
 
 		/* TODO: Here we assume the control data payload never exceed
 		 * the maximum packet size. Fix this when switching to pass the
@@ -208,7 +208,7 @@ qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed,
 
 		/* Fill in the buffer */
 		cnt = 0;
-		tdn->td->buf[cnt++] = xact[i].paddr; //First buffer has offset
+		tdn->td->buf[cnt] = xact[i].paddr; //First buffer has offset
 		buf_filled = 0x1000 - (xact[i].paddr & 0xFFF);
 		/* All following buffers are page aligned */
 		while (buf_filled < xact[i].len) {
@@ -218,8 +218,17 @@ qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed,
 		}
 		assert(cnt <= 4); //We only have 5 page-sized buffers
 
+		prev_tdn->next = tdn;
 		prev_tdn = tdn;
 	}
+
+	/* Send IRQ when finished processing the last TD */
+	tdn->td->token |= TDTOK_IOC;
+
+	/* Mark the last TD as terminate TD */
+	tdn->td->next |= TDLP_INVALID;
+
+	return head_tdn;
 }
 
 struct QHn*
@@ -229,10 +238,8 @@ qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 	struct QHn *qhn;
 	volatile struct QH  *qh;
 
-	qhn = (struct QHn*)malloc(sizeof(struct QHn));
+	qhn = calloc(1, sizeof(struct QHn));
 	assert(qhn);
-
-	memset(qhn, 0, sizeof(struct QHn));
 
 	/* Allocate queue head */
 	qhn->qh = ps_dma_alloc_pinned(edev->dman, sizeof(*qh), 32, 0,
@@ -243,6 +250,9 @@ qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 	/* Fill in the queue head */
 	qh = qhn->qh;
 	qh->qhlptr = QHLP_INVALID; //Terminate bit, default to last QH.
+
+	/* TODO: Hard code type to QH for now */
+	qh->qhlptr |= QHLP_TYPE_QH;
 
 	/* epc0 */
 	/* TODO: Check bit 7 and 15 */
@@ -280,14 +290,38 @@ qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 		qh->epc[1] |= QHEPC1_HUB_ADDR(hub_addr) | QHEPC1_PORT(hub_port);
 	}
 	
-	qh->td_cur = TDLP_INVALID;
+	qh->td_overlay.next = TDLP_INVALID;
+	qh->td_overlay.alt= TDLP_INVALID;
 
 	return qhn;
 }
 
 void
-qhn_update(struct ehci_host *edev, struct QHn *qhn)
+qhn_update(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn)
 {
+	struct TDn *last_tdn;
+
+	assert(qhn);
+	assert(tdn);
+
+	/*
+	 * If the queue is empty, copy the first TD to the TD overlay of the
+	 * queue head
+	 */
+	if (!qhn->tdns) {
+		memcpy(&qhn->qh->td_overlay, tdn->td, sizeof(struct TD));
+		qhn->tdns = tdn;
+	} else {
+		/* Find the last TD */
+		last_tdn = qhn->tdns->next;
+		while (last_tdn->next) {
+			last_tdn = last_tdn->next;
+		}
+
+		/* Add new TD to the queue and update the termination bit */
+		last_tdn->next = tdn;
+		last_tdn->td->next = tdn->ptd & ~TDLP_INVALID;
+	}
 }
 
 struct QHn*
@@ -401,6 +435,7 @@ qhn_new(struct ehci_host* edev, uint8_t address, uint8_t hub_addr,
     /* Terminate the TD list and add IOC if requested */
     prev_td->token |= (cb) ? TDTOK_IOC : 0;
 
+    dump_qhn(qhn);
 #if defined(DEBUG_DES)
     dump_qhn(qhn);
 #endif
@@ -509,7 +544,8 @@ ehci_schedule_async(struct ehci_host* edev, struct QHn* qh_new)
         /* Wait for TDs to be processed. */
         stat = qhn_wait(qh_new, 3000);
         v = qhn_get_bytes_remaining(qh_new);
-        _async_remove_next(edev, qh_cur);
+  //      _async_remove_next(edev, qh_cur);
+    printf("%s: %d, %d, %d\n", __func__, __LINE__, stat, v);
         return (stat == XACTSTAT_SUCCESS) ? v : -1;
     } else {
         edev->alist_tail = qh_new;
