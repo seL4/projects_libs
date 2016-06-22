@@ -12,12 +12,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-
+#include <jansson_config.h>   /* for JSON_INLINE */
 #if HAVE_STDINT_H
 #include <stdint.h>
 #endif
 
-#include <jansson_config.h>   /* for JSON_INLINE */
 #include "jansson_private.h"  /* for container_of() */
 #include "hashtable.h"
 

@@ -12,6 +12,8 @@
 #include <jansson_private_config.h>
 #endif
 
+#include <jansson_config.h>
+
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif

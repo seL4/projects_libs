@@ -6,6 +6,9 @@
 #include <jansson_private_config.h>
 #endif
 
+#include <jansson_config.h>
+#include <utils/attribute.h>
+
 #include <stdio.h>
 #include <time.h>
 
@@ -45,7 +48,7 @@
 #include "jansson.h"
 
 
-static uint32_t buf_to_uint32(char *data) {
+static UNUSED uint32_t buf_to_uint32(char *data) {
     size_t i;
     uint32_t result = 0;
 
