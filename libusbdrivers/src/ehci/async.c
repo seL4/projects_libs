@@ -249,7 +249,12 @@ qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 
 	/* Fill in the queue head */
 	qh = qhn->qh;
-	qh->qhlptr = QHLP_INVALID; //Terminate bit, default to last QH.
+
+	/*
+	 * FIXME: The following line is period scheduling only, refer to 3.6.1
+	 * of the EHCI specification
+	 */
+	//qh->qhlptr = QHLP_INVALID; //Terminate bit, default to last QH.
 
 	/* TODO: Hard code type to QH for now */
 	qh->qhlptr |= QHLP_TYPE_QH;
@@ -511,6 +516,24 @@ _async_complete(struct ehci_host* edev)
             }
         } while (cur != tail);
     }
+}
+
+/* TODO: Is it okay to use alist_tail and remove qhn */
+int
+new_schedule_async(struct ehci_host* edev, struct QHn* qhn)
+{
+	/* Make sure we are safe to write to the register */
+	while ((edev->op_regs->usbsts & EHCISTS_ASYNC_EN)
+		^ (edev->op_regs->usbcmd & EHCICMD_ASYNC_EN));
+
+	/* If the async scheduling is already enabled */
+	if (edev->op_regs->usbsts & EHCISTS_ASYNC_EN) {
+		}
+	} else {
+		/* Enable the async scheduling */
+		edev->op_regs->asynclistaddr = qhn->pqh;
+		edev->op_regs->usbcmd |= EHCICMD_ASYNC_EN;
+	}
 }
 
 int

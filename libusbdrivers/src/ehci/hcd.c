@@ -127,7 +127,7 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
         }
     }
 
- //   if (rate_ms) {
+    if (rate_ms) {
     /* Create the QHn */
     qhn = qhn_new(edev, addr, hub_addr, hub_port, speed, ep, max_pkt,
                   dt, xact, nxact, cb, t);
@@ -135,7 +135,7 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
         return -1;
     }
     goto periodic;
-//    }
+    }
 
     /* Find the queue head */
     qhn = qhn_tmplist[addr + ep];
@@ -144,12 +144,19 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
 	    qhn_tmplist[addr + ep] = qhn;
 	    /* Add new queue head to async queue */
 	    if (edev->alist_tail) {
+		    /* Update the Software queue */
+		    qhn->next = edev->alist_tail->next;
 		    edev->alist_tail->next = qhn;
+		    edev->alist_tail = qhn;
+
+		    /* Update the hardware queue */
+		    qhn->qh->qhlptr = edev->alist_tail->qh->qhlptr;
 		    edev->alist_tail->qh->qhlptr = qhn->pqh;
-		    edev->alist_tail = qhn;
 	    } else {
-		    edev->op_regs->asynclistaddr = qhn->pqh;
 		    edev->alist_tail = qhn;
+		    edev->alist_tail->next = qhn;
+
+		    qhn->qh->qhlptr = qhn->pqh;
 	    }
     }
     
@@ -165,8 +172,6 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
 periodic:    if (rate_ms) {
         return ehci_schedule_periodic(edev, qhn, rate_ms);
     } else {
-//	    qhn->qh->epc[0] |= QHEPC0_H;
-//		    edev->op_regs->usbcmd |= EHCICMD_ASYNC_EN;
         return ehci_schedule_async(edev, qhn);
     }
 }

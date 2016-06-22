@@ -306,6 +306,7 @@ struct QHn* qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 struct TDn* qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed,
 		struct xact *xact, int nxact);
 void qhn_update(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn);
+int new_schedule_async(struct ehci_host* edev, struct QHn* qhn);
 
 /**
  * Periodic Scheduling
