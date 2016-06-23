@@ -254,10 +254,7 @@ qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 	 * FIXME: The following line is period scheduling only, refer to 3.6.1
 	 * of the EHCI specification
 	 */
-	//qh->qhlptr = QHLP_INVALID; //Terminate bit, default to last QH.
-
-	/* TODO: Hard code type to QH for now */
-	qh->qhlptr |= QHLP_TYPE_QH;
+	qh->qhlptr = QHLP_INVALID; //Terminate bit, default to last QH.
 
 	/* epc0 */
 	/* TODO: Check bit 7 and 15 */
@@ -309,12 +306,9 @@ qhn_update(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn)
 	assert(qhn);
 	assert(tdn);
 
-	/*
-	 * If the queue is empty, copy the first TD to the TD overlay of the
-	 * queue head
-	 */
+	/* If the queue is empty, point the TD overlay to the first TD */
 	if (!qhn->tdns) {
-		memcpy(&qhn->qh->td_overlay, tdn->td, sizeof(struct TD));
+		qhn->qh->td_overlay.next = tdn->ptd;
 		qhn->tdns = tdn;
 	} else {
 		/* Find the last TD */
@@ -440,7 +434,6 @@ qhn_new(struct ehci_host* edev, uint8_t address, uint8_t hub_addr,
     /* Terminate the TD list and add IOC if requested */
     prev_td->token |= (cb) ? TDTOK_IOC : 0;
 
-    dump_qhn(qhn);
 #if defined(DEBUG_DES)
     dump_qhn(qhn);
 #endif
@@ -528,12 +521,37 @@ new_schedule_async(struct ehci_host* edev, struct QHn* qhn)
 
 	/* If the async scheduling is already enabled */
 	if (edev->op_regs->usbsts & EHCISTS_ASYNC_EN) {
-		}
 	} else {
 		/* Enable the async scheduling */
+		qhn->qh->epc[0] |= QHEPC0_H;
 		edev->op_regs->asynclistaddr = qhn->pqh;
 		edev->op_regs->usbcmd |= EHCICMD_ASYNC_EN;
+		while (edev->op_regs->usbsts & EHCISTS_ASYNC_EN) break;
 	}
+
+	struct TDn *tdn;
+	int status;
+	int cnt;
+
+	tdn = qhn->tdns;
+	while (tdn) {
+		cnt = 3000;
+		do {
+			status = tdn->td->token & 0xFF;
+			if (!status) {
+				break;
+			}
+			if (cnt <= 0) {
+				printf("Timeout(%p, %p)\n", tdn->td, tdn->ptd);
+				break;
+			}
+			msdelay(1);
+			cnt--;
+		} while (status);
+		tdn = tdn->next;
+	}
+	dump_qhn(qhn);
+	return 0;
 }
 
 int
@@ -558,6 +576,7 @@ ehci_schedule_async(struct ehci_host* edev, struct QHn* qh_new)
         edev->op_regs->asynclistaddr = qh_new->pqh;
     }
 
+    dump_qhn(qh_new);
     /* Enable the async schedule */
     _enable_async(edev);
 

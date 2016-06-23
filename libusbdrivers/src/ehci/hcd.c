@@ -107,6 +107,15 @@ _root_irq(struct ehci_host* edev)
     }
 }
 
+static void print_xact(struct xact *xact, int nxact)
+{
+	struct xact *cur;
+	for (int i = 0; i < nxact; i++) {
+		cur = xact + i;
+		printf("addr: %p, type: %d, len: %d\n", cur->paddr, cur->type, cur->len);
+	}
+}
+
 /* FIXME: new API*/
 int
 new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_port,
@@ -127,6 +136,7 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
         }
     }
 
+    print_xact(xact, nxact);
     if (rate_ms) {
     /* Create the QHn */
     qhn = qhn_new(edev, addr, hub_addr, hub_port, speed, ep, max_pkt,
@@ -151,12 +161,12 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
 
 		    /* Update the hardware queue */
 		    qhn->qh->qhlptr = edev->alist_tail->qh->qhlptr;
-		    edev->alist_tail->qh->qhlptr = qhn->pqh;
+		    edev->alist_tail->qh->qhlptr = qhn->pqh | QHLP_TYPE_QH;
 	    } else {
 		    edev->alist_tail = qhn;
 		    edev->alist_tail->next = qhn;
 
-		    qhn->qh->qhlptr = qhn->pqh;
+		    qhn->qh->qhlptr = qhn->pqh | QHLP_TYPE_QH;
 	    }
     }
     
@@ -167,12 +177,12 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
     qhn_update(edev, qhn, tdn);
     qhn->ntdns = nxact;
     
-    dump_qhn(qhn);
+periodic:    dump_qhn(qhn);
     /* Send off over the bus */
-periodic:    if (rate_ms) {
+    if (rate_ms) {
         return ehci_schedule_periodic(edev, qhn, rate_ms);
     } else {
-        return ehci_schedule_async(edev, qhn);
+        return new_schedule_async(edev, qhn);
     }
 }
 

@@ -109,7 +109,7 @@ dump_qhn(struct QHn* qhn)
     col = dump_colour(qhn_get_status(qhn));
     qh = qhn->qh;
     printf(CINVERT"%s", col);
-    printf("++ qh 0x%08x\n", (uint32_t)qh);
+    printf("++ qh 0x%08x(0x%08x)\n", (uint32_t)qh, (uint32_t)qhn->pqh);
     printf(CREGULAR"%s", col);
     printf("+ link: 0x%08x | 0x%08x (%s|",
            qh->qhlptr, qh->qhlptr & ~0xf,
@@ -172,13 +172,14 @@ dump_qhn(struct QHn* qhn)
     dump_qtd(&qh->td_overlay);
     struct TDn *tdn = qhn->tdns;
     while (tdn) {
+	    printf("-- ptd 0x%08x\n", tdn->ptd);
 	    dump_qtd(tdn->td);
 	    tdn = tdn->next;
     }
-//    for (i = 0; i < qhn->ntdns; i++) {
-//        dump_qtd(qhn->tdns[i].td);
-//    }
-    set_colour(COL_DEF);
+/*    for (i = 0; i < qhn->ntdns; i++) {
+        dump_qtd(qhn->tdns[i].td);
+    }
+ */   set_colour(COL_DEF);
 }
 
 static void UNUSED
