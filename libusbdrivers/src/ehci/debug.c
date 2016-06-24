@@ -176,10 +176,10 @@ dump_qhn(struct QHn* qhn)
 	    dump_qtd(tdn->td);
 	    tdn = tdn->next;
     }
-/*    for (i = 0; i < qhn->ntdns; i++) {
-        dump_qtd(qhn->tdns[i].td);
-    }
- */   set_colour(COL_DEF);
+//    for (i = 0; i < qhn->ntdns; i++) {
+//        dump_qtd(qhn->tdns[i].td);
+//    }
+    set_colour(COL_DEF);
 }
 
 static void UNUSED

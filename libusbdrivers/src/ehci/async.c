@@ -178,7 +178,7 @@ qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed,
 		 * the maximum packet size. Fix this when switching to pass the
 		 * endpoint structure to this function.
 		 */
-		if (ep == 0 && xact[0].type != PID_SETUP) {
+		if (ep == 0 && xact[i].type != PID_SETUP) {
 			tdn->td->token = TDTOK_DT;
 		}
 		tdn->td->token |= TDTOK_BYTES(xact[i].len);
@@ -312,7 +312,7 @@ qhn_update(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn)
 		qhn->tdns = tdn;
 	} else {
 		/* Find the last TD */
-		last_tdn = qhn->tdns->next;
+		last_tdn = qhn->tdns;
 		while (last_tdn->next) {
 			last_tdn = last_tdn->next;
 		}
@@ -531,7 +531,7 @@ new_schedule_async(struct ehci_host* edev, struct QHn* qhn)
 
 	struct TDn *tdn;
 	int status;
-	int cnt;
+	int cnt, sum = 0;
 
 	tdn = qhn->tdns;
 	while (tdn) {
@@ -539,6 +539,7 @@ new_schedule_async(struct ehci_host* edev, struct QHn* qhn)
 		do {
 			status = tdn->td->token & 0xFF;
 			if (!status) {
+				sum += TDTOK_GET_BYTES(tdn->td->token);
 				break;
 			}
 			if (cnt <= 0) {
@@ -551,7 +552,7 @@ new_schedule_async(struct ehci_host* edev, struct QHn* qhn)
 		tdn = tdn->next;
 	}
 	dump_qhn(qhn);
-	return 0;
+	return sum;
 }
 
 int
@@ -576,7 +577,6 @@ ehci_schedule_async(struct ehci_host* edev, struct QHn* qh_new)
         edev->op_regs->asynclistaddr = qh_new->pqh;
     }
 
-    dump_qhn(qh_new);
     /* Enable the async schedule */
     _enable_async(edev);
 
@@ -587,7 +587,7 @@ ehci_schedule_async(struct ehci_host* edev, struct QHn* qh_new)
         stat = qhn_wait(qh_new, 3000);
         v = qhn_get_bytes_remaining(qh_new);
   //      _async_remove_next(edev, qh_cur);
-    printf("%s: %d, %d, %d\n", __func__, __LINE__, stat, v);
+    dump_qhn(qh_new);
         return (stat == XACTSTAT_SUCCESS) ? v : -1;
     } else {
         edev->alist_tail = qh_new;
