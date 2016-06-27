@@ -171,10 +171,10 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
     }
     
     /* Allocate qTD */
-    tdn = qtd_alloc(edev, ep, speed, xact, nxact);
+    tdn = qtd_alloc(edev, ep, speed, max_pkt, xact, nxact);
 
     /* Append qTD to the queue head */
-    qhn_update(edev, qhn, tdn);
+    qhn_update(edev, max_pkt, addr, qhn, tdn);
     qhn->ntdns = nxact;
     
 periodic:    dump_qhn(qhn);

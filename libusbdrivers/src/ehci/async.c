@@ -148,7 +148,7 @@ td_set_buf(volatile struct TD* td, uintptr_t buf, int len)
  * length of an xact can not exceed 20KB.
  */
 struct TDn*
-qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed,
+qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed, int max_pkt,
 		struct xact *xact, int nxact)
 {
 	struct TDn *head_tdn, *prev_tdn, *tdn;
@@ -158,7 +158,7 @@ qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed,
 	assert(nxact > 0);
 
 	head_tdn = calloc(1, sizeof(struct TDn) * nxact);
-	prev_tdn = NULL;
+	prev_tdn = head_tdn;
 	for (int i = 0; i < nxact; i++) {
 		tdn = head_tdn + sizeof(struct TDn) * i;
 
@@ -169,9 +169,7 @@ qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed,
 		memset((void*)tdn->td, 0, sizeof(*tdn->td));
 
 		/* Fill in the TD */
-		if (prev_tdn) {
-			prev_tdn->td->next = tdn->ptd;
-		}
+		prev_tdn->td->next = tdn->ptd;
 		tdn->td->alt = TDLP_INVALID;
 
 		/* TODO: Here we assume the control data payload never exceed
@@ -299,12 +297,16 @@ qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 }
 
 void
-qhn_update(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn)
+qhn_update(struct ehci_host *edev, int max_pkt, uint8_t addr, struct QHn *qhn, struct TDn *tdn)
 {
 	struct TDn *last_tdn;
 
 	assert(qhn);
 	assert(tdn);
+
+	qhn->qh->epc[0] &= ~(0x7FF << 16);
+	qhn->qh->epc[0] &= ~(0x7F);
+	qhn->qh->epc[0] |= QHEPC0_MAXPKTLEN(max_pkt) | QHEPC0_ADDR(addr);
 
 	/* If the queue is empty, point the TD overlay to the first TD */
 	if (!qhn->tdns) {
@@ -321,6 +323,7 @@ qhn_update(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn)
 		last_tdn->next = tdn;
 		last_tdn->td->next = tdn->ptd & ~TDLP_INVALID;
 	}
+		qhn->qh->td_overlay.next = tdn->ptd;
 }
 
 struct QHn*
@@ -516,8 +519,8 @@ int
 new_schedule_async(struct ehci_host* edev, struct QHn* qhn)
 {
 	/* Make sure we are safe to write to the register */
-	while ((edev->op_regs->usbsts & EHCISTS_ASYNC_EN)
-		^ (edev->op_regs->usbcmd & EHCICMD_ASYNC_EN));
+	while (((edev->op_regs->usbsts & EHCISTS_ASYNC_EN) >> 15)
+		^ ((edev->op_regs->usbcmd & EHCICMD_ASYNC_EN) >> 5));
 
 	/* If the async scheduling is already enabled */
 	if (edev->op_regs->usbsts & EHCISTS_ASYNC_EN) {
