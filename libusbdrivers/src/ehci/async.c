@@ -158,7 +158,7 @@ qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed, int max_pkt,
 	assert(nxact > 0);
 
 	head_tdn = calloc(1, sizeof(struct TDn) * nxact);
-	prev_tdn = head_tdn;
+	prev_tdn = NULL;
 	for (int i = 0; i < nxact; i++) {
 		tdn = head_tdn + sizeof(struct TDn) * i;
 
@@ -169,7 +169,9 @@ qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed, int max_pkt,
 		memset((void*)tdn->td, 0, sizeof(*tdn->td));
 
 		/* Fill in the TD */
-		prev_tdn->td->next = tdn->ptd;
+		if (prev_tdn) {
+			prev_tdn->td->next = tdn->ptd;
+		}
 		tdn->td->alt = TDLP_INVALID;
 
 		/* TODO: Here we assume the control data payload never exceed
@@ -216,7 +218,9 @@ qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed, int max_pkt,
 		}
 		assert(cnt <= 4); //We only have 5 page-sized buffers
 
-		prev_tdn->next = tdn;
+		if (prev_tdn) {
+			prev_tdn->next = tdn;
+		}
 		prev_tdn = tdn;
 	}
 
@@ -486,6 +490,7 @@ clear_async_xact(struct ehci_host* edev, void* token)
 void
 _async_complete(struct ehci_host* edev)
 {
+	return;
     if (edev->alist_tail) {
         struct QHn *cur, *prev, *tail;
         /* We cache the tail because edev->alist_tail may change during node removal */
@@ -541,7 +546,7 @@ new_schedule_async(struct ehci_host* edev, struct QHn* qhn)
 		cnt = 3000;
 		do {
 			status = tdn->td->token & 0xFF;
-			if (!status) {
+			if (status == 0 || status == 1) {
 				sum += TDTOK_GET_BYTES(tdn->td->token);
 				break;
 			}
