@@ -64,16 +64,16 @@ enum usb_xact_status
 qhn_get_status(struct QHn * qhn)
 {
     int i;
-    if (qhn->ntdns) {
-        /* If the QHN has not been picked up by the HC yet, the
-         * overlay will not be valid. Check the status of the TDs */
-        for (i = 0; i < qhn->ntdns; i++) {
+    struct TDn *tdn;
+
+    tdn = qhn->tdns;
+    while (tdn) {
             enum usb_xact_status stat;
-            stat = qtd_get_status(qhn->tdns[i].td);
+            stat = qtd_get_status(tdn->td);
             if (stat != XACTSTAT_SUCCESS) {
                 return stat;
             }
-        }
+	    tdn = tdn->next;
     }
     /* All TDs complete, return the status of the QH */
     return qtd_get_status(&qhn->qh->td_overlay);
@@ -559,6 +559,9 @@ new_schedule_async(struct ehci_host* edev, struct QHn* qhn)
 		} while (status);
 		tdn = tdn->next;
 	}
+
+	qhn->tdns = NULL;
+	qhn->ntdns = 0;
 	dump_qhn(qhn);
 	return sum;
 }
