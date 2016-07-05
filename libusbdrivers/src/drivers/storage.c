@@ -16,7 +16,7 @@
 
 #include "../services.h"
 #include "storage.h"
-#include "scsi.h"
+#include "ufi.h"
 
 #define MASS_STORAGE_DEBUG
 
@@ -417,7 +417,7 @@ usb_storage_bind(usb_dev_t udev, sync_mutex_t *mutex)
 //    usb_storage_reset(udev);
     ubms->max_lun = usb_storage_get_max_lun(udev);
 
-    scsi_init_disk(udev);
+    ufi_init_disk(udev);
 
     return 0;
 }
@@ -467,7 +467,7 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
     tag = cbw->tag;
     usb_destroy_xact(udev->dman, &xact, 1);
 
-    msdelay(100);
+    msdelay(200);
     /* Send/Receive data */
     if (data != NULL) {
         if (direction) {
@@ -482,7 +482,7 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
             assert(0);
         }
     }
-    msdelay(100);
+    msdelay(200);
 
     /* Check CSW from IN endpoint */
     xact[0].len = sizeof(struct csw);
