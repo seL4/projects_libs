@@ -148,6 +148,10 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
     }
 
     /* Find the queue head */
+    if (addr != 0 && ep == 0 && qhn_tmplist[0] != NULL) {
+	    qhn_tmplist[addr + ep] = qhn_tmplist[0];
+	    qhn_tmplist[0] = NULL;
+    }
     qhn = qhn_tmplist[addr + ep];
     if (!qhn) {
 	    qhn = qhn_alloc(edev, addr, hub_addr, hub_port, speed, ep, max_pkt);
