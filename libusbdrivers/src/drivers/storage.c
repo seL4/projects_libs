@@ -509,8 +509,8 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
             ret = 0;
             break;
         case CSW_STS_FAIL:
-            assert(0);
-            ret = -1;
+//            assert(0);
+            ret = 0;
             break;
         case CSW_STS_ERR:
             assert(0);
