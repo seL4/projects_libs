@@ -159,10 +159,11 @@ static void ufi_mode_sense(struct ufi_disk *disk)
 	memset(&cdb, 0, sizeof(struct ufi_cdb));
 
 	cdb.opcode = MODE_SENSE;
-	cdb.length = 36 << 16;
+	cdb.lba = 0x3F;
+	cdb.length = 192 << 16;
 
 	data.type = PID_IN;
-	data.len = 36;
+	data.len = 192;
 	err = usb_alloc_xact(disk->udev->dman, &data, 1);
 	assert(!err);
 
@@ -183,7 +184,7 @@ static void ufi_read10(struct ufi_disk *disk, uint32_t lba, uint16_t count)
 
 	cdb.opcode = READ_10;
 	cdb.lba = __builtin_bswap32(lba);
-	cdb.length = __builtin_bswap16(count << 16);
+	cdb.length = __builtin_bswap16(count) << 8;
 
 	data.type = PID_IN;
 	data.len = 512 * count;
@@ -233,13 +234,30 @@ ufi_init_disk(usb_dev_t udev)
 
 	disk->udev = udev;
 
-//	ufi_inquiry(disk);
+	ufi_inquiry(disk);
+	ufi_test_unit_ready(disk);
+
 	ufi_request_sense(disk);
 	ufi_test_unit_ready(disk);
+
 	ufi_read_capacity(disk);
 	ufi_mode_sense(disk);
+	ufi_mode_sense(disk);
 	ufi_test_unit_ready(disk);
+
+	ufi_prevent_allow_medium_removal(disk, 0);
+	ufi_request_sense(disk);
+	ufi_test_unit_ready(disk);
+
+	ufi_read_capacity(disk);
+	ufi_mode_sense(disk);
+	ufi_mode_sense(disk);
+
 	ufi_read10(disk, 0, 1);
+	ufi_test_unit_ready(disk);
+	ufi_test_unit_ready(disk);
+
+	ufi_read10(disk, 0x001EBFFF, 1);
 
 	return 0;
 }
