@@ -59,6 +59,9 @@ struct ehci_host_cap {
     uint16_t hciversion;       /* +0x02 */
 #define EHCI_HCS_N_PORTS(x)    (((x) & 0xf) >> 0)
     uint32_t hcsparams;        /* +0x04 */
+#define EHCI_HCC_EECP(x)       (((x) >> 8) & 0xff)
+#define EHCI_HCC_ISOTHRES(x)   (((x) >> 4) & 0xf)
+#define EHCI_HCC_PARK          BIT(2)
 #define EHCI_HCC_PFRAMELIST    BIT(1)
 #define EHCI_HCC_64BIT         BIT(0)
     uint32_t hccparams;        /* +0x08 */
@@ -180,6 +183,7 @@ struct TD {
 #define QHBUF2_SBYTES(x)       (((x) &  0xff) * BIT(5))
 #define QHBUF2_FRAMETAG(x)     (((x) &   0xf) * BIT(0))
     uint32_t buf[5];
+    uint32_t buf_hi[5];        /* 64-bit capability(Appendix B) */
 };
 
 struct QH {

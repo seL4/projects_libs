@@ -57,15 +57,13 @@ _new_periodic_schedule(struct ehci_host* edev, int size)
         usb_assert(!"Invalid periodic frame list size");
     }
     edev->op_regs->usbcmd = v;
-    asm volatile("dmb");
+
     /* Enale interrutps */
     v = edev->op_regs->usbcmd & ~EHCICMD_IRQTHRES_MASK;
     v |= EHCICMD_IRQTHRES(0x1);
     edev->op_regs->usbcmd = v;
     /* Enable the list */
-    asm volatile("dmb");
     edev->op_regs->usbcmd |= EHCICMD_PERI_EN;
-    asm volatile("dmb");
     edev->op_regs->usbcmd |= EHCICMD_RUNSTOP;
     while (!(edev->op_regs->usbsts & EHCISTS_PERI_EN));
     /* And we are done! */

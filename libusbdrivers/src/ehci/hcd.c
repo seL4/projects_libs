@@ -334,7 +334,13 @@ ehci_host_init(usb_host_t* hdev, uintptr_t regs,
     assert(usb_hcd_count_ports(hdev) > 0);
     assert(usb_hcd_count_ports(hdev) < 32);
     edev->bmreset_c = 0;
-    usb_assert(!(edev->cap_regs->hccparams & EHCI_HCC_64BIT));
+
+    /* If the host controller has 64-bit capability, it is compulsory to use
+     * 64-bit data structure(Section 2.2.4). Clear the most significant address
+     * for EHCI data structures, since we are running a 32-bit OS */
+    if (edev->cap_regs->hccparams & EHCI_HCC_64BIT) {
+        edev->op_regs->ctrldssegment = 0;
+    }
 
     /* Make sure we are halted before before reset */
     edev->op_regs->usbcmd &= ~EHCICMD_RUNSTOP;

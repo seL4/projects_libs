@@ -14,5 +14,6 @@ config LIB_USB
     bool "Build USB interface library"
     depends on HAVE_LIBC
     select LIB_PLATSUPPORT
+    select LIB_PCI if ARCH_X86
     default y
 

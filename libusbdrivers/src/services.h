@@ -19,10 +19,18 @@
 
 void otg_irq(void);
 
-
+#ifdef ARCH_ARM
 #define udelay(ms)  ps_udelay(ms)
-#define msdelay(ms) ps_mdelay(ms)
-
+#else
+static inline void udelay(uint32_t us)
+{
+	volatile uint32_t i;
+	for (; us > 0; us--) {
+		for (i = 0; i < 1000; i++);
+	}
+}
+#endif
+#define msdelay(ms) udelay((ms) * 1000)
 
 #define usb_assert(test)         \
         do{                      \
@@ -37,11 +45,15 @@ void otg_irq(void);
 
 #define GET_RESOURCE(ops, id) MAP_DEVICE(ops, id##_PADDR, id##_SIZE)
 
-
-
+#ifdef ARCH_ARM
 #define dsb() asm volatile("dsb")
 #define isb() asm volatile("isb")
 #define dmb() asm volatile("dmb")
+#else
+#define dsb() asm volatile ("" ::: "memory")
+#define isb() asm volatile ("" ::: "memory")
+#define dmb() asm volatile ("mfence" ::: "memory")
+#endif
 
 static inline void*
 ps_dma_alloc_pinned(ps_dma_man_t *dma_man, size_t size, int align, int cache,

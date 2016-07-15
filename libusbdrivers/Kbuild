@@ -16,3 +16,7 @@ libusbdrivers: libsel4 $(libc) libplatsupport common libsel4sync
 ifeq ($(CONFIG_LIB_LWIP),y)
 libusbdrivers: liblwip
 endif
+
+ifeq ($(CONFIG_ARCH_X86),y)
+libusbdrivers: libpci
+endif
