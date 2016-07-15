@@ -465,7 +465,7 @@ usb_hub_driver_bind(usb_dev_t udev, usb_hub_t* hub)
     memset(h, 0, sizeof(*h));
     h->udev = udev;
     /* Get hub descriptor for nports and power delay */
-    HUB_DBG(h, "Get hub desciptor\n");
+    HUB_DBG(h, "Get hub descriptor\n");
     xact[0].type = PID_SETUP;
     xact[0].len = sizeof(*req);
     xact[1].type = PID_IN;
@@ -516,28 +516,6 @@ usb_hub_driver_bind(usb_dev_t udev, usb_hub_t* hub)
     }
     usb_destroy_xact(udev->dman, xact, 2);
 
-    HUB_DBG(h, "Configure interface HUB\n");
-
-    xact[0].type = PID_SETUP;
-    xact[0].len = sizeof(*req);
-    xact[1].type = PID_IN;
-    xact[1].len = 0;
-
-
-    err = usb_alloc_xact(h->udev->dman, xact, 2);
-    if (err) {
-        assert(!err);
-        return -1;
-    }
-    req = xact_get_vaddr(&xact[0]);
-    *req = __set_interface_req(h->ifno);
-    err = usbdev_schedule_xact(udev, 0, h->udev->max_pkt, 0, 0,
-                               xact, 2, NULL, NULL);
-    if (err < 0) {
-        assert(err >= 0);
-        return -1;
-    }
-    usb_destroy_xact(udev->dman, xact, 2);
     /* Power up ports */
     xact[0].type = PID_SETUP;
     xact[0].len = sizeof(*req);
@@ -573,7 +551,8 @@ usb_hub_driver_bind(usb_dev_t udev, usb_hub_t* hub)
                          &h->int_xact, 1, &hub_irq_handler, h);
 #else
     h->intbm = NULL;
-    h->int_xact.buf = NULL;
+    h->int_xact.vaddr = NULL;
+    h->int_xact.paddr = 0;
     h->int_xact.len = 0;
     (void)hub_irq_handler;
 #endif
