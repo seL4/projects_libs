@@ -13,11 +13,10 @@
 #define _PLAT_USB_H_
 
 enum usb_host_id {
-    USB_HOST0,
     USB_HOST1,
     USB_HOST2,
     USB_NHOSTS,
-    USB_HOST_DEFAULT = USB_HOST0
+    USB_HOST_DEFAULT = USB_HOST1
 };
 
 enum usb_otg_id {

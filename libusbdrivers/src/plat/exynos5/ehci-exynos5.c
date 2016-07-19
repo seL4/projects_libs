@@ -33,6 +33,8 @@
 #define USB2_DEV_LINK_PADDR      0x12140000
 #define USB2_DEV_LINK_SIZE       0x1000
 
+#define USB2_HOST_IRQ            103
+
 #define USBPHY_CTRL0_OFFSET      0x000
 #define USBPHY_CTRL1_OFFSET      0x010
 #define USBPHY_CTRL2_OFFSET      0x020
@@ -66,6 +68,9 @@ static sysreg_t _sysreg;
 
 /* EHCI registers */
 static void *_usb_regs = NULL;
+static const int _usb_irqs[] = {
+    [USB_HOST0] = USB2_HOST_IRQ
+};
 
 /* GPIO subsystem for bit-bangined I2C and HUB control */
 static gpio_sys_t gpio_sys;
@@ -213,6 +218,20 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, usb_host_t* hdev)
     return err;
 }
 
+const int*
+usb_host_irqs(usb_host_t* host, int* nirqs)
+{
+    if (host->id < 0 || host->id > USB_NHOSTS) {
+        return NULL;
+    }
+
+    if (nirqs) {
+        *nirqs = 1;
+    }
+
+    host->irqs = &_usb_irqs[host->id];
+    return host->irqs;
+}
 
 int
 usb_plat_otg_init(usb_otg_t odev, ps_io_ops_t* io_ops)

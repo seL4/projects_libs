@@ -48,6 +48,15 @@
 #define USB_HOST2_VID    0x8086
 #define USB_HOST2_DID    0x1E2D
 
+/*
+ * TODO: Should get these numbers from IOAPIC tables. Remove them once the
+ * kernel exposes IOAPIC to the user land.
+ */
+#define USB_HOST1_IRQ    23
+#define USB_HOST2_IRQ    16
+
+static int _irq_line;
+
 static uintptr_t ehci_pci_init(uint16_t vid, uint16_t did,
 		ps_io_ops_t *io_ops)
 {
@@ -67,6 +76,7 @@ static uintptr_t ehci_pci_init(uint16_t vid, uint16_t did,
 				dev->cfg.base_addr[0],
 				dev->cfg.base_addr_size[0]);
 		assert(cap_regs);
+		_irq_line = dev->interrupt_line;
 	} else {
 		printf("EHCI: Host device not found!\n");
 		assert(0);
@@ -110,11 +120,11 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, usb_host_t* hdev)
 	hdev->dman = &io_ops->dma_manager;
 
 	switch (id) {
-		case 0:
+		case USB_HOST1:
 			vid = USB_HOST1_VID;
 			did = USB_HOST1_DID;
 			break;
-		case 1:
+		case USB_HOST2:
 			vid = USB_HOST2_VID;
 			did = USB_HOST2_DID;
 			break;
@@ -132,5 +142,34 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, usb_host_t* hdev)
 	err = ehci_host_init(hdev, usb_regs, NULL);
 
 	return err;
+}
+
+const int*
+usb_host_irqs(usb_host_t* host, int* nirqs)
+{
+	if (host->id < 0 || host->id > USB_NHOSTS) {
+		return NULL;
+	}
+
+	if (nirqs) {
+		*nirqs = 1;
+	}
+
+#ifdef CONFIG_IRQ_IOAPIC
+	switch (host->id) {
+		case USB_HOST1:
+			_irq_line = USB_HOST1_IRQ;
+			break;
+		case USB_HOST2:
+			_irq_line = USB_HOST2_IRQ;
+			break;
+		default:
+			assert(0);
+			break;
+	}
+#endif
+
+	host->irqs = &_irq_line;
+	return host->irqs;
 }
 

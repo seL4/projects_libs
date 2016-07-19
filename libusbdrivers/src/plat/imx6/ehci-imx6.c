@@ -23,6 +23,11 @@
 #define USB_PHY2_PADDR     0x20CA000
 #define USB_PADDR          0x2184000
 
+#define USB_HOST1_IRQ       72
+#define USB_HOST2_IRQ       73
+#define USB_HOST3_IRQ       74
+#define USB_OTG_IRQ         75
+
 #define USB_PHY1_SIZE      0x0001000
 #define USB_PHY2_SIZE      0x0001000
 #define USB_SIZE           0x0001000
@@ -239,6 +244,12 @@ static volatile struct usb_phy_regs *_usb_phy1_regs = NULL;
 static volatile struct usb_phy_regs *_usb_phy2_regs = NULL;
 static volatile struct usb_regs     *_usb_regs      = NULL;
 
+static const int _usb_irqs[] = {
+    [USB_OTG0]  = USB_OTG_IRQ,
+    [USB_HOST1] = USB_HOST1_IRQ,
+    [USB_HOST2] = USB_HOST2_IRQ,
+    [USB_HOST3] = USB_HOST3_IRQ
+};
 
 static void
 phy_enable(int devid, ps_io_ops_t* o)
@@ -349,6 +360,21 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* ioops, usb_host_t* hdev)
     /* Configure ports */
     hc_regs->portsc1 = IMX6_PORTSC_PTS_UTMI | IMX6_PORTSC_PTW;
     return err;
+}
+
+const int*
+usb_host_irqs(usb_host_t* host, int* nirqs)
+{
+    if (host->id < 0 || host->id > USB_NHOSTS) {
+        return NULL;
+    }
+
+    if (nirqs) {
+        *nirqs = 1;
+    }
+    host->irqs = &_usb_irqs[host->id];
+
+    return host->irqs;
 }
 
 int
