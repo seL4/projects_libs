@@ -43,10 +43,10 @@
 #define USBLEGCTLSTS_SIM_EN        BIT(0)
 
 /* Host vendor ID and device ID */
-#define USB0_HOST_EHCI_VID    0x8086
-#define USB0_HOST_EHCI_DID    0x1E2D
-#define USB1_HOST_EHCI_VID    0x8086
-#define USB1_HOST_EHCI_DID    0x1E26
+#define USB_HOST1_VID    0x8086
+#define USB_HOST1_DID    0x1E26
+#define USB_HOST2_VID    0x8086
+#define USB_HOST2_DID    0x1E2D
 
 static uintptr_t ehci_pci_init(uint16_t vid, uint16_t did,
 		ps_io_ops_t *io_ops)
@@ -111,12 +111,12 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, usb_host_t* hdev)
 
 	switch (id) {
 		case 0:
-			vid = USB0_HOST_EHCI_VID;
-			did = USB0_HOST_EHCI_DID;
+			vid = USB_HOST1_VID;
+			did = USB_HOST1_DID;
 			break;
 		case 1:
-			vid = USB1_HOST_EHCI_VID;
-			did = USB1_HOST_EHCI_DID;
+			vid = USB_HOST2_VID;
+			did = USB_HOST2_DID;
 			break;
 		default:
 			assert(0);

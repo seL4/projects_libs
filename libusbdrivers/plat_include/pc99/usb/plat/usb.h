@@ -17,7 +17,7 @@ enum usb_host_id {
     USB_HOST1,
     USB_HOST2,
     USB_NHOSTS,
-    USB_HOST_DEFAULT = USB_HOST1
+    USB_HOST_DEFAULT = USB_HOST0
 };
 
 enum usb_otg_id {
