@@ -541,12 +541,16 @@ usb_hub_driver_bind(usb_dev_t udev, usb_hub_t* hub)
 #endif
 #if defined(HUB_ENABLE_IRQS)
     h->int_xact.type = PID_INT;
-    h->int_xact.len = (h->nports + 7) / 8;
+    /*
+     * USB 2.0 spec[11.12.4] says the packet size should be (nport + 7)/8, but
+     * some hubs are known to send more data, which would cause a "babble". So
+     * we use maximum packet size instead, short packet does no harm.
+     */
+    h->int_xact.len = h->int_max_pkt;
     err = usb_alloc_xact(udev->dman, &h->int_xact, 1);
     assert(!err);
     h->intbm = xact_get_vaddr(&h->int_xact);
     HUB_DBG(h, "Registering for INT\n");
-    /* TODO: dynamic max pkt size */
     usbdev_schedule_xact(udev, 1, h->int_max_pkt, h->int_rate_ms, 0,
                          &h->int_xact, 1, &hub_irq_handler, h);
 #else
