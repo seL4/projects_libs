@@ -15,11 +15,6 @@ struct usb_hc_data {
     struct ehci_host edev;
 };
 
-/* FIXME: Temporary hack to record all queue heads.
- * Index = address + endpoint
- */
-static struct QHn *qhn_tmplist[16];
-
 /*****************
  **** Helpers ****
  *****************/
@@ -119,8 +114,8 @@ static void print_xact(struct xact *xact, int nxact)
 /* FIXME: new API*/
 int
 new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_port,
-                   enum usb_speed speed, int ep, int max_pkt, int rate_ms,
-                   int dt, struct xact* xact, int nxact, usb_cb_t cb, void* t)
+                   enum usb_speed speed, struct endpoint *ep, struct xact* xact,
+		   int nxact, usb_cb_t cb, void* t)
 {
     struct QHn *qhn;
     struct TDn *tdn;
@@ -129,33 +124,30 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
     edev = _hcd_to_ehci(hdev);
     if (hub_addr == -1) {
         /* Send off to root handler... No need to create QHn */
-        if (rate_ms) {
+        if (ep->interval) {
             return ehci_schedule_periodic_root(edev, xact, nxact, cb, t);
         } else {
-            return hubem_process_xact(edev->hubem, ep, xact, nxact, cb, t);
+            return hubem_process_xact(edev->hubem, xact, nxact, cb, t);
         }
     }
 
     print_xact(xact, nxact);
-    if (rate_ms) {
+    if (ep->interval) {
     /* Create the QHn */
-    qhn = qhn_new(edev, addr, hub_addr, hub_port, speed, ep, max_pkt,
-                  dt, xact, nxact, cb, t);
+    qhn = qhn_new(edev, addr, hub_addr, hub_port, speed, ep->num, ep->max_pkt,
+                  0, xact, nxact, cb, t);
     if (qhn == NULL) {
         return -1;
     }
     goto periodic;
     }
 
-    /* Find the queue head */
-    if (addr != 0 && ep == 0 && qhn_tmplist[0] != NULL) {
-	    qhn_tmplist[addr + ep] = qhn_tmplist[0];
-	    qhn_tmplist[0] = NULL;
-    }
-    qhn = qhn_tmplist[addr + ep];
+    qhn = (struct QHn*)ep->hcpriv;
     if (!qhn) {
-	    qhn = qhn_alloc(edev, addr, hub_addr, hub_port, speed, ep, max_pkt);
-	    qhn_tmplist[addr + ep] = qhn;
+	    qhn = qhn_alloc(edev, addr, hub_addr, hub_port, speed,
+			    ep->num, ep->max_pkt);
+	    ep->hcpriv = qhn;
+
 	    /* Add new queue head to async queue */
 	    if (edev->alist_tail) {
 		    /* Update the hardware queue */
@@ -175,55 +167,55 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
     }
     
     /* Allocate qTD */
-    tdn = qtd_alloc(edev, ep, speed, max_pkt, xact, nxact);
+    tdn = qtd_alloc(edev, ep->num, speed, ep->max_pkt, xact, nxact);
 
     /* Append qTD to the queue head */
-    qhn_update(edev, max_pkt, addr, qhn, tdn);
+    qhn_update(edev, ep->max_pkt, addr, qhn, tdn);
     qhn->ntdns = nxact;
     
-periodic:    dump_qhn(qhn);
+periodic:    //dump_qhn(qhn);
     /* Send off over the bus */
-    if (rate_ms) {
-        return ehci_schedule_periodic(edev, qhn, rate_ms);
+    if (ep->interval) {
+        return ehci_schedule_periodic(edev, qhn, ep->interval);
     } else {
         return new_schedule_async(edev, qhn);
     }
 }
 
-int
-ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_port,
-                   enum usb_speed speed, int ep, int max_pkt, int rate_ms,
-                   int dt, struct xact* xact, int nxact, usb_cb_t cb, void* t)
-{
-    struct QHn *qhn;
-    struct ehci_host* edev;
-    usb_assert(hdev);
-    edev = _hcd_to_ehci(hdev);
-    if (hub_addr == -1) {
-        /* Send off to root handler... No need to create QHn */
-        if (rate_ms) {
-            return ehci_schedule_periodic_root(edev, xact, nxact, cb, t);
-        } else {
-            return hubem_process_xact(edev->hubem, ep, xact, nxact, cb, t);
-        }
-    }
-    /* Create the QHn */
-    qhn = qhn_new(edev, addr, hub_addr, hub_port, speed, ep, max_pkt,
-                  dt, xact, nxact, cb, t);
-    if (qhn == NULL) {
-        return -1;
-    }
-    /* Send off over the bus */
-#ifdef  EHCI_TRAFFIC_DEBUG
-    printf("%s schedule:\n", (rate_ms) ? "Periodic" : "Async");
-    dump_qhn(qhn);
-#endif
-    if (rate_ms) {
-        return ehci_schedule_periodic(edev, qhn, rate_ms);
-    } else {
-        return ehci_schedule_async(edev, qhn);
-    }
-}
+//int
+//ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_port,
+//                   enum usb_speed speed, int ep, int max_pkt, int rate_ms,
+//                   int dt, struct xact* xact, int nxact, usb_cb_t cb, void* t)
+//{
+//    struct QHn *qhn;
+//    struct ehci_host* edev;
+//    usb_assert(hdev);
+//    edev = _hcd_to_ehci(hdev);
+//    if (hub_addr == -1) {
+//        /* Send off to root handler... No need to create QHn */
+//        if (rate_ms) {
+//            return ehci_schedule_periodic_root(edev, xact, nxact, cb, t);
+//        } else {
+//            return hubem_process_xact(edev->hubem, ep, xact, nxact, cb, t);
+//        }
+//    }
+//    /* Create the QHn */
+//    qhn = qhn_new(edev, addr, hub_addr, hub_port, speed, ep, max_pkt,
+//                  dt, xact, nxact, cb, t);
+//    if (qhn == NULL) {
+//        return -1;
+//    }
+//    /* Send off over the bus */
+//#ifdef  EHCI_TRAFFIC_DEBUG
+//    printf("%s schedule:\n", (rate_ms) ? "Periodic" : "Async");
+//    dump_qhn(qhn);
+//#endif
+//    if (rate_ms) {
+//        return ehci_schedule_periodic(edev, qhn, rate_ms);
+//    } else {
+//        return ehci_schedule_async(edev, qhn);
+//    }
+//}
 
 void
 ehci_handle_irq(usb_host_t* hdev)

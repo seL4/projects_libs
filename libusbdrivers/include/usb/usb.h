@@ -20,6 +20,9 @@
 // Maximum number of devices a host can manage
 #define USB_NDEVICES 32
 
+// Maximum number of endpoints per device
+#define USB_MAX_EPS 16
+
 // Maximum size of a string descriptor
 #define MAX_STRING_SIZE 255
 
@@ -67,16 +70,6 @@ enum usb_class {
     USB_CLASS_VEND        = 0xFF
 };
 
-struct usb_endpoint {
-    enum usb_endpoint_type type;
-    uint8_t   addr;    // Endpoint number
-    uint16_t  max_pkt; // Maximum packet size
-
-    /* For host controller driver only, actually holds queue head. */
-    void      *hcpriv;
-    int dt; //FIXME: To be removed.
-};
-
 struct usb_dev {
     /* Filled on creation */
     usb_t *host;
@@ -88,20 +81,18 @@ struct usb_dev {
     uint16_t prod_id;
     uint16_t vend_id;
     uint8_t  class;
-    uint8_t  max_pkt;  //FIXME: max_pkt is ep specific.
     uint8_t  addr;
     /* Filled by driver */
     int (*connect)(struct usb_dev* udev);
     int (*disconnect)(struct usb_dev* udev);
     struct udev_priv    *dev_data;
     /*
-     * A device can have up to 16 endpoints per interface, we only deal with one
-     * IN and one OUT endpoint, which should cover most of the use cases we
-     * have.
+     * A device can have up to 16 endpoints(only 4 for low speed devices),
+     * control endpoint is separate and is shared by all interfaces.
      */
-    struct usb_endpoint *ep_ctrl; // Control endpoint of the device
-    struct usb_endpoint *ep_in;   // In endpoint of the device
-    struct usb_endpoint *ep_out;  // Out endpoint of the device
+    struct endpoint *ep_ctrl;         // Control endpoint of the device
+    struct endpoint *ep[USB_MAX_EPS]; // In endpoint of the device
+
     /* For device lists */
     struct usb_dev      *next;
 };
@@ -355,17 +346,8 @@ const char* usb_class_get_description(enum usb_class usb_class);
 /** Schedule a transaction on the provided USB device
  * @param[in] udev    The USB device which is to receive the
  *                    transaction.
- * @param[in] ep      The endpoint address to deliver the
+ * @param[in] ep      The endpoint to deliver the
  *                    packets to.
- * @param[in] max_pkt The maximum packet size for the provided
- *                    endpoint. This is found when parsing the
- *                    device configuration.
- * @param[in] rate    The rate at which the transaction should
- *                    be schedule. 0 if the packet should only
- *                    be scheduled once.
- * @param[in] dt      Data toggle bit. First packet will be sent to DATA<dt>
- *                    where dt may be either 0 or 1. This field is ignored for
- *                    SETUP transactions.
  * @param[in] xact    A structure describing the packets to be
  *                    sent.
  * @param[in] nxact   The number of entries in the xact
@@ -378,8 +360,7 @@ const char* usb_class_get_description(enum usb_class usb_class);
  *                    function.
  * @return            0 on success.
  */
-int usbdev_schedule_xact(usb_dev_t udev, int ep, int max_pkt,
-                         int rate, int dt, struct xact* xact,
+int usbdev_schedule_xact(usb_dev_t udev, struct endpoint *ep, struct xact* xact,
                          int nxact, usb_cb_t cb, void* token);
 
 

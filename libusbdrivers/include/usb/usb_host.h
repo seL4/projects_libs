@@ -30,11 +30,32 @@ enum usb_speed {
     USBSPEED_HIGH = 2
 };
 
+/*
+ * Endpoint types
+ * NOTE: do not change the defined order, see USB 2.0 spec(9.6.6)
+ */
 enum usb_endpoint_type {
     EP_CONTROL = 0,
     EP_ISOCHRONOUS,
     EP_BULK,
     EP_INTERRUPT
+};
+
+/* NOTE: do not change the defined order, see USB 2.0 spec(9.6.6) */
+enum usb_endpoint_dir {
+    EP_DIR_OUT = 0,
+    EP_DIR_IN
+};
+
+struct endpoint {
+    enum usb_endpoint_type type;
+    uint8_t   num;               // Endpoint number
+    enum usb_endpoint_dir  dir;  // Endpoint direction
+    uint16_t  max_pkt;   // Maximum packet size
+    uint8_t   interval;  // Interval for polling or NAK rate for Bulk/Control
+
+    /* For host controller driver only, actually holds queue head. */
+    void      *hcpriv;
 };
 
 enum usb_xact_type {
@@ -108,7 +129,7 @@ struct usb_host {
 
     /// Submit a transaction for transfer.
     int (*schedule_xact)(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_port,
-                         enum usb_speed speed, int ep, int max_pkt, int rate_ms, int dt,
+                         enum usb_speed speed, struct endpoint *ep,
                          struct xact* xact, int nxact, usb_cb_t cb, void* t);
     /// Cancel all transactions for a given device address
     int (*cancel_xact)(usb_host_t* hdev, void* token);
@@ -135,12 +156,6 @@ struct usb_host {
  *                     0 may be used if the device is a SPEED_FULL device.
  * @param[in] speed    The USB speed of the device.
  * @param[in] ep       The destination endpoint of the destination device.
- * @param[in] max_pkt  The maximum packet size supported by the provided endpoint.
- * @param[in] rate_ms  The interval at which the packet should be scheduled.
- *                     (0 if this packet should only be scheduled once.
- * @param[in] dt       Data toggle bit. First packet will be sent to DATA<dt>
- *                     where dt may be either 0 or 1. This field is ignored for
- *                     SETUP transactions.
  * @param[in] xact     An array of packet descriptors.
  * @param[in] nxact    The number of packet descriptors in the array.
  * @param[in] cb       A callback function to call on completion.
@@ -152,11 +167,11 @@ struct usb_host {
  */
 static inline int
 usb_hcd_schedule(usb_host_t* hdev, uint8_t addr, uint8_t hub_addr, uint8_t hub_port,
-                 enum usb_speed speed, int ep, int max_pkt, int rate_ms, int dt,
+                 enum usb_speed speed, struct endpoint *ep,
                  struct xact* xact, int nxact, usb_cb_t cb, void* t)
 {
-    return hdev->schedule_xact(hdev, addr, hub_addr, hub_port, speed, ep, max_pkt,
-                               rate_ms, dt, xact, nxact, cb, t);
+    return hdev->schedule_xact(hdev, addr, hub_addr, hub_port, speed, ep,
+                               xact, nxact, cb, t);
 }
 
 /**

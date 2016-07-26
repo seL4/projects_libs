@@ -267,7 +267,7 @@ kbd_update_ind(usb_kbd_t kbd)
 {
     /* Send the request! */
     *kbd->req = __set_report(HID_OUTPUT, 0, kbd->ifno, 1);
-    return usbdev_schedule_xact(kbd->udev, 0, kbd->udev->max_pkt, 0, 0, kbd->xact, 2,
+    return usbdev_schedule_xact(kbd->udev, kbd->udev->ep_ctrl, kbd->xact, 2,
                                 NULL, NULL);
 }
 
@@ -276,7 +276,7 @@ kbd_update_repeat_rate(usb_kbd_t kbd)
 {
     KBDIRQ_DBG(kbd, "Changing rate to %dms\n", kbd->repeat_rate * 4);
     *kbd->req = __set_idle_req(kbd->repeat_rate, kbd->ifno);
-    return usbdev_schedule_xact(kbd->udev, 0, kbd->udev->max_pkt, 0, 0,
+    return usbdev_schedule_xact(kbd->udev, kbd->udev->ep_ctrl,
                                 kbd->xact, 1, NULL, NULL);
 }
 
@@ -455,7 +455,7 @@ kbd_connect(usb_dev_t udev)
     *req = __set_protocol_req(BOOT, kbd->ifno);
     req = xact_get_vaddr(&xact[3]);
     *req = __set_idle_req(0, kbd->ifno);
-    err = usbdev_schedule_xact(udev, 0, kbd->udev->max_pkt, 0, 0, xact,
+    err = usbdev_schedule_xact(udev, kbd->udev->ep_ctrl,  xact,
                                sizeof(xact) / sizeof(*xact), NULL, NULL);
     kbd->repeat_rate = 0;
     usb_destroy_xact(udev->dman, xact, sizeof(xact) / sizeof(*xact));
@@ -472,8 +472,8 @@ kbd_connect(usb_dev_t udev)
 #if defined(KBD_ENABLE_IRQS)
     KBD_DBG(kbd, "Scheduling IRQS\n");
     /* Register for interrupts */
-    usbdev_schedule_xact(udev, kbd->int_ep, kbd->int_max_pkt,
-                         kbd->int_rate_ms, 0, kbd->int_xact, 1,
+    /* FIXME: Search for the right ep */
+    usbdev_schedule_xact(udev, udev->ep[0], kbd->int_xact, 1,
                          &kbd_irq_handler, kbd);
 #else
     (void)kbd_irq_handler;

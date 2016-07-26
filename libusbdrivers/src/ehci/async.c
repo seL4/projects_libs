@@ -562,7 +562,7 @@ new_schedule_async(struct ehci_host* edev, struct QHn* qhn)
 
 	qhn->tdns = NULL;
 	qhn->ntdns = 0;
-	dump_qhn(qhn);
+//	dump_qhn(qhn);
 	return sum;
 }
 

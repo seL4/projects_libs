@@ -38,7 +38,7 @@ static inline void udelay(uint32_t us)
         } while(0)
 
 
-#define usb_malloc(...) malloc(__VA_ARGS__)
+#define usb_malloc(...) calloc(1, __VA_ARGS__)
 #define usb_free(...) free(__VA_ARGS__)
 
 #define MAP_DEVICE(o, p, s) ps_io_map(&o->io_mapper, p, s, 0, PS_MEM_NORMAL)

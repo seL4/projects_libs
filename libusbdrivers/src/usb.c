@@ -470,8 +470,7 @@ usbdev_config_print(usb_dev_t udev)
     }
     req = xact_get_vaddr(&xact[0]);
     *req = __get_descriptor_req(DEVICE, 0, 0, xact[1].len);
-    ret = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0, 0,
-                               xact, 2, NULL, NULL);
+    ret = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
     if (ret < 0) {
         assert(ret >= 0);
         return;
@@ -504,15 +503,18 @@ print_dev_graph(usb_t* host, usb_dev_t d, int depth)
 }
 
 static int
-parse_config(struct anon_desc *d, int tot_len,
+parse_config(usb_dev_t udev, struct anon_desc *d, int tot_len,
              usb_config_cb cb, void* t)
 {
     int cfg = -1;
     int iface = -1;
     struct anon_desc *usrd = NULL;
+    struct endpoint_desc *edsc;
+    struct endpoint *ep;
     int buf_len = 0;
     int cur_len = 0;
     int err = 0;
+    int cnt = 0;
 
     while (cur_len < tot_len) {
         /* Copy in for the sake of alignment */
@@ -538,6 +540,19 @@ parse_config(struct anon_desc *d, int tot_len,
         case INTERFACE:
             iface = ((struct iface_desc*)usrd)->bInterfaceNumber;
             break;
+	case ENDPOINT:
+	    edsc = (struct endpoint_desc*)usrd;
+	    ep = usb_malloc(sizeof(struct endpoint));
+
+	    /* Fill in the endpoint structure, USB standard(9.6.6) */
+	    ep->type = edsc->bmAttributes & 0x3;
+	    ep->dir = edsc->bEndpointAddress >> 0x7;
+	    ep->num = edsc->bEndpointAddress & 0xF;
+	    ep->max_pkt = edsc->wMaxPacketSize;
+	    ep->interval = edsc->bInterval;
+
+	    udev->ep[cnt++] = ep;
+	    break;
         default:
             break;
         }
@@ -549,6 +564,7 @@ parse_config(struct anon_desc *d, int tot_len,
         cur_len += d->bLength;
         d = (struct anon_desc*)((uintptr_t)d + d->bLength);
     }
+
     /* Report end of list */
     if (cur_len == tot_len) {
         cb(t, cfg, iface, NULL);
@@ -584,9 +600,25 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
     udev->hub = hub;
     udev->port = port;
     udev->speed = speed;
-    udev->max_pkt = 8;
     udev->host = host;
     udev->dman = host->hdev.dman;
+
+    /*
+     * Allocate control endpoint
+     * Every device should have one control endpoint, the endpoint number is
+     * always zero and we initialize the maximum packet size to 8 for sending
+     * the very first request.
+     */
+    udev->ep_ctrl = (struct endpoint*)usb_malloc(sizeof(struct endpoint));
+    if (!udev->ep_ctrl) {
+        USB_DBG(udev, "No heap memory for control endpoint\n");
+	usb_free(udev);
+        assert(0);
+        return -1;
+    }
+    udev->ep_ctrl->type = EP_CONTROL;
+    udev->ep_ctrl->num = 0;
+    udev->ep_ctrl->max_pkt = 8;
 
     xact[0].type = PID_SETUP;
     xact[0].len = sizeof(*req);
@@ -622,8 +654,7 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
      */
     xact[1].len = 8;
     *req = __new_desc_req(DEVICE, 8);
-    err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0, 0,
-                               xact, 2, NULL, NULL);
+    err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
     if (err < 0) {
         usb_destroy_xact(udev->dman, xact, 2);
         free(udev);
@@ -631,19 +662,9 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
     }
 
     assert(err >= 0);
-    udev->max_pkt = d_desc->bMaxPacketSize0;
-    USB_DBG(udev, "Retrieving device descriptor\n");
-    xact[1].len = sizeof(*d_desc);
-    *req = __new_desc_req(DEVICE, sizeof(*d_desc));
-    err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0, 0,
-                               xact, 2, NULL, NULL);
-    assert(err >= 0);
-    udev->prod_id = d_desc->idProduct;
-    udev->vend_id = d_desc->idVendor;
-    udev->class   = d_desc->bDeviceClass;
-    USB_DBG(udev, "idProduct 0x%04x\n", udev->prod_id);
-    USB_DBG(udev, "idVendor  0x%04x\n", udev->vend_id);
-
+    udev->ep_ctrl->max_pkt = d_desc->bMaxPacketSize0;
+    
+    /* Find the next available address */
     addr = devlist_insert(udev);
     if (addr < 0) {
         USB_DBG(dev, "Too many devices\n");
@@ -659,12 +680,23 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
     xact[1].type = PID_IN;
     xact[1].len = 0;
     USB_DBG(udev, "Setting address to %d\n", addr);
-    err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0, 0,
-                               xact, 2, NULL, NULL);
+    err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
     assert(err >= 0);
     /* Device has 2ms to start responding to new address */
     msdelay(2);
     udev->addr = addr;
+
+    /* All settled, start processing standard USB descriptors */
+    USB_DBG(udev, "Retrieving device descriptor\n");
+    xact[1].len = sizeof(*d_desc);
+    *req = __new_desc_req(DEVICE, sizeof(*d_desc));
+    err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
+    assert(err >= 0);
+    udev->prod_id = d_desc->idProduct;
+    udev->vend_id = d_desc->idVendor;
+    udev->class   = d_desc->bDeviceClass;
+    USB_DBG(udev, "idProduct 0x%04x\n", udev->prod_id);
+    USB_DBG(udev, "idVendor  0x%04x\n", udev->vend_id);
 
     *d = udev;
     usb_destroy_xact(udev->dman, xact, sizeof(xact) / sizeof(*xact));
@@ -729,7 +761,11 @@ usb_get_device(usb_t* host, int addr)
     }
 }
 
-
+/*
+ * Parsing standard USB descriptors.
+ * We don't support multiple configurations, if the device has more than one
+ * configurations, the first one will be activated.
+ */
 int
 usbdev_parse_config(usb_dev_t udev, usb_config_cb cb, void* t)
 {
@@ -753,8 +789,7 @@ usbdev_parse_config(usb_dev_t udev, usb_config_cb cb, void* t)
     req = xact_get_vaddr(&xact[0]);
     cd = xact_get_vaddr(&xact[1]);
     *req = __get_descriptor_req(CONFIGURATION, 0, 0, xact[1].len);
-    err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0, 0,
-                               xact, 2, NULL, NULL);
+    err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
     if (err < 0) {
         usb_destroy_xact(udev->dman, xact, 2);
         assert(0);
@@ -774,14 +809,13 @@ usbdev_parse_config(usb_dev_t udev, usb_config_cb cb, void* t)
     req = xact_get_vaddr(&xact[0]);
     d = xact_get_vaddr(&xact[1]);
     *req = __get_descriptor_req(CONFIGURATION, 0, 0, tot_len);
-    err = usbdev_schedule_xact(udev, 0, udev->max_pkt, 0, 0,
-                               xact, 2, NULL, NULL);
+    err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
     if (err < 0) {
         usb_destroy_xact(udev->dman, xact, sizeof(xact) / sizeof(*xact));
         return -1;
     }
     /* Now loop through descriptors */
-    err = parse_config(d, tot_len, cb, t);
+    err = parse_config(udev, d, tot_len, cb, t);
     usb_destroy_xact(udev->dman, xact, sizeof(xact) / sizeof(*xact));
     return err;
 }
@@ -809,6 +843,12 @@ usbdev_disconnect(usb_dev_t udev)
         inactive_devlist = udev;
     } else {
         /* destroy it */
+        usb_free(udev->ep_ctrl);
+	for (int i = 0; i < USB_MAX_EPS; i++) {
+		if (udev->ep[i]) {
+			usb_free(udev->ep[i]);
+		}
+	}
         usb_free(udev);
     }
 }
@@ -823,8 +863,7 @@ usb_handle_irq(usb_t* host)
 }
 
 int
-usbdev_schedule_xact(usb_dev_t udev, int ep, int max_pkt,
-                     int rate, int dt, struct xact* xact,
+usbdev_schedule_xact(usb_dev_t udev, struct endpoint *ep, struct xact* xact,
                      int nxact, usb_cb_t cb, void* token)
 {
     int err;
@@ -840,7 +879,7 @@ usbdev_schedule_xact(usb_dev_t udev, int ep, int max_pkt,
         hub_addr = -1;
     }
     err = usb_hcd_schedule(hdev, udev->addr, hub_addr, udev->port, udev->speed,
-                           ep, max_pkt, rate, dt, xact, nxact, cb, token);
+                           ep, xact, nxact, cb, token);
     return err;
 }
 

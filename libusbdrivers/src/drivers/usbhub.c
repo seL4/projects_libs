@@ -191,6 +191,7 @@ struct usb_hub_port {
 struct usb_hub {
     usb_dev_t udev;
 /// Configuration parameters
+    struct endpoint *ep_int;
     int ifno, cfgno, int_ep, int_max_pkt, int_rate_ms;
 /// Port book keeping
     int nports;
@@ -243,8 +244,7 @@ _handle_port_change(usb_hub_t h, int port)
         *req = __get_port_status_req(port);
     }
     HUB_DBG(h, "Getting status for port %d\n", port);
-    ret = usbdev_schedule_xact(h->udev, 0, h->udev->max_pkt, 0, 0,
-                               xact, 2, NULL, NULL);
+    ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl, xact, 2, NULL, NULL);
     assert(ret >= 0);
     change = sts->wPortChange;
     status = sts->wPortStatus;
@@ -261,8 +261,7 @@ _handle_port_change(usb_hub_t h, int port)
             /* Clear the change flag */
             *req = __clear_port_feature_req(port,
                                             C_PORT_CONNECTION);
-            ret = usbdev_schedule_xact(h->udev, 0,
-                                       h->udev->max_pkt, 0, 0,
+            ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
                                        xact, 2, NULL, NULL);
             assert(ret >= 0);
             if (status & BIT(PORT_CONNECTION)) {
@@ -273,8 +272,7 @@ _handle_port_change(usb_hub_t h, int port)
                 /* reset the port to enable it */
                 HUB_DBG(h, "Resetting port %d\n", port);
                 *req = __set_port_feature_req(port, PORT_RESET);
-                ret = usbdev_schedule_xact(h->udev, 0,
-                                           h->udev->max_pkt, 0, 0,
+                ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
                                            xact, 2, NULL, NULL);
                 assert(ret >= 0);
                 if (!ret) {
@@ -294,8 +292,7 @@ _handle_port_change(usb_hub_t h, int port)
             change &= ~PORT_ENABLE;
             *req = __clear_port_feature_req(port,
                                             C_PORT_ENABLE);
-            ret = usbdev_schedule_xact(h->udev, 0,
-                                       h->udev->max_pkt, 0, 0,
+            ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
                                        xact, 2, NULL, NULL);
             assert(ret >= 0);
         }
@@ -305,8 +302,7 @@ _handle_port_change(usb_hub_t h, int port)
             change &= ~BIT(PORT_SUSPEND);
             *req = __clear_port_feature_req(port,
                                             C_PORT_SUSPEND);
-            ret = usbdev_schedule_xact(h->udev, 0,
-                                       h->udev->max_pkt, 0, 0,
+            ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
                                        xact, 2, NULL, NULL);
             assert(ret >= 0);
         }
@@ -317,8 +313,7 @@ _handle_port_change(usb_hub_t h, int port)
             change &= ~BIT(PORT_OVER_CURRENT);
             *req = __clear_port_feature_req(port,
                                             C_PORT_OVER_CURRENT);
-            ret = usbdev_schedule_xact(h->udev, 0,
-                                       h->udev->max_pkt, 0, 0,
+            ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
                                        xact, 2, NULL, NULL);
             assert(ret >= 0);
         }
@@ -327,8 +322,7 @@ _handle_port_change(usb_hub_t h, int port)
                     "" : "released");
             change &= ~BIT(PORT_RESET);
             *req = __clear_port_feature_req(port, C_PORT_RESET);
-            ret = usbdev_schedule_xact(h->udev, 0,
-                                       h->udev->max_pkt, 0, 0,
+            ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
                                        xact, 2, NULL, NULL);
             assert(ret >= 0);
             /* Was the reset part of the init process? */
@@ -353,8 +347,7 @@ _handle_port_change(usb_hub_t h, int port)
                     HUB_DBG(h, "Resetting port %d\n", port);
                     msdelay(10);
                     *req = __set_port_feature_req(port, PORT_RESET);
-                    ret = usbdev_schedule_xact(h->udev, 0,
-                                               h->udev->max_pkt, 0, 0,
+                    ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
                                                xact, 2, NULL, NULL);
                     assert(ret >= 0);
                     printf("SCheduled!\n");
@@ -474,8 +467,7 @@ usb_hub_driver_bind(usb_dev_t udev, usb_hub_t* hub)
     assert(!err);
     req = xact_get_vaddr(&xact[0]);
     *req = __get_hub_descriptor_req();
-    err = usbdev_schedule_xact(udev, 0, h->udev->max_pkt, 0, 0,
-                               xact, 2, NULL, NULL);
+    err = usbdev_schedule_xact(udev, h->udev->ep_ctrl, xact, 2, NULL, NULL);
     if (err < 0) {
         assert(0);
         return -1;
@@ -508,8 +500,7 @@ usb_hub_driver_bind(usb_dev_t udev, usb_hub_t* hub)
     req = xact_get_vaddr(&xact[0]);
     *req = __set_configuration_req(h->cfgno);
 
-    err = usbdev_schedule_xact(udev, 0, h->udev->max_pkt, 0, 0,
-                               xact, 2, NULL, NULL);
+    err = usbdev_schedule_xact(udev, h->udev->ep_ctrl, xact, 2, NULL, NULL);
     if (err < 0) {
         assert(err >= 0);
         return -1;
@@ -527,8 +518,8 @@ usb_hub_driver_bind(usb_dev_t udev, usb_hub_t* hub)
     for (i = 1; i <= h->nports; i++) {
         HUB_DBG(h, "Power on port %d\n", i);
         *req = __set_port_feature_req(i, PORT_POWER);
-        err = usbdev_schedule_xact(h->udev, 0, h->udev->max_pkt,
-                                   0, 0, xact, 2, NULL, NULL);
+        err = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
+			xact, 2, NULL, NULL);
         assert(err >= 0);
     }
     msdelay(h->power_good_delay_ms);
@@ -551,7 +542,8 @@ usb_hub_driver_bind(usb_dev_t udev, usb_hub_t* hub)
     assert(!err);
     h->intbm = xact_get_vaddr(&h->int_xact);
     HUB_DBG(h, "Registering for INT\n");
-    usbdev_schedule_xact(udev, 1, h->int_max_pkt, h->int_rate_ms, 0,
+    /* FIXME: Search for the right ep */
+    usbdev_schedule_xact(udev, udev->ep[0],
                          &h->int_xact, 1, &hub_irq_handler, h);
 #else
     h->intbm = NULL;
@@ -761,7 +753,7 @@ hubem_get_status(usb_hubem_t dev, struct usbreq* req, void* buf, int len)
 
 
 int
-hubem_process_xact(usb_hubem_t dev, int ep, struct xact* xact, int nxact,
+hubem_process_xact(usb_hubem_t dev, struct xact* xact, int nxact,
                    usb_cb_t cb, void* t)
 {
     struct usbreq* req;
@@ -769,8 +761,7 @@ hubem_process_xact(usb_hubem_t dev, int ep, struct xact* xact, int nxact,
     int buf_len;
     int i;
     int err;
-    /* We only handle Control endpoint */
-    assert(ep == 0);
+
     assert(xact_get_vaddr(&xact[0]));
     for (err = 0, i = 0; !err && i < nxact; i++) {
         if (xact[i].type != PID_SETUP) {
