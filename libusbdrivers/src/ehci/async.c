@@ -233,9 +233,14 @@ qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed, int max_pkt,
 	return head_tdn;
 }
 
+/*
+ * Allocate generic queue head for both periodic and asynchronous schedule
+ * Note that the link pointer and reclamation flag bit are set when inserting
+ * the queue head to asynchronous schedule.
+ */
 struct QHn*
 qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
-	  uint8_t hub_port, enum usb_speed speed, int ep, int max_pkt)
+	  uint8_t hub_port, enum usb_speed speed, struct endpoint *ep)
 {
 	struct QHn *qhn;
 	volatile struct QH  *qh;
@@ -253,13 +258,25 @@ qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 	qh = qhn->qh;
 
 	/*
-	 * FIXME: The following line is period scheduling only, refer to 3.6.1
-	 * of the EHCI specification
+	 * The link point bits will be filled when we insert this queue head
+	 * into the aync or periodic schedules
 	 */
-	qh->qhlptr = QHLP_INVALID; //Terminate bit, default to last QH.
+	switch (ep->type) {
+		case EP_CONTROL:
+		case EP_BULK:
+			qh->qhlptr = QHLP_TYPE_QH;
+			break;
+		case EP_INTERRUPT:
+			qh->qhlptr = QHLP_TYPE_QH | QHLP_INVALID;
+			break;
+		case EP_ISOCHRONOUS:
+			qh->qhlptr = QHLP_TYPE_ITD;
+			break;
+		default:
+			usb_assert(0);
+	}
 
 	/* epc0 */
-	/* TODO: Check bit 7 and 15 */
 	switch (speed) {
 	case USBSPEED_HIGH:
 		qh->epc[0] = QHEPC0_HSPEED;
@@ -274,11 +291,21 @@ qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 		usb_assert(0);
 	}
 
-	qh->epc[0] |= QHEPC0_MAXPKTLEN(max_pkt) | QHEPC0_ADDR(address) |
-		      QHEPC0_EP(ep) | QHEPC0_NAKCNT_RL(0x8);
+	qh->epc[0] |= QHEPC0_MAXPKTLEN(ep->max_pkt) | QHEPC0_ADDR(address) |
+		      QHEPC0_EP(ep->num);
+
+	/*
+	 * Nak counter must NOT be used for interrupt endpoint
+	 * EHCI spec chapter 4.9(Nak "Not Used" mode)
+	 */
+	if (ep->type == EP_INTERRUPT) {
+		qh->epc[0] |= QHEPC0_NAKCNT_RL(0);
+	} else {
+		qh->epc[0] |= QHEPC0_NAKCNT_RL(0x8);
+	}
 
 	/* Control endpoint manages its own data toggle */
-	if (ep == 0) {
+	if (ep->type == EP_CONTROL) {
 		qh->epc[0] |= QHEPC0_DTC;
 
 		/* For full/low speed control endpoint */
@@ -287,11 +314,25 @@ qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 		}
 	}
 
+	if ((ep->type == EP_INTERRUPT || ep->type == EP_ISOCHRONOUS) &&
+			speed != USBSPEED_HIGH) {
+		qh->epc[0] |= QHEPC0_I;
+	}
+
 	/* epc1 */
-	/* TODO: Check Frame mask bits */
 	qh->epc[1] = QHEPC1_MULT(1);
 	if (speed != USBSPEED_HIGH) {
 		qh->epc[1] |= QHEPC1_HUB_ADDR(hub_addr) | QHEPC1_PORT(hub_port);
+	}
+
+	/* TODO: Check CMASK and SMASK */
+	if ((ep->type == EP_INTERRUPT || ep->type == EP_ISOCHRONOUS) &&
+			speed != USBSPEED_HIGH) {
+		qh->epc[1] |= QHEPC1_UFRAME_CMASK(0x1C);
+	}
+
+	if (ep->type == EP_INTERRUPT) {
+		qh->epc[1] |= QHEPC1_UFRAME_SMASK(1);
 	}
 	
 	qh->td_overlay.next = TDLP_INVALID;
@@ -301,16 +342,46 @@ qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 }
 
 void
-qhn_update(struct ehci_host *edev, int max_pkt, uint8_t addr, struct QHn *qhn, struct TDn *tdn)
+qhn_update(struct QHn *qhn, uint8_t address, struct endpoint *ep)
+{
+	uint32_t epc0;
+
+	assert(qhn);
+	assert(ep);
+
+	/*
+	 * We only care about the control endpoint, because all other
+	 * endpoints' info is extracted from the endpoint descriptor, and by the
+	 * time the core driver reads the descriptors, the device's address
+	 * should have settled already.
+	 */
+	if (ep->type != EP_CONTROL) {
+		return;
+	}
+
+	/* Update maximum packet size */
+	epc0 = qhn->qh->epc[0];
+	if (unlikely(QHEPC0_GET_MAXPKT(epc0) != ep->max_pkt)) {
+		epc0 &= ~QHEPC0_MAXPKT_MASK;
+		epc0 |= QHEPC0_MAXPKTLEN(ep->max_pkt);
+	}
+
+	/* Update device address */
+	if (unlikely(QHEPC0_GET_ADDR(epc0) != address)) {
+		epc0 &= ~QHEPC0_ADDR_MASK;
+		epc0 |= QHEPC0_ADDR(address);
+	}
+
+	qhn->qh->epc[0] = epc0;
+}
+
+void
+qtd_enqueue(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn)
 {
 	struct TDn *last_tdn;
 
 	assert(qhn);
 	assert(tdn);
-
-	qhn->qh->epc[0] &= ~(0x7FF << 16);
-	qhn->qh->epc[0] &= ~(0x7F);
-	qhn->qh->epc[0] |= QHEPC0_MAXPKTLEN(max_pkt) | QHEPC0_ADDR(addr);
 
 	/* If the queue is empty, point the TD overlay to the first TD */
 	if (!qhn->tdns) {
@@ -527,7 +598,7 @@ new_schedule_async(struct ehci_host* edev, struct QHn* qhn)
 	while (((edev->op_regs->usbsts & EHCISTS_ASYNC_EN) >> 15)
 		^ ((edev->op_regs->usbcmd & EHCICMD_ASYNC_EN) >> 5));
 
-	/* If the async scheduling is already enabled */
+	/* If the async scheduling is already enabled, do nothing */
 	if (edev->op_regs->usbsts & EHCISTS_ASYNC_EN) {
 	} else {
 		/* Enable the async scheduling */

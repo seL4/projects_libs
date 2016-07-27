@@ -111,6 +111,26 @@ static void print_xact(struct xact *xact, int nxact)
 	}
 }
 
+void ehci_add_qhn_async(struct ehci_host *edev, struct QHn *qhn)
+{
+    /* Add new queue head to async queue */
+    if (edev->alist_tail) {
+	    /* Update the hardware queue */
+	    qhn->qh->qhlptr = edev->alist_tail->next->qh->qhlptr;
+	    edev->alist_tail->qh->qhlptr |= qhn->pqh & ~0xf;
+
+	    /* Update the Software queue */
+	    qhn->next = edev->alist_tail->next;
+	    edev->alist_tail->next = qhn;
+	    edev->alist_tail = qhn;
+    } else {
+	    edev->alist_tail = qhn;
+	    edev->alist_tail->next = qhn;
+
+	    qhn->qh->qhlptr |= qhn->pqh & ~0xf;
+    }
+}
+
 /* FIXME: new API*/
 int
 new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_port,
@@ -144,34 +164,29 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
 
     qhn = (struct QHn*)ep->hcpriv;
     if (!qhn) {
-	    qhn = qhn_alloc(edev, addr, hub_addr, hub_port, speed,
-			    ep->num, ep->max_pkt);
+	    qhn = qhn_alloc(edev, addr, hub_addr, hub_port, speed, ep);
 	    ep->hcpriv = qhn;
 
-	    /* Add new queue head to async queue */
-	    if (edev->alist_tail) {
-		    /* Update the hardware queue */
-		    qhn->qh->qhlptr = edev->alist_tail->next->qh->qhlptr;
-		    edev->alist_tail->qh->qhlptr = qhn->pqh | QHLP_TYPE_QH;
-
-		    /* Update the Software queue */
-		    qhn->next = edev->alist_tail->next;
-		    edev->alist_tail->next = qhn;
-		    edev->alist_tail = qhn;
-	    } else {
-		    edev->alist_tail = qhn;
-		    edev->alist_tail->next = qhn;
-
-		    qhn->qh->qhlptr = qhn->pqh | QHLP_TYPE_QH;
+	    if (ep->type == EP_CONTROL || ep->type == EP_BULK) {
+		    ehci_add_qhn_async(edev, qhn);
 	    }
-    }
-    
+
+    } else {
+	    /*
+	     * The address and maximum packet size could change after initial
+	     * enumeration, update the queue head accordingly.
+	     */
+	    qhn_update(qhn, addr, ep);
+    } 
+
     /* Allocate qTD */
     tdn = qtd_alloc(edev, ep->num, speed, ep->max_pkt, xact, nxact);
 
     /* Append qTD to the queue head */
-    qhn_update(edev, ep->max_pkt, addr, qhn, tdn);
+    qtd_enqueue(edev, qhn, tdn);
     qhn->ntdns = nxact;
+    qhn->cb = cb;
+    qhn->token = t;
     
 periodic:    //dump_qhn(qhn);
     /* Send off over the bus */

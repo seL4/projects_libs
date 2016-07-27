@@ -197,6 +197,8 @@ struct QH {
 #define QHEPC0_NAKCNT_RL_MASK  QHEPC0_NAKCNT_RL(0xf)
 #define QHEPC0_C               BIT(27)
 #define QHEPC0_MAXPKTLEN(x)    (((x) & 0x7ff) * BIT(16))
+#define QHEPC0_MAXPKT_MASK     QHEPC0_MAXPKTLEN(0x7ff)
+#define QHEPC0_GET_MAXPKT(x)   (((x) & QHEPC0_MAXPKT_MASK) >> 16)
 #define QHEPC0_H               BIT(15)
 #define QHEPC0_DTC             BIT(14)
 #define QHEPC0_FSPEED          (0 * BIT(12))
@@ -205,6 +207,8 @@ struct QH {
 #define QHEPC0_EP(x)           (((x) &  0xf) * BIT( 8))
 #define QHEPC0_I               BIT(7)
 #define QHEPC0_ADDR(x)         (((x) & 0x7f) * BIT( 0))
+#define QHEPC0_ADDR_MASK       QHEPC0_ADDR(0x7f)
+#define QHEPC0_GET_ADDR(x)     ((x) & QHEPC0_ADDR_MASK)
 #define QHEPC1_MULT(x)         (((x) &  0x3) * BIT(30))
 #define QHEPC1_PORT(x)         (((x) & 0x7f) * BIT(23))
 #define QHEPC1_HUB_ADDR(x)     (((x) & 0x7f) * BIT(16))
@@ -306,10 +310,11 @@ void check_doorbell(struct ehci_host* edev);
 
 /* New APIs */
 struct QHn* qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
-	  uint8_t hub_port, enum usb_speed speed, int ep, int max_pkt);
+	  uint8_t hub_port, enum usb_speed speed, struct endpoint *ep);
 struct TDn* qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed,
 		int max_pkt, struct xact *xact, int nxact);
-void qhn_update(struct ehci_host *edev, int max_pkt, uint8_t addr, struct QHn *qhn, struct TDn *tdn);
+void qhn_update(struct QHn *qhn, uint8_t address, struct endpoint *ep);
+void qtd_enqueue(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn);
 int new_schedule_async(struct ehci_host* edev, struct QHn* qhn);
 
 /**
