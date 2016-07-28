@@ -237,6 +237,10 @@ qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed, int max_pkt,
  * Allocate generic queue head for both periodic and asynchronous schedule
  * Note that the link pointer and reclamation flag bit are set when inserting
  * the queue head to asynchronous schedule.
+ *
+ * XXX: For some unknown reason, we cannot initialize the link pointer and head
+ * type here, it seems that the register can be only written once. So we'll fill
+ * the register when adding the queue head to the schedule.
  */
 struct QHn*
 qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
@@ -256,25 +260,6 @@ qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 
 	/* Fill in the queue head */
 	qh = qhn->qh;
-
-	/*
-	 * The link point bits will be filled when we insert this queue head
-	 * into the aync or periodic schedules
-	 */
-	switch (ep->type) {
-		case EP_CONTROL:
-		case EP_BULK:
-			qh->qhlptr = QHLP_TYPE_QH;
-			break;
-		case EP_INTERRUPT:
-			qh->qhlptr = QHLP_TYPE_QH | QHLP_INVALID;
-			break;
-		case EP_ISOCHRONOUS:
-			qh->qhlptr = QHLP_TYPE_ITD;
-			break;
-		default:
-			usb_assert(0);
-	}
 
 	/* epc0 */
 	switch (speed) {

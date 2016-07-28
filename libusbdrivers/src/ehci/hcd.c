@@ -117,7 +117,7 @@ void ehci_add_qhn_async(struct ehci_host *edev, struct QHn *qhn)
     if (edev->alist_tail) {
 	    /* Update the hardware queue */
 	    qhn->qh->qhlptr = edev->alist_tail->next->qh->qhlptr;
-	    edev->alist_tail->qh->qhlptr |= qhn->pqh & ~0xf;
+	    edev->alist_tail->qh->qhlptr = qhn->pqh | QHLP_TYPE_QH;
 
 	    /* Update the Software queue */
 	    qhn->next = edev->alist_tail->next;
@@ -127,7 +127,7 @@ void ehci_add_qhn_async(struct ehci_host *edev, struct QHn *qhn)
 	    edev->alist_tail = qhn;
 	    edev->alist_tail->next = qhn;
 
-	    qhn->qh->qhlptr |= qhn->pqh & ~0xf;
+	    qhn->qh->qhlptr = qhn->pqh | QHLP_TYPE_QH;
     }
 }
 
@@ -177,7 +177,7 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
 	     * enumeration, update the queue head accordingly.
 	     */
 	    qhn_update(qhn, addr, ep);
-    } 
+    }
 
     /* Allocate qTD */
     tdn = qtd_alloc(edev, ep->num, speed, ep->max_pkt, xact, nxact);
