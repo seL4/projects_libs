@@ -323,6 +323,7 @@ int new_schedule_async(struct ehci_host* edev, struct QHn* qhn);
 int ehci_schedule_periodic_root(struct ehci_host* edev, struct xact *xact,
                             int nxact, usb_cb_t cb, void* t);
 int ehci_schedule_periodic(struct ehci_host* edev, struct QHn* qhn, int rate_ms);
+int new_schedule_periodic(struct ehci_host* edev, struct QHn* qhn, int rate_ms);
 enum usb_xact_status qhn_wait(struct QHn* qhn, int to_ms);
 void _periodic_complete(struct ehci_host* edev);
 int clear_periodic_xact(struct ehci_host* edev, void* token);

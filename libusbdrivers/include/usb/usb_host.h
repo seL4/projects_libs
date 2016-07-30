@@ -64,9 +64,7 @@ enum usb_xact_type {
 /// Output PID
     PID_OUT,
 /// Setup PID
-    PID_SETUP,
-/// Interrupt PID
-    PID_INT,
+    PID_SETUP
 };
 
 enum usb_xact_status {

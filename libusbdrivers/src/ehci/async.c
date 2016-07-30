@@ -92,7 +92,7 @@ qhn_get_bytes_remaining(struct QHn *qhn)
     int i;
 
     for (i = 0; i < qhn->ntdns; i++) {
-       sum += TDTOK_GET_BYTES(qhn->tdns[i].td->token);
+       sum += TDTOK_GET_BYTES(qhn->tdns->td->token);
     }
 
     return sum;
@@ -261,6 +261,7 @@ qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 	/* Fill in the queue head */
 	qh = qhn->qh;
 
+	qh->qhlptr = QHLP_INVALID;
 	/* epc0 */
 	switch (speed) {
 	case USBSPEED_HIGH:
@@ -461,7 +462,6 @@ qhn_new(struct ehci_host* edev, uint8_t address, uint8_t hub_addr,
         usb_assert(!err);
         /* Transfer type */
         switch (xact[i].type) {
-        case PID_INT  :
         case PID_IN   :
             td->token = TDTOK_PID_IN   ;
             break;

@@ -403,7 +403,10 @@ hub_irq_handler(void* token, enum usb_xact_status stat, int bytes_remaining)
     if (!handled) {
         HUB_DBG(h, "Spurious IRQ\n");
     }
-    return 1;
+
+    usbdev_schedule_xact(h->udev, h->udev->ep[0],
+                         &h->int_xact, 1, &hub_irq_handler, h);
+    return 0;
 }
 
 static int
@@ -531,7 +534,7 @@ usb_hub_driver_bind(usb_dev_t udev, usb_hub_t* hub)
     }
 #endif
 #if defined(HUB_ENABLE_IRQS)
-    h->int_xact.type = PID_INT;
+    h->int_xact.type = PID_IN;
     /*
      * USB 2.0 spec[11.12.4] says the packet size should be (nport + 7)/8, but
      * some hubs are known to send more data, which would cause a "babble". So

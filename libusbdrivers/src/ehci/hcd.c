@@ -97,7 +97,7 @@ _root_irq(struct ehci_host* edev)
     }
     /* Forward the IRQ */
     resched = edev->irq_cb(edev->irq_token, XACTSTAT_SUCCESS, 0);
-    if (!resched) {
+    if (resched) {
         usb_assert(0);
     }
 }
@@ -131,6 +131,57 @@ void ehci_add_qhn_async(struct ehci_host *edev, struct QHn *qhn)
     }
 }
 
+/*
+ * TODO: We only support interrupt endpoint at the moment, this function is
+ * subject to change when we add isochronous endpoint support.
+ */
+void ehci_add_qhn_periodic_part(struct ehci_host *edev, struct QHn *qhn)
+{
+    struct QHn *last_qhn;
+
+    /* Add new queue head to periodic queue */
+    if (edev->intn_list) {
+	    /* Find the last queue head */
+	    last_qhn = edev->intn_list;
+	    while (last_qhn->next) {
+		    last_qhn = last_qhn->next;
+	    }
+
+	    /* Add queue head to the list */
+	    last_qhn->next = qhn;
+	    last_qhn->qh->qhlptr = qhn->pqh | QHLP_TYPE_QH;
+    } else {
+	    edev->intn_list = qhn;
+    }
+}
+
+void ehci_add_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
+{
+	/* Allocate the frame list */
+	if (!edev->flist) {
+		/* XXX: The frame list size is default to 1024 */
+		edev->flist_size = 1024;
+		edev->flist = ps_dma_alloc_pinned(edev->dman,
+				edev->flist_size * sizeof(uint32_t*), 0x1000, 0,
+				PS_MEM_NORMAL, &edev->pflist);
+		usb_assert(edev->flist);
+
+		/* Mark all frames as disabled */
+		for (int i = 0; i < edev->flist_size; i++) {
+			edev->flist[i] = TDLP_INVALID;
+		}
+	}
+
+	/* Find an empty slot and insert the queue head */
+	for (int i = 0; i < edev->flist_size; i++) {
+		if (edev->flist[i] & TDLP_INVALID) {
+			edev->flist[i] = qhn->pqh | QHLP_TYPE_QH;
+		}
+	}
+
+	ehci_add_qhn_periodic_part(edev, qhn);
+}
+
 /* FIXME: new API*/
 int
 new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_port,
@@ -152,15 +203,15 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
     }
 
     print_xact(xact, nxact);
-    if (ep->interval) {
-    /* Create the QHn */
-    qhn = qhn_new(edev, addr, hub_addr, hub_port, speed, ep->num, ep->max_pkt,
-                  0, xact, nxact, cb, t);
-    if (qhn == NULL) {
-        return -1;
-    }
-    goto periodic;
-    }
+//    if (ep->interval) {
+//    /* Create the QHn */
+//    qhn = qhn_new(edev, addr, hub_addr, hub_port, speed, ep->num, ep->max_pkt,
+//                  0, xact, nxact, cb, t);
+//    if (qhn == NULL) {
+//       return -1;
+//    }
+//    goto periodic;
+//    }
 
     qhn = (struct QHn*)ep->hcpriv;
     if (!qhn) {
@@ -169,6 +220,8 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
 
 	    if (ep->type == EP_CONTROL || ep->type == EP_BULK) {
 		    ehci_add_qhn_async(edev, qhn);
+	    } else {
+		    ehci_add_qhn_periodic(edev, qhn);
 	    }
 
     } else {
@@ -188,10 +241,10 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
     qhn->cb = cb;
     qhn->token = t;
     
-periodic:    //dump_qhn(qhn);
+periodic:   dump_qhn(qhn);
     /* Send off over the bus */
     if (ep->interval) {
-        return ehci_schedule_periodic(edev, qhn, ep->interval);
+        return new_schedule_periodic(edev, qhn, ep->interval);
     } else {
         return new_schedule_async(edev, qhn);
     }

@@ -567,7 +567,7 @@ usb_kbd_driver_bind(usb_dev_t udev, struct ps_chardevice *cdev)
     udev->dev_data = dev_data;
     /* Allocate a buffer for our IRQs */
     kbd->int_xact[0].len = KBD_KEYS_SIZE;
-    kbd->int_xact[0].type = PID_INT;
+    kbd->int_xact[0].type = PID_IN;
     err = usb_alloc_xact(udev->dman, kbd->int_xact, 1);
     if (err) {
         assert(0);

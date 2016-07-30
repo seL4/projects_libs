@@ -85,8 +85,8 @@ _int_schedule(struct ehci_host* edev, struct QHn* qhn)
     UNUSED int err;
     /* Pull out our pointers to the descriptors */
     qh = qhn->qh;
-    td = qhn->tdns[0].td;
-    xact = &qhn->tdns[0].xact;
+    td = qhn->tdns->td;
+    xact = &qhn->tdns->xact;
     /* TODO we do not look at this granularity */
     qh->epc[1] &= ~QHEPC1_UFRAME_MASK;
     qh->epc[1] |= QHEPC1_UFRAME_SMASK(0b000001);
@@ -95,7 +95,7 @@ _int_schedule(struct ehci_host* edev, struct QHn* qhn)
     qh->epc[0] &= ~QHEPC0_NAKCNT_RL_MASK;
     /* Refresh the TD overlay area */
     qh->td_cur = 0;
-    qh->td_overlay.next = qhn->tdns[0].ptd;
+    qh->td_overlay.next = qhn->tdns->ptd;
     qh->td_overlay.alt = TDLP_INVALID;
     qh->td_overlay.token = 0;
     /* Refresh the TD token and buffer */
@@ -141,6 +141,25 @@ ehci_schedule_periodic_root(struct ehci_host* edev, struct xact *xact,
     }
     edev->op_regs->usbintr |= EHCIINTR_PORTC_DET;
     return 0;
+}
+
+int
+new_schedule_periodic(struct ehci_host* edev, struct QHn* qhn, int rate_ms)
+{
+	/* Make sure we are safe to write to the register */
+	while (((edev->op_regs->usbsts & EHCISTS_PERI_EN) >> 14)
+		^ ((edev->op_regs->usbcmd & EHCICMD_PERI_EN) >> 4));
+
+	/* If the async scheduling is already enabled, do nothing */
+	if (edev->op_regs->usbsts & EHCISTS_PERI_EN) {
+	} else {
+		/* Enable the async scheduling */
+		edev->op_regs->periodiclistbase= edev->pflist;
+
+		/* TODO: Check FRINDEX, FLIST_SIZE, IRQTHRES_MASK */
+		edev->op_regs->usbcmd |= EHCICMD_PERI_EN;
+		while (edev->op_regs->usbsts & EHCISTS_PERI_EN) break;
+	}
 }
 
 int
@@ -241,8 +260,9 @@ _periodic_complete(struct ehci_host* edev)
 #if defined(DEBUG_DES)
                 dump_qhn(qhn);
 #endif
-                if (qhn_cb(qhn, stat)) {
-                    _int_schedule(edev, qhn);
+		qhn->qh->qhlptr = QHLP_INVALID;
+                if (!qhn_cb(qhn, stat)) {
+//                    _int_schedule(edev, qhn);
                     qhn->irq_pending = 0;
                 } else {
                     struct QHn* cur;

@@ -979,7 +979,7 @@ struct netif* lan9730_driver_bind(usb_dev_t udev) {
     mac_init(eth);
 
 #if defined(ETH_ENABLE_IRQS)
-    eth->int_xact.type = PID_INT;
+    eth->int_xact.type = PID_IN;
     eth->int_xact.len = eth->int_max_pkt;
     err = usb_alloc_xact(udev->dman, &eth->int_xact, 1);
     assert(!err);
@@ -1013,7 +1013,7 @@ lan9730_poll_status(struct netif *netif)
     eth = netif_get_eth_driver(netif);
 
     /* Allocate the buffers */
-    xact[0].type = PID_INT;
+    xact[0].type = PID_IN;
     xact[0].len = 4;
     err = usb_alloc_xact(eth->udev->dman, xact, 1);
     assert(!err);
