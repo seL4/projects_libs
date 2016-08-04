@@ -182,7 +182,7 @@ dump_qhn(struct QHn* qhn)
     set_colour(COL_DEF);
 }
 
-static void UNUSED
+void UNUSED
 dump_q(struct QHn* qhn)
 {
     int i = 1;
@@ -196,7 +196,7 @@ dump_q(struct QHn* qhn)
     printf("##### End Async list #####\n");
 }
 
-static void UNUSED
+void UNUSED
 dump_edev(struct ehci_host* edev)
 {
     uint32_t sts, cmd, intr;

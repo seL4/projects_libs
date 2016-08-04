@@ -336,6 +336,8 @@ void _async_remove_next(struct ehci_host* edev, struct QHn* prev);
  */
 void dump_qtd(volatile struct TD* qtd);
 void dump_qhn(struct QHn* qhn);
+void dump_q(struct QHn* qhn);
+void dump_edev(struct ehci_host* edev);
 
 /**
  * Initialise a ehci host controller
