@@ -116,7 +116,7 @@ void ehci_add_qhn_async(struct ehci_host *edev, struct QHn *qhn)
     /* Add new queue head to async queue */
     if (edev->alist_tail) {
 	    /* Update the hardware queue */
-	    qhn->qh->qhlptr = edev->alist_tail->next->qh->qhlptr;
+	    qhn->qh->qhlptr = edev->alist_tail->qh->qhlptr;
 	    edev->alist_tail->qh->qhlptr = qhn->pqh | QHLP_TYPE_QH;
 
 	    /* Update the Software queue */
