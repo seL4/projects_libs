@@ -357,12 +357,19 @@ _handle_port_change(usb_hub_t h, int port)
                     /* See if we can bind a hub */
                     usb_hub_driver_bind(new_dev, &new_hub);
                 }
+		return;
             }
         }
         if (change) {
             HUB_DBG(h, "Unhandled port change 0x%x\n", change);
         }
         assert(ret >= 0);
+
+	/*
+	 * FIXME: A hack to force serializing device enumeration, this function
+	 * needs rewrite.
+	 */
+	_handle_port_change(h, port);
     }
 }
 
