@@ -288,21 +288,14 @@ int _get_pstat(void* token, int port, struct port_status* _ps);
 /**
  * Async Scheduling
  */
-int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_port,
-                   enum usb_speed speed, int ep, int max_pkt, int rate_ms,
-                   int dt, struct xact* xact, int nxact, usb_cb_t cb, void* t);
 void ehci_handle_irq(usb_host_t* hdev);
 int ehci_cancel_xact(usb_host_t* hdev, void * token);
 
-struct QHn* qhn_new(struct ehci_host* edev, uint8_t address, uint8_t hub_addr,
-        uint8_t hub_port, enum usb_speed speed, int ep, int max_pkt,
-        int dt, struct xact* xact, int nxact, usb_cb_t cb, void* token);
 void qhn_destroy(ps_dma_man_t* dman, struct QHn* qhn);
 int clear_async_xact(struct ehci_host* edev, void* token);
 void _async_complete(struct ehci_host* edev);
 int ehci_schedule_async(struct ehci_host* edev, struct QHn* qh_new);
 void _async_doorbell(struct ehci_host* edev);
-int td_set_buf(volatile struct TD* td, uintptr_t buf, int len);
 enum usb_xact_status qtd_get_status(volatile struct TD* qtd);
 enum usb_xact_status qhn_get_status(struct QHn * qhn);
 int qhn_cb(struct QHn *qhn, enum usb_xact_status stat);
@@ -315,7 +308,6 @@ struct TDn* qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed,
 		int max_pkt, struct xact *xact, int nxact);
 void qhn_update(struct QHn *qhn, uint8_t address, struct endpoint *ep);
 void qtd_enqueue(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn);
-int new_schedule_async(struct ehci_host* edev, struct QHn* qhn);
 
 /**
  * Periodic Scheduling
@@ -323,11 +315,9 @@ int new_schedule_async(struct ehci_host* edev, struct QHn* qhn);
 int ehci_schedule_periodic_root(struct ehci_host* edev, struct xact *xact,
                             int nxact, usb_cb_t cb, void* t);
 int ehci_schedule_periodic(struct ehci_host* edev, struct QHn* qhn, int rate_ms);
-int new_schedule_periodic(struct ehci_host* edev, struct QHn* qhn, int rate_ms);
 enum usb_xact_status qhn_wait(struct QHn* qhn, int to_ms);
 void _periodic_complete(struct ehci_host* edev);
 int clear_periodic_xact(struct ehci_host* edev, void* token);
-void _int_schedule(struct ehci_host* edev, struct QHn* qhn);
 void _qhn_deschedule(struct ehci_host* dev, struct QHn* qhn);
 void _async_remove_next(struct ehci_host* edev, struct QHn* prev);
 

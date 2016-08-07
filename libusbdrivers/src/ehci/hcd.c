@@ -20,50 +20,11 @@ struct usb_hc_data {
  *****************/
 
 static inline struct ehci_host*
-_hcd_to_ehci(usb_host_t* hcd) {
+_hcd_to_ehci(usb_host_t* hcd)
+{
     struct usb_hc_data* hc_data = (struct usb_hc_data*)hcd->pdata;
     assert(hc_data);
     return &hc_data->edev;
-}
-
-static inline int
-_is_enabled_periodic(struct ehci_host* edev)
-{
-    return edev->op_regs->usbsts & EHCISTS_PERI_EN;
-}
-
-static inline void
-_enable_periodic(struct ehci_host* edev)
-{
-    edev->op_regs->usbcmd |= EHCICMD_PERI_EN;
-    while (!_is_enabled_periodic(edev));
-}
-
-static inline void
-_disable_periodic(struct ehci_host* edev)
-{
-    edev->op_regs->usbcmd &= ~EHCICMD_PERI_EN;
-    while (_is_enabled_periodic(edev));
-}
-
-static inline int
-_is_ehci_running(struct ehci_host* edev)
-{
-    return edev->op_regs->usbsts & EHCISTS_HCHALTED;
-}
-
-static inline void
-_ehci_run(struct ehci_host* edev)
-{
-    edev->op_regs->usbcmd |= EHCICMD_RUNSTOP;
-    while (!_is_ehci_running(edev));
-}
-
-static inline void
-_ehci_stop(struct ehci_host* edev)
-{
-    edev->op_regs->usbcmd |= EHCICMD_RUNSTOP;
-    while (_is_ehci_running(edev));
 }
 
 static void
@@ -135,28 +96,10 @@ void ehci_add_qhn_async(struct ehci_host *edev, struct QHn *qhn)
  * TODO: We only support interrupt endpoint at the moment, this function is
  * subject to change when we add isochronous endpoint support.
  */
-void ehci_add_qhn_periodic_part(struct ehci_host *edev, struct QHn *qhn)
-{
-    struct QHn *last_qhn;
-
-    /* Add new queue head to periodic queue */
-    if (edev->intn_list) {
-	    /* Find the last queue head */
-	    last_qhn = edev->intn_list;
-	    while (last_qhn->next) {
-		    last_qhn = last_qhn->next;
-	    }
-
-	    /* Add queue head to the list */
-	    last_qhn->next = qhn;
-	    last_qhn->qh->qhlptr = qhn->pqh | QHLP_TYPE_QH;
-    } else {
-	    edev->intn_list = qhn;
-    }
-}
-
 void ehci_add_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 {
+	struct QHn *last_qhn;
+
 	/* Allocate the frame list */
 	if (!edev->flist) {
 		/* XXX: The frame list size is default to 1024 */
@@ -174,17 +117,34 @@ void ehci_add_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 
 	/* Find an empty slot and insert the queue head */
 	for (int i = 0; i < edev->flist_size; i++) {
+		/*
+		 * FIXME: We disable an interrupt ep by setting the TDLP_INVALID
+		 * of the frame list, there is a race here.
+		 */
 		if (edev->flist[i] & TDLP_INVALID) {
 			edev->flist[i] = qhn->pqh | QHLP_TYPE_QH;
 		}
 	}
 
-	ehci_add_qhn_periodic_part(edev, qhn);
+
+	/* Add new queue head to the software queue */
+	if (edev->intn_list) {
+		/* Find the last queue head */
+		last_qhn = edev->intn_list;
+		while (last_qhn->next) {
+		    last_qhn = last_qhn->next;
+		}
+
+		/* Add queue head to the list */
+		last_qhn->next = qhn;
+		/* TODO: Do we really need this line? */
+		last_qhn->qh->qhlptr = qhn->pqh | QHLP_TYPE_QH;
+	} else {
+		edev->intn_list = qhn;
+	}
 }
 
-/* FIXME: new API*/
-int
-new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_port,
+int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_port,
                    enum usb_speed speed, struct endpoint *ep, struct xact* xact,
 		   int nxact, usb_cb_t cb, void* t)
 {
@@ -195,23 +155,12 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
     edev = _hcd_to_ehci(hdev);
     if (hub_addr == -1) {
         /* Send off to root handler... No need to create QHn */
-        if (ep->interval) {
+        if (ep->type == EP_INTERRUPT) {
             return ehci_schedule_periodic_root(edev, xact, nxact, cb, t);
         } else {
             return hubem_process_xact(edev->hubem, xact, nxact, cb, t);
         }
     }
-
-    print_xact(xact, nxact);
-//    if (ep->interval) {
-//    /* Create the QHn */
-//    qhn = qhn_new(edev, addr, hub_addr, hub_port, speed, ep->num, ep->max_pkt,
-//                  0, xact, nxact, cb, t);
-//    if (qhn == NULL) {
-//       return -1;
-//    }
-//    goto periodic;
-//    }
 
     qhn = (struct QHn*)ep->hcpriv;
     if (!qhn) {
@@ -241,49 +190,13 @@ new_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_p
     qhn->cb = cb;
     qhn->token = t;
     
-periodic:   dump_qhn(qhn);
     /* Send off over the bus */
-    if (ep->interval) {
-        return new_schedule_periodic(edev, qhn, ep->interval);
+    if (ep->type == EP_BULK || ep->type == EP_CONTROL) {
+        return ehci_schedule_async(edev, qhn);
     } else {
-        return new_schedule_async(edev, qhn);
+        return ehci_schedule_periodic(edev, qhn, ep->interval);
     }
 }
-
-//int
-//ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_port,
-//                   enum usb_speed speed, int ep, int max_pkt, int rate_ms,
-//                   int dt, struct xact* xact, int nxact, usb_cb_t cb, void* t)
-//{
-//    struct QHn *qhn;
-//    struct ehci_host* edev;
-//    usb_assert(hdev);
-//    edev = _hcd_to_ehci(hdev);
-//    if (hub_addr == -1) {
-//        /* Send off to root handler... No need to create QHn */
-//        if (rate_ms) {
-//            return ehci_schedule_periodic_root(edev, xact, nxact, cb, t);
-//        } else {
-//            return hubem_process_xact(edev->hubem, ep, xact, nxact, cb, t);
-//        }
-//    }
-//    /* Create the QHn */
-//    qhn = qhn_new(edev, addr, hub_addr, hub_port, speed, ep, max_pkt,
-//                  dt, xact, nxact, cb, t);
-//    if (qhn == NULL) {
-//        return -1;
-//    }
-//    /* Send off over the bus */
-//#ifdef  EHCI_TRAFFIC_DEBUG
-//    printf("%s schedule:\n", (rate_ms) ? "Periodic" : "Async");
-//    dump_qhn(qhn);
-//#endif
-//    if (rate_ms) {
-//        return ehci_schedule_periodic(edev, qhn, rate_ms);
-//    } else {
-//        return ehci_schedule_async(edev, qhn);
-//    }
-//}
 
 void
 ehci_handle_irq(usb_host_t* hdev)
@@ -384,7 +297,7 @@ ehci_host_init(usb_host_t* hdev, uintptr_t regs,
     edev->devid = hdev->id;
     edev->cap_regs = (volatile struct ehci_host_cap*)regs;
     edev->op_regs = (volatile struct ehci_host_op*)(regs + edev->cap_regs->caplength);
-    hdev->schedule_xact = new_schedule_xact;
+    hdev->schedule_xact = ehci_schedule_xact;
     hdev->cancel_xact = ehci_cancel_xact;
     hdev->handle_irq = ehci_handle_irq;
     edev->board_pwren = board_pwren;

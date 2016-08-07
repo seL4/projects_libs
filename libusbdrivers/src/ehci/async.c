@@ -80,12 +80,6 @@ qhn_get_status(struct QHn * qhn)
 }
 
 static inline int
-_qhn_is_active(struct QHn* qhn)
-{
-    return qhn->qh->td_overlay.token & TDTOK_SACTIVE;
-}
-
-static inline int
 qhn_get_bytes_remaining(struct QHn *qhn)
 {
     int sum = 0;
@@ -107,41 +101,6 @@ qhn_cb(struct QHn *qhn, enum usb_xact_status stat)
 /****************************
  **** Queue manipulation ****
  ****************************/
-
-int
-td_set_buf(volatile struct TD* td, uintptr_t buf, int len)
-{
-    int i = 0;
-    usb_assert(td);
-    /* Reset the length field in the TD */
-    td->token &= ~(TDTOK_BYTES_MASK | TDTOK_C_PAGE_MASK);
-    /* Fill the buffers */
-    if (len && buf) {
-        uintptr_t buf_end = buf + len;
-        /* Write the first buffer if we are not page aligned */
-        if (buf & 0xfff) {
-            td->buf[i++] = buf;
-            buf = (buf & ~0xfff) + 0x1000;
-        }
-        /* Write subsequent pages */
-        while (buf < buf_end) {
-            if (i >= sizeof(td->buf) / sizeof(*td->buf)) {
-                DBG_MEM("Out of TD buffer fields\n");
-                return -1;
-            } else {
-                td->buf[i++] = buf;
-                buf += 0x1000;
-            }
-        }
-        td->token |= TDTOK_BYTES(len);
-    }
-    /* Clear remaining buffers */
-    while (i < sizeof(td->buf) / sizeof(*td->buf)) {
-        td->buf[i++] = 0;
-    }
-    /* Done! */
-    return 0;
-}
 
 /*
  * TODO: The current data structure assumes one xact per TD, which means the
@@ -387,122 +346,6 @@ qtd_enqueue(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn)
 		qhn->qh->td_overlay.next = tdn->ptd;
 }
 
-struct QHn*
-qhn_new(struct ehci_host* edev, uint8_t address, uint8_t hub_addr,
-        uint8_t hub_port, enum usb_speed speed, int ep, int max_pkt,
-        int dt, struct xact* xact, int nxact, usb_cb_t cb, void* token) {
-    struct QHn *qhn;
-    volatile struct QH* qh;
-    volatile struct TD* prev_td;
-    int i;
-
-    assert(nxact >= 1);
-
-    /* Allocate book keeping node */
-    qhn = (struct QHn*)malloc(sizeof(*qhn));
-    assert(qhn);
-    qhn->ntdns = nxact;
-    qhn->rate = 0;
-    qhn->cb = cb;
-    qhn->token = token;
-    qhn->irq_pending = 0;
-    qhn->was_cancelled = 0;
-    qhn->owner_addr = address;
-    qhn->next = NULL;
-    /* Allocate QHead */
-    qhn->qh = ps_dma_alloc_pinned(edev->dman, sizeof(*qh), 32, 0, PS_MEM_NORMAL, &qhn->pqh);
-    assert(qhn->qh);
-    qh = qhn->qh;
-    /** Initialise QH **/
-    qh->qhlptr = QHLP_INVALID;
-    /* epc0 */
-    switch (speed) {
-    case USBSPEED_HIGH:
-        qh->epc[0] = QHEPC0_HSPEED;
-        break;
-    case USBSPEED_FULL:
-        qh->epc[0] = QHEPC0_FSPEED;
-        break;
-    case USBSPEED_LOW :
-        qh->epc[0] = QHEPC0_LSPEED;
-        break;
-    default:
-        usb_assert(0);
-    }
-    qh->epc[0] |= QHEPC0_MAXPKTLEN(max_pkt) | QHEPC0_ADDR(address) |
-                  QHEPC0_EP(ep) | QHEPC0_NAKCNT_RL(0x8);
-    qh->epc[0] |= QHEPC0_DTC;
-    if (xact[0].type == PID_SETUP && speed != USBSPEED_HIGH) {
-        qh->epc[0] |= QHEPC0_C;
-    }
-    /* epc1 */
-    qh->epc[1] = QHEPC1_HUB_ADDR(hub_addr) | QHEPC1_PORT(hub_port) | QHEPC1_MULT(1);
-    /* TD overlay */
-    qh->td_cur = TDLP_INVALID;
-
-    qh->td_overlay.token = 0;
-    qh->td_overlay.next = TDLP_INVALID;
-    qh->td_overlay.alt = TDLP_INVALID;
-
-    /* Initialise all TDs */
-    qhn->tdns = malloc(sizeof(*qhn->tdns) * qhn->ntdns);
-    usb_assert(qhn->tdns);
-    prev_td = &qh->td_overlay;
-    for (i = 0; i < qhn->ntdns; i++) {
-        /* Initialise TD */
-        struct TD* td;
-        uintptr_t ptd = 0;
-        int err;
-        td = ps_dma_alloc_pinned(edev->dman, sizeof(*td), 32, 0, PS_MEM_NORMAL, &ptd);
-        usb_assert(td);
-        td->next = TDLP_INVALID;
-        td->alt = TDLP_INVALID;
-        td->token = 0;
-        err = td_set_buf(td, xact_get_paddr(&xact[i]), xact[i].len);
-        usb_assert(!err);
-        /* Transfer type */
-        switch (xact[i].type) {
-        case PID_IN   :
-            td->token = TDTOK_PID_IN   ;
-            break;
-        case PID_OUT  :
-            td->token = TDTOK_PID_OUT  ;
-            break;
-        case PID_SETUP:
-            td->token = TDTOK_PID_SETUP;
-            break;
-        default:
-            usb_assert(0);
-        };
-        /* Data toggle */
-        if (xact[i].type == PID_SETUP) {
-            dt = 0;
-        }
-        if (dt++ & 1 || (xact[0].type == PID_SETUP && i == nxact - 1)) {
-            td->token |= TDTOK_DT;
-        }
-        /* etc */
-        td->token |= TDTOK_BYTES(xact[i].len) |
-                     TDTOK_C_ERR(3) |
-                     TDTOK_SACTIVE;
-        qhn->tdns[i].td = td;
-        qhn->tdns[i].ptd = ptd;
-        qhn->tdns[i].xact = xact[i];
-        /* Link the previous TD */
-        td->next = TDLP_INVALID;
-        prev_td->next = ptd;
-        prev_td = td;
-    }
-
-    /* Terminate the TD list and add IOC if requested */
-    prev_td->token |= (cb) ? TDTOK_IOC : 0;
-
-#if defined(DEBUG_DES)
-    dump_qhn(qhn);
-#endif
-    return qhn;
-}
-
 void
 qhn_destroy(ps_dma_man_t* dman, struct QHn* qhn)
 {
@@ -577,7 +420,7 @@ _async_complete(struct ehci_host* edev)
 
 /* TODO: Is it okay to use alist_tail and remove qhn */
 int
-new_schedule_async(struct ehci_host* edev, struct QHn* qhn)
+ehci_schedule_async(struct ehci_host* edev, struct QHn* qhn)
 {
 	/* Make sure we are safe to write to the register */
 	while (((edev->op_regs->usbsts & EHCISTS_ASYNC_EN) >> 15)
@@ -618,48 +461,8 @@ new_schedule_async(struct ehci_host* edev, struct QHn* qhn)
 
 	qhn->tdns = NULL;
 	qhn->ntdns = 0;
-//	dump_qhn(qhn);
+
 	return sum;
-}
-
-int
-ehci_schedule_async(struct ehci_host* edev, struct QHn* qh_new)
-{
-    struct QHn *qh_cur;
-    if (edev->alist_tail) {
-        /* Insert into list */
-        qh_cur = edev->alist_tail;
-        /* HeadNew.HorizontalPtr = pHeadCurrent.HorizontalPtr */
-        qh_new->qh->qhlptr = qh_cur->qh->qhlptr;
-        qh_new->next = qh_cur->next;
-        /* pHeadCurrent.HorizontalPointer = paddr(pQueueHeadNew) */
-        qh_cur->qh->qhlptr = qh_new->pqh | QHLP_TYPE_QH;
-        qh_cur->next = qh_new;
-    } else {
-        /* New list */
-        edev->alist_tail = qh_cur = qh_new;
-        qh_new->qh->epc[0] |= QHEPC0_H;
-        qh_new->qh->qhlptr = qh_new->pqh | QHLP_TYPE_QH;
-        qh_new->next = qh_new;
-        edev->op_regs->asynclistaddr = qh_new->pqh;
-    }
-
-    /* Enable the async schedule */
-    _enable_async(edev);
-
-    if (qh_new->cb == NULL) {
-        enum usb_xact_status stat;
-        uint32_t v;
-        /* Wait for TDs to be processed. */
-        stat = qhn_wait(qh_new, 3000);
-        v = qhn_get_bytes_remaining(qh_new);
-  //      _async_remove_next(edev, qh_cur);
-    dump_qhn(qh_new);
-        return (stat == XACTSTAT_SUCCESS) ? v : -1;
-    } else {
-        edev->alist_tail = qh_new;
-        return 0;
-    }
 }
 
 void
