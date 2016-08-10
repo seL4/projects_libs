@@ -182,7 +182,7 @@ int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t 
     }
 
     /* Allocate qTD */
-    tdn = qtd_alloc(edev, ep->num, speed, ep->max_pkt, xact, nxact);
+    tdn = qtd_alloc(edev, speed, ep, xact, nxact);
 
     /* Append qTD to the queue head */
     qtd_enqueue(edev, qhn, tdn);

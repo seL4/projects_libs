@@ -107,11 +107,11 @@ qhn_cb(struct QHn *qhn, enum usb_xact_status stat)
  * length of an xact can not exceed 20KB.
  */
 struct TDn*
-qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed, int max_pkt,
+qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 		struct xact *xact, int nxact)
 {
 	struct TDn *head_tdn, *prev_tdn, *tdn;
-	int buf_filled, cnt;
+	int buf_filled, cnt, total_bytes = 0;
 
 	assert(xact);
 	assert(nxact > 0);
@@ -133,12 +133,12 @@ qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed, int max_pkt,
 		}
 		tdn->td->alt = TDLP_INVALID;
 
-		/* TODO: Here we assume the control data payload never exceed
-		 * the maximum packet size. Fix this when switching to pass the
-		 * endpoint structure to this function.
-		 */
-		if (ep == 0 && xact[i].type != PID_SETUP) {
-			tdn->td->token = TDTOK_DT;
+		/* The Control endpoint manages its own data toggle */
+		if (ep->type == EP_CONTROL) {
+			if (ep->max_pkt & (ep->max_pkt + total_bytes - 1)) {
+				tdn->td->token = TDTOK_DT;
+			}
+			total_bytes += xact[i].len;
 		}
 		tdn->td->token |= TDTOK_BYTES(xact[i].len);
 		tdn->td->token |= TDTOK_C_ERR(0x3); //Maximize retries

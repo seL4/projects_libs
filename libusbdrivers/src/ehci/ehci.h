@@ -304,8 +304,8 @@ void check_doorbell(struct ehci_host* edev);
 /* New APIs */
 struct QHn* qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 	  uint8_t hub_port, enum usb_speed speed, struct endpoint *ep);
-struct TDn* qtd_alloc(struct ehci_host *edev, int ep, enum usb_speed speed,
-		int max_pkt, struct xact *xact, int nxact);
+struct TDn* qtd_alloc(struct ehci_host *edev, enum usb_speed speed,
+		struct endpoint *ep, struct xact *xact, int nxact);
 void qhn_update(struct QHn *qhn, uint8_t address, struct endpoint *ep);
 void qtd_enqueue(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn);
 
