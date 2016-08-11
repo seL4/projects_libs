@@ -406,6 +406,75 @@ usb_print_descriptor(struct anon_desc * desc, int index)
 }
 
 static void
+print_string_desc(struct string_desc *desc)
+{
+	assert(desc);
+
+	for (int i = 0; i < desc->bLength - 2; i++) {
+		printf("%c", desc->bString[i]);
+	}
+	printf("\n");
+}
+
+static void
+usb_get_string_desc(usb_dev_t udev, int index, struct string_desc *desc)
+{
+    int err;
+    int lang;
+    struct xact xact[2];
+    struct usbreq *req;
+    struct string_desc *sdesc;
+
+    if (index == 0) {
+	    return;
+    }
+
+    /* XXX: xact allocation relies on the xact.len */
+    xact[0].len = sizeof(struct usbreq);
+    xact[1].len = sizeof(struct string_desc);
+
+    /* Get memory for the request */
+    err = usb_alloc_xact(udev->dman, xact, sizeof(xact) / sizeof(struct xact));
+    if (err) {
+        USB_DBG(udev, "Not enough DMA memory!\n");
+        return;
+    }
+
+    /* Fill in the SETUP packet */
+    xact[0].type = PID_SETUP;
+    xact[1].type = PID_IN;
+    req = xact_get_vaddr(&xact[0]);
+    sdesc = (struct string_desc*)xact[1].vaddr;
+
+    /* Get language ID */
+    *req = __get_descriptor_req(STRING, 0, 0, sizeof(struct string_desc));
+    err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
+
+    if (err < 0) {
+       USB_DBG(udev, "USB request failed.\n");
+       usb_destroy_xact(udev->dman, xact, 2);
+       return;
+    }
+
+    lang = sdesc->bString[1] << 8 | sdesc->bString[0];
+
+    /* Get the string descriptor */
+    *req = __get_descriptor_req(STRING, index, lang, sizeof(struct string_desc));
+    err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
+
+    if (err < 0) {
+       USB_DBG(udev, "USB request failed.\n");
+       usb_destroy_xact(udev->dman, xact, 2);
+       return;
+    }
+
+    if (desc) {
+        memcpy(desc, sdesc, sdesc->bLength);
+    }
+    usb_destroy_xact(udev->dman, xact, 2);
+}
+
+static void
 print_dev(usb_dev_t d)
 {
     if (d) {
@@ -582,6 +651,7 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
     usb_dev_t udev = NULL;
     struct usbreq *req;
     struct device_desc* d_desc;
+    struct string_desc s_desc;
     struct xact xact[2];
     int addr = 0;
     int err;
@@ -695,8 +765,20 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
     udev->prod_id = d_desc->idProduct;
     udev->vend_id = d_desc->idVendor;
     udev->class   = d_desc->bDeviceClass;
-    USB_DBG(udev, "idProduct 0x%04x\n", udev->prod_id);
-    USB_DBG(udev, "idVendor  0x%04x\n", udev->vend_id);
+    USB_DBG(udev, "idVendor  0x%04x | ", udev->vend_id);
+    if (d_desc->iManufacturer) {
+        usb_get_string_desc(udev, d_desc->iManufacturer, &s_desc);
+        print_string_desc(&s_desc);
+    } else {
+        printf("\n");
+    }
+    USB_DBG(udev, "idProduct 0x%04x | ", udev->prod_id);
+    if (d_desc->iProduct) {
+        usb_get_string_desc(udev, d_desc->iProduct, &s_desc);
+        print_string_desc(&s_desc);
+    } else {
+        printf("\n");
+    }
 
     *d = udev;
     usb_destroy_xact(udev->dman, xact, sizeof(xact) / sizeof(*xact));
