@@ -112,6 +112,7 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 {
 	struct TDn *head_tdn, *prev_tdn, *tdn;
 	int buf_filled, cnt, total_bytes = 0;
+	int zero_len_pkt = 0;
 
 	assert(xact);
 	assert(nxact > 0);
@@ -138,7 +139,6 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 			if (ep->max_pkt & (ep->max_pkt + total_bytes - 1)) {
 				tdn->td->token = TDTOK_DT;
 			}
-			total_bytes += xact[i].len;
 		}
 		tdn->td->token |= TDTOK_BYTES(xact[i].len);
 		tdn->td->token |= TDTOK_C_ERR(0x3); //Maximize retries
@@ -146,12 +146,14 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 		switch (xact[i].type) {
 			case PID_SETUP:
 				tdn->td->token |= TDTOK_PID_SETUP;
+				zero_len_pkt = 1;
 				break;
 			case PID_IN:
 				tdn->td->token |= TDTOK_PID_IN;
 				break;
 			case PID_OUT:
 				tdn->td->token |= TDTOK_PID_OUT;
+				zero_len_pkt = 1;
 				break;
 			default:
 				assert("Invalid PID!\n");
@@ -177,10 +179,55 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 		}
 		assert(cnt <= 4); //We only have 5 page-sized buffers
 
+		/* Total data transferred */
+		total_bytes += xact[i].len;
+
 		if (prev_tdn) {
 			prev_tdn->next = tdn;
 		}
 		prev_tdn = tdn;
+	}
+
+	/*
+	 * Zero length packet
+	 * XXX: It is unclear that the exact condition of when the zero length
+	 * packet is required. The following implementation is partially based
+	 * on observation. According to USB 2.0 spec(5.5.3), a zero length
+	 * packet shouldn't be needed under some of the situations below, but
+	 * apparently, some devices don't always follow the spec.
+	 */
+	if (zero_len_pkt) {
+		/*
+		 * We only consider the DATA stage, so deduct the SETUP packet
+		 * size which is guaranteed to be 8 bytes.
+		 */
+		if (ep->type == EP_CONTROL) {
+			total_bytes -= 8;
+		}
+
+		if (total_bytes && !(total_bytes % ep->max_pkt)) {
+			/* Allocate TD for the zero length packet */
+			tdn = calloc(1, sizeof(struct TDn));
+
+			/* Allocate TD overlay */
+			tdn->td = ps_dma_alloc_pinned(edev->dman, sizeof(*tdn->td),
+					32, 0, PS_MEM_NORMAL, &tdn->ptd);
+			assert(tdn->td);
+			memset((void*)tdn->td, 0, sizeof(*tdn->td));
+
+			/* Fill in the TD */
+			tdn->td->alt = TDLP_INVALID;
+			tdn->td->token = TDTOK_C_ERR(0x3) | TDTOK_PID_OUT |TDTOK_SACTIVE;
+
+			/* Keep the data toggle */
+			if ((prev_tdn->td->token & TDTOK_DT)) {
+				tdn->td->token |= TDTOK_DT;
+			}
+
+			/* Add to the list */
+			prev_tdn->td->next = tdn->ptd;
+			prev_tdn->next = tdn;
+		}
 	}
 
 	/* Send IRQ when finished processing the last TD */
