@@ -112,7 +112,7 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 {
 	struct TDn *head_tdn, *prev_tdn, *tdn;
 	int buf_filled, cnt, total_bytes = 0;
-	int zero_len_pkt = 0;
+	int xact_stage = 0;
 
 	assert(xact);
 	assert(nxact > 0);
@@ -146,14 +146,15 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 		switch (xact[i].type) {
 			case PID_SETUP:
 				tdn->td->token |= TDTOK_PID_SETUP;
-				zero_len_pkt = 1;
+				xact_stage |= TDTOK_PID_SETUP;
 				break;
 			case PID_IN:
 				tdn->td->token |= TDTOK_PID_IN;
+				xact_stage |= TDTOK_PID_IN;
 				break;
 			case PID_OUT:
 				tdn->td->token |= TDTOK_PID_OUT;
-				zero_len_pkt = 1;
+				xact_stage |= TDTOK_PID_OUT;
 				break;
 			default:
 				assert("Invalid PID!\n");
@@ -196,38 +197,44 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 	 * packet shouldn't be needed under some of the situations below, but
 	 * apparently, some devices don't always follow the spec.
 	 */
-	if (zero_len_pkt) {
-		/*
-		 * We only consider the DATA stage, so deduct the SETUP packet
-		 * size which is guaranteed to be 8 bytes.
-		 */
-		if (ep->type == EP_CONTROL) {
-			total_bytes -= 8;
-		}
+	if (((xact_stage & TDTOK_PID_OUT) && !(total_bytes % ep->max_pkt)) ||
+			ep->type == EP_CONTROL) {
+		/* Allocate TD for the zero length packet */
+		tdn = calloc(1, sizeof(struct TDn));
 
-		if (total_bytes && !(total_bytes % ep->max_pkt)) {
-			/* Allocate TD for the zero length packet */
-			tdn = calloc(1, sizeof(struct TDn));
+		/* Allocate TD overlay */
+		tdn->td = ps_dma_alloc_pinned(edev->dman, sizeof(*tdn->td),
+				32, 0, PS_MEM_NORMAL, &tdn->ptd);
+		assert(tdn->td);
+		memset((void*)tdn->td, 0, sizeof(*tdn->td));
 
-			/* Allocate TD overlay */
-			tdn->td = ps_dma_alloc_pinned(edev->dman, sizeof(*tdn->td),
-					32, 0, PS_MEM_NORMAL, &tdn->ptd);
-			assert(tdn->td);
-			memset((void*)tdn->td, 0, sizeof(*tdn->td));
+		/* Fill in the TD */
+		tdn->td->alt = TDLP_INVALID;
+		tdn->td->token = TDTOK_C_ERR(0x3) | TDTOK_SACTIVE;
 
-			/* Fill in the TD */
-			tdn->td->alt = TDLP_INVALID;
-			tdn->td->token = TDTOK_C_ERR(0x3) | TDTOK_PID_OUT |TDTOK_SACTIVE;
-
-			/* Keep the data toggle */
-			if ((prev_tdn->td->token & TDTOK_DT)) {
-				tdn->td->token |= TDTOK_DT;
+		if (xact_stage & TDTOK_PID_SETUP) {
+			/* Flip the PID, if there is no data stage, then IN */
+			if (xact_stage & TDTOK_PID_IN) {
+				tdn->td->token |= TDTOK_PID_OUT;
+			} else {
+				tdn->td->token |= TDTOK_PID_IN;
 			}
 
-			/* Add to the list */
-			prev_tdn->td->next = tdn->ptd;
-			prev_tdn->next = tdn;
+			/* Force DATA1 */
+			tdn->td->token |= TDTOK_DT;
+		} else {
+			/* Bulk out transfer */
+			tdn->td->token |= TDTOK_PID_OUT;
+
+			/* XXX: Flip the data toggle? */
+			if (!(prev_tdn->td->token & TDTOK_DT)) {
+				tdn->td->token |= TDTOK_DT;
+			}
 		}
+
+		/* Add to the list */
+		prev_tdn->td->next = tdn->ptd;
+		prev_tdn->next = tdn;
 	}
 
 	/* Send IRQ when finished processing the last TD */

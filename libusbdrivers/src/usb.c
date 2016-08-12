@@ -746,11 +746,8 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
 
     /* Set the address */
     *req = __new_address_req(addr);
-    /* Is this the infamous 0 length status packet? */
-    xact[1].type = PID_IN;
-    xact[1].len = 0;
     USB_DBG(udev, "Setting address to %d\n", addr);
-    err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
+    err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 1, NULL, NULL);
     assert(err >= 0);
     /* Device has 2ms to start responding to new address */
     msdelay(2);
