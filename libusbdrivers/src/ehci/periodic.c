@@ -25,6 +25,58 @@ _qhn_deschedule(struct ehci_host* dev, struct QHn* qhn)
     }
 }
 
+/*
+ * TODO: We only support interrupt endpoint at the moment, this function is
+ * subject to change when we add isochronous endpoint support.
+ */
+void ehci_add_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
+{
+	struct QHn *last_qhn;
+
+	/* Allocate the frame list */
+	if (!edev->flist) {
+		/* XXX: The frame list size is default to 1024 */
+		edev->flist_size = 1024;
+		edev->flist = ps_dma_alloc_pinned(edev->dman,
+				edev->flist_size * sizeof(uint32_t*), 0x1000, 0,
+				PS_MEM_NORMAL, &edev->pflist);
+		usb_assert(edev->flist);
+
+		/* Mark all frames as disabled */
+		for (int i = 0; i < edev->flist_size; i++) {
+			edev->flist[i] = TDLP_INVALID;
+		}
+	}
+
+	/* Find an empty slot and insert the queue head */
+	for (int i = 0; i < edev->flist_size; i++) {
+		/*
+		 * FIXME: We disable an interrupt ep by setting the TDLP_INVALID
+		 * of the frame list, there is a race here.
+		 */
+		if (edev->flist[i] & TDLP_INVALID) {
+			edev->flist[i] = qhn->pqh | QHLP_TYPE_QH;
+			break;
+		}
+	}
+
+	/* Add new queue head to the software queue */
+	if (edev->intn_list) {
+		/* Find the last queue head */
+		last_qhn = edev->intn_list;
+		while (last_qhn->next) {
+		    last_qhn = last_qhn->next;
+		}
+
+		/* Add queue head to the list */
+		last_qhn->next = qhn;
+		/* TODO: Do we really need this line? */
+		last_qhn->qh->qhlptr = qhn->pqh | QHLP_TYPE_QH;
+	} else {
+		edev->intn_list = qhn;
+	}
+}
+
 int
 ehci_schedule_periodic_root(struct ehci_host* edev, struct xact *xact,
                             int nxact, usb_cb_t cb, void* t)
@@ -54,10 +106,8 @@ ehci_schedule_periodic(struct ehci_host* edev, struct QHn* qhn, int rate_ms)
 	while (((edev->op_regs->usbsts & EHCISTS_PERI_EN) >> 14)
 		^ ((edev->op_regs->usbcmd & EHCICMD_PERI_EN) >> 4));
 
-	/* If the async scheduling is already enabled, do nothing */
-	if (edev->op_regs->usbsts & EHCISTS_PERI_EN) {
-	} else {
-		/* Enable the async scheduling */
+	/* Enable the periodic schedule */
+	if (!(edev->op_regs->usbsts & EHCISTS_PERI_EN)) {
 		edev->op_regs->periodiclistbase= edev->pflist;
 
 		/* TODO: Check FRINDEX, FLIST_SIZE, IRQTHRES_MASK */

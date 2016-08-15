@@ -472,6 +472,26 @@ _async_complete(struct ehci_host* edev)
     }
 }
 
+void ehci_add_qhn_async(struct ehci_host *edev, struct QHn *qhn)
+{
+    /* Add new queue head to async queue */
+    if (edev->alist_tail) {
+	    /* Update the hardware queue */
+	    qhn->qh->qhlptr = edev->alist_tail->qh->qhlptr;
+	    edev->alist_tail->qh->qhlptr = qhn->pqh | QHLP_TYPE_QH;
+
+	    /* Update the Software queue */
+	    qhn->next = edev->alist_tail->next;
+	    edev->alist_tail->next = qhn;
+	    edev->alist_tail = qhn;
+    } else {
+	    edev->alist_tail = qhn;
+	    edev->alist_tail->next = qhn;
+
+	    qhn->qh->qhlptr = qhn->pqh | QHLP_TYPE_QH;
+    }
+}
+
 /* TODO: Is it okay to use alist_tail and remove qhn */
 int
 ehci_schedule_async(struct ehci_host* edev, struct QHn* qhn)
@@ -480,10 +500,8 @@ ehci_schedule_async(struct ehci_host* edev, struct QHn* qhn)
 	while (((edev->op_regs->usbsts & EHCISTS_ASYNC_EN) >> 15)
 		^ ((edev->op_regs->usbcmd & EHCICMD_ASYNC_EN) >> 5));
 
-	/* If the async scheduling is already enabled, do nothing */
-	if (edev->op_regs->usbsts & EHCISTS_ASYNC_EN) {
-	} else {
-		/* Enable the async scheduling */
+	/* Enable the async scheduling */
+	if (!(edev->op_regs->usbsts & EHCISTS_ASYNC_EN)) {
 		qhn->qh->epc[0] |= QHEPC0_H;
 		edev->op_regs->asynclistaddr = qhn->pqh;
 		edev->op_regs->usbcmd |= EHCICMD_ASYNC_EN;
