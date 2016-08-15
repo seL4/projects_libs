@@ -123,6 +123,7 @@ void ehci_add_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 		 */
 		if (edev->flist[i] & TDLP_INVALID) {
 			edev->flist[i] = qhn->pqh | QHLP_TYPE_QH;
+			break;
 		}
 	}
 
