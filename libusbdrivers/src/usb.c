@@ -585,7 +585,14 @@ parse_config(usb_dev_t udev, struct anon_desc *d, int tot_len,
     int err = 0;
     int cnt = 0;
 
+    /*
+     * FIXME: Not all devices report the total length of its descriptors
+     * correctly. We should always check the details of each descriptor.
+     */
     while (cur_len < tot_len) {
+        if (!d->bLength) {
+            break;
+        }
         /* Copy in for the sake of alignment */
         if (buf_len < d->bLength) {
             if (usrd) {
