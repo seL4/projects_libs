@@ -239,7 +239,7 @@ usbtty_setup_cb(usb_otg_t otg, void* token, struct usbreq* req)
         printf("Set interface\n");
         break;
     default:
-        printf("Unhandles request %d\n", req->bRequest);
+        printf("Unhandled request %d\n", req->bRequest);
     }
 }
 

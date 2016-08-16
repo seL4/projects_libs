@@ -283,7 +283,7 @@ int usb_init(enum usb_host_id id, ps_io_ops_t* ioops, usb_t* host);
  * This function is typically called by a HUB device when it
  * detects a new connection. The new device inherits the DMA
  * allocator of host device. On success, key device parameters
- * will have been cached and the device will have been ssigned
+ * will have been cached and the device will have been assigned
  * a new address on the bus.
  * @param[in] hub   The USB hub that the new device is connected
  *                  to.
@@ -336,7 +336,7 @@ enum usb_class usbdev_get_class(usb_dev_t dev);
 
 /**
  * Returns a string representation of the provided USB class code.
- * the string contains no leading or trailing whitespace and does
+ * the string contains no leading or trailing white space and does
  * not end in a new line character.
  * @param[in] usb_class the class id in question.
  * @return              a string representation of the USB class.

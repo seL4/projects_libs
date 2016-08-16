@@ -330,19 +330,19 @@ void dump_q(struct QHn* qhn);
 void dump_edev(struct ehci_host* edev);
 
 /**
- * Initialise a ehci host controller
+ * Initialise a EHCI host controller
  * @param[in/out] hdev        A host controller structure to
- *                            populate. Must be prefilled with a
+ *                            populate. Must be pre-filled with a
  *                            DMA allocator. This function will
  *                            fill the private data and function
  *                            pointers of this structure.
- * @param[in]     cap_regs    memory location of the mapped echi
+ * @param[in]     cap_regs    memory location of the mapped ECHI
  *                            capability registers
  * @param[int]    board_pwren Function to call when power on/off
  *                            a port. Generally the PHY will take
  *                            care of this, but in cases where there
  *                            is no PHY (HSIC), a GPIO, etc may need
- *                            to be manually contolled.
+ *                            to be manually controlled.
  * @return                    0 on success
  */
 int ehci_host_init(usb_host_t* hdev, uintptr_t cap_regs,

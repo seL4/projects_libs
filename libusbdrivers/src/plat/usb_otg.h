@@ -38,7 +38,7 @@ struct usb_otg_dev {
 
 /**
  * Initialise USB OTG controller
- * @param[in/out] odev   An otg structure to populate. This must
+ * @param[in/out] odev   An OTG structure to populate. This must
  *                       already be filled with a DMA allocator.
  *                       and the device ID.
  * @param[in]     ioops  a list of io operation functions.
@@ -51,11 +51,11 @@ int usb_plat_otg_init(usb_otg_t odev, ps_io_ops_t* ioops);
  * not be public.
  * Initialise a ehci OTG controller
  * @param[in/out] odev     A OTG controller structure to
- *                         populate. Must be prefilled with a
+ *                         populate. Must be pre-filled with a
  *                         DMA allocator. This function will
  *                         fill the private data and function
  *                         pointers of this structure.
- * @param[int]    cap_regs memory location of the mapped echi
+ * @param[int]    cap_regs memory location of the mapped ECHI
  *                         capability registers
  * @return                 0 on success
  */

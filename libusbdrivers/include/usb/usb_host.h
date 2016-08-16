@@ -76,7 +76,7 @@ enum usb_xact_status {
     XACTSTAT_CANCELLED,
 /// There was an error in processing the transaction
     XACTSTAT_ERROR,
-/// The host exibited a failure during the transaction.
+/// The host exhibited a failure during the transaction.
     XACTSTAT_HOSTERROR
 };
 
@@ -102,7 +102,7 @@ static inline uintptr_t xact_get_paddr(struct xact* xact)
 
 /** Callback type for asynchronous USB transactions
  * @param[in] token  An unmodified opaque token as passed to
- *                   the associated transacton request.
+ *                   the associated transaction request.
  * @param[in] stat   The status of the transaction.
  * @param[in] rbytes The number of bytes remaining in the transaction.
  *                   This value is generally 0 on successful transmission
@@ -161,7 +161,7 @@ struct usb_host {
  * @param[in] t        A token to pass, unmodified, to the provided callback
  *                     function on completion.
  * @return             Negative values represent failure, otherwise, the
- *                     number of bytes remaining to be transfered is returned.
+ *                     number of bytes remaining to be transferred is returned.
  */
 static inline int
 usb_hcd_schedule(usb_host_t* hdev, uint8_t addr, uint8_t hub_addr, uint8_t hub_port,

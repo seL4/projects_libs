@@ -422,7 +422,7 @@ clear_async_xact(struct ehci_host* edev, void* token)
     /* Clear from the async list. */
     if (edev->alist_tail) {
         struct QHn *prev, *cur, *tail;
-        /* We cache the tail due to distructive updated within the loop */
+        /* We cache the tail due to destructive updated within the loop */
         prev = tail = edev->alist_tail;
         do {
             cur = prev->next;
@@ -569,7 +569,7 @@ _async_remove_next(struct ehci_host* edev, struct QHn* prev)
         edev->alist_tail = NULL;
         edev->op_regs->asynclistaddr = 0;
     } else {
-        /* Remove single node from asynch schedule */
+        /* Remove single node from async schedule */
         /* If we are removing the "Head", reassign it */
         if (q->qh->epc[0] & QHEPC0_H) {
             q->next->qh->epc[0] |= QHEPC0_H;

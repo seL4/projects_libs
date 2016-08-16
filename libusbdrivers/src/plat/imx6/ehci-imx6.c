@@ -286,7 +286,7 @@ phy_enable(int devid, ps_io_ops_t* o)
 
     if (phy_regs) {
         if (clk == NULL) {
-            LOG_ERROR("Failed to initialise USB phy clock\n");
+            LOG_ERROR("Failed to initialise USB PHY clock\n");
         }
         /* Enable clocks */
         phy_regs->ctrl.clr = PHYCTRL_CLKGATE;
@@ -323,12 +323,12 @@ imx6_usb_generic_init(int id, ps_io_ops_t* ioops)
     hc_regs = (struct usb_host_regs*)_usb_regs + id;
     hc_ctrl = &_usb_regs->otg_ctrl + id;
 
-    /* Reset the ehci controller */
+    /* Reset the EHCI controller */
     hc_regs->usbcmd |= EHCICMD_HCRESET;
-    /* Disable overcurrent */
+    /* Disable over-current */
     *hc_ctrl |= USBCTRL_OVER_CUR_POL;
     *hc_ctrl |= USBCTRL_OVER_CUR_DIS;
-    /* Enable the phy */
+    /* Enable the PHY */
     phy_enable(id, ioops);
     return 0;
 }
@@ -353,7 +353,7 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* ioops, usb_host_t* hdev)
         assert(0);
         return -1;
     }
-    /* Pass control to ehci initialisation */
+    /* Pass control to EHCI initialisation */
     hc_regs = (struct usb_host_regs*)_usb_regs + hdev->id;
     hc_regs->usbmode = USBMODE_HOST;
     err = ehci_host_init(hdev, (uintptr_t)&hc_regs->caplength, NULL);

@@ -891,7 +891,7 @@ lan9730_init(struct netif* netif)
     netif->linkoutput = lan9730_linkoutput;
 
     NETIF_INIT_SNMP(netif, snmp_ifType_ethernet_csmacd,
-                    100000000 /* TODO Stop hardcoding Mbps */);
+                    100000000 /* TODO Stop hard-coding Mbps */);
 
     netif->flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP |
                    NETIF_FLAG_LINK_UP;

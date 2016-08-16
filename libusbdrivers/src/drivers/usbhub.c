@@ -351,7 +351,7 @@ _handle_port_change(usb_hub_t h, int port)
                     ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
                                                xact, 1, NULL, NULL);
                     assert(ret >= 0);
-                    printf("SCheduled!\n");
+                    printf("Scheduled!\n");
                     return _handle_port_change(h, port);
                 } else {
                     h->port[port - 1].udev = new_dev;

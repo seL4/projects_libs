@@ -292,7 +292,7 @@ kbd_irq_handler(void* token, enum usb_xact_status stat, int bytes_remaining)
 
     /* Check the status */
     if (stat != XACTSTAT_SUCCESS) {
-        KBD_DBG(kbd, "Received unsucessful IRQ\n");
+        KBD_DBG(kbd, "Received unsuccessful IRQ\n");
         return 1;
     }
     len = kbd->int_xact->len - bytes_remaining;
@@ -310,7 +310,7 @@ kbd_irq_handler(void* token, enum usb_xact_status stat, int bytes_remaining)
     }
 #endif
 
-    /* Multiple keypress. Ignore input */
+    /* Multiple key press. Ignore input */
     if (kbd->new_keys[3] != KBDKEY_NONE) {
         kbd->new_keys[2] = kbd->old_keys[2] = KBDKEY_NONE;
     }

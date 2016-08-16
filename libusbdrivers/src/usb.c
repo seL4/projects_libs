@@ -83,7 +83,7 @@ usb_class_get_description(enum usb_class usb_class)
     case 0xFE:
         return "Application specific";
     case 0xFF:
-        return "ventor specific";
+        return "Vendor specific";
     default:
         return CLASS_RESERVED_STR;
     }
@@ -812,7 +812,7 @@ usb_init(enum usb_host_id id, ps_io_ops_t* ioops, usb_t* host)
     usb_dev_t  udev;
     int err;
 
-    /* Prefill the host structure */
+    /* Pre-fill the host structure */
     devlist_init(host);
 
     err = usb_host_init(id, ioops, &host->hdev);
