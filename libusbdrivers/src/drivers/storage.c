@@ -132,6 +132,7 @@ usb_storage_config_cb(void* token, int cfg, int iface, struct anon_desc* desc)
         case CONFIGURATION:
             cdesc = (struct config_desc*)desc;
 	    ubms->config = cdesc->bConfigurationValue;
+	    break;
         case INTERFACE:
             idesc = (struct iface_desc*)desc;
             ubms->udev->class = idesc->bInterfaceClass;
