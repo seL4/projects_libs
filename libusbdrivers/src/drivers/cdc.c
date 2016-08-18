@@ -88,7 +88,7 @@ enum usb_cdc_inf_class {
 struct usb_cdc_device {
 	usb_dev_t udev;	  //The handle to the underlying USB device
 	uint8_t subclass; //Subclass code
-	uint8_t protocol; //Protocol code
+	uint8_t config;   //Active configuration
 	uint8_t comm;     //Communication interface index
 	uint8_t data;     //Data interface index
 	struct endpoint *ep_int; //Interrupt endpoint
@@ -100,6 +100,7 @@ static int
 usb_cdc_config_cb(void *token, int cfg, int iface, struct anon_desc *desc)
 {
 	struct usb_cdc_device *cdc;
+	struct config_desc *cdesc;
 	struct iface_desc *idesc;
 	struct func_desc *fdesc;
 
@@ -110,11 +111,14 @@ usb_cdc_config_cb(void *token, int cfg, int iface, struct anon_desc *desc)
 	cdc = (struct usb_cdc_device *)token;
 
 	switch (desc->bDescriptorType) {
+	case CONFIGURATION:
+		cdesc = (struct config_desc*)desc;
+		cdc->config = cdesc->bConfigurationValue;
+		break;
 	case INTERFACE:
 		idesc = (struct iface_desc *)desc;
 		cdc->udev->class = idesc->bInterfaceClass;
 		cdc->subclass = idesc->bInterfaceSubClass;
-		cdc->protocol = idesc->bInterfaceProtocol;
 		if (cdc->udev->class == INF_COMM && cdc->subclass < 0xd) {
 			cdc->comm = idesc->bInterfaceNumber;
 			CDC_DBG("Communication Interface\n");
@@ -147,6 +151,8 @@ int usb_cdc_bind(usb_dev_t udev)
 {
 	int err;
 	struct usb_cdc_device *cdc;
+	struct xact xact;
+	struct usbreq *req;
 	int class;
 
 	assert(udev);
@@ -185,8 +191,22 @@ int usb_cdc_bind(usb_dev_t udev)
 		return -1;
 	}
 
-	CDC_DBG("USB CDC found, subclass(%x, %x)\n", cdc->subclass,
-		cdc->protocol);
+	CDC_DBG("USB CDC found, subclass(%x)\n", cdc->subclass);
+
+	/* Activate configuration */
+	xact.len = sizeof(struct usbreq);
+	err = usb_alloc_xact(udev->dman, &xact, 1);
+	assert(!err);
+
+	/* Fill in the request */
+	xact.type = PID_SETUP;
+	req = xact_get_vaddr(&xact);
+	*req = __set_configuration_req(cdc->config);
+
+	/* Send the request to the host */
+	err = usbdev_schedule_xact(udev, udev->ep_ctrl, &xact, 1, NULL, NULL);
+	assert(!err);
+	usb_destroy_xact(udev->dman, &xact, 1);
 
 	return 0;
 }
@@ -204,7 +224,7 @@ usb_cdc_mgmt_msg(struct usb_cdc_device *cdc, uint8_t req_type,
 	msg[0].len = sizeof(struct usbreq);
 	msg[1].len = len;
 	err = usb_alloc_xact(cdc->udev->dman, msg, 2);
-	assert(err);
+	assert(!err);
 
 	/* Management element request */
 	msg[0].type = PID_SETUP;
