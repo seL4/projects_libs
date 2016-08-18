@@ -86,23 +86,22 @@ enum usb_cdc_inf_class {
 
 /* USB Communication Device */
 struct usb_cdc_device {
-	usb_dev_t udev;		//The handle to the underlying USB device
-	unsigned int subclass;	//Subclass code
-	unsigned int protocol;	//Protocol code
-	unsigned int ep_int;	//Interrupt endpoint
-	unsigned int ep_in;	//BULK in endpoint
-	unsigned int ep_out;	//BULK out endpoint
+	usb_dev_t udev;	  //The handle to the underlying USB device
+	uint8_t subclass; //Subclass code
+	uint8_t protocol; //Protocol code
+	uint8_t comm;     //Communication interface index
+	uint8_t data;     //Data interface index
+	struct endpoint *ep_int; //Interrupt endpoint
+	struct endpoint *ep_in;	 //BULK in endpoint
+	struct endpoint *ep_out; //BULK out endpoint
 };
 
 static int
 usb_cdc_config_cb(void *token, int cfg, int iface, struct anon_desc *desc)
 {
 	struct usb_cdc_device *cdc;
-	struct config_desc *cdesc;
 	struct iface_desc *idesc;
 	struct func_desc *fdesc;
-	struct endpoint_desc *edsc;
-	struct endpoint *ep;
 
 	if (!desc) {
 		return 0;
@@ -117,11 +116,13 @@ usb_cdc_config_cb(void *token, int cfg, int iface, struct anon_desc *desc)
 		cdc->subclass = idesc->bInterfaceSubClass;
 		cdc->protocol = idesc->bInterfaceProtocol;
 		if (cdc->udev->class == INF_COMM && cdc->subclass < 0xd) {
+			cdc->comm = idesc->bInterfaceNumber;
 			CDC_DBG("Communication Interface\n");
 			if (cdc->subclass < 0xd) {
 				CDC_DBG("  |-- %s\n", subclass_codes[cdc->subclass]);
 			}
 		} else if (cdc->udev->class == INF_DATA) {
+			cdc->data = idesc->bInterfaceNumber;
 			CDC_DBG("Data Interface\n");
 		}
 		break;
@@ -157,7 +158,7 @@ int usb_cdc_bind(usb_dev_t udev)
 	}
 
 	cdc->udev = udev;
-	udev->dev_data = cdc;
+	udev->dev_data = (struct udev_priv*)cdc;
 
 	/* Parse the descriptors */
 	err = usbdev_parse_config(udev, usb_cdc_config_cb, cdc);
@@ -167,19 +168,19 @@ int usb_cdc_bind(usb_dev_t udev)
 	for (int i = 0; udev->ep[i] != NULL; i++) {
 		if (udev->ep[i]->type == EP_BULK) {
 			if (udev->ep[i]->dir == EP_DIR_OUT) {
-				cdc->ep_out = i;
+				cdc->ep_out = udev->ep[i];
 			} else {
-				cdc->ep_in = i;
+				cdc->ep_in = udev->ep[i];
 			}
 		} else if (udev->ep[i]->type == EP_INTERRUPT) {
-			cdc->ep_int = i;
+			cdc->ep_int = udev->ep[i];
 		} else {
 			continue;
 		}
 	}
 
 	class = usbdev_get_class(udev);
-	if (class != USB_CLASS_STORAGE) {
+	if (class != USB_CLASS_COMM) {
 		CDC_DBG("Not a CDC device(%d)\n", class);
 		return -1;
 	}
@@ -188,5 +189,131 @@ int usb_cdc_bind(usb_dev_t udev)
 		cdc->protocol);
 
 	return 0;
+}
+
+static void
+usb_cdc_mgmt_msg(struct usb_cdc_device *cdc, uint8_t req_type,
+		enum cdc_req_code code, int value, void *buf, int len)
+{
+	int err;
+	struct usbreq *req;
+	struct xact msg[2];
+	int cnt;
+
+	/* Allocate xact */
+	msg[0].len = sizeof(struct usbreq);
+	msg[1].len = len;
+	err = usb_alloc_xact(cdc->udev->dman, msg, 2);
+	assert(err);
+
+	/* Management element request */
+	msg[0].type = PID_SETUP;
+	req = xact_get_vaddr(&msg[0]);
+	req->bmRequestType = req_type;
+	req->bRequest = code;
+	req->wValue = value;
+	req->wIndex = cdc->comm;
+	req->wLength = len;
+	cnt = 1;
+
+	/* Data stage */
+	if (len > 0) {
+		if (req_type & USB_DIR_IN) {
+			msg[1].type = PID_IN;
+		} else {
+			msg[1].type = PID_OUT;
+		}
+		memcpy(xact_get_vaddr(&msg[1]), buf, len);
+		cnt++;
+	}
+
+	/* Send to the host */
+	err = usbdev_schedule_xact(cdc->udev, cdc->udev->ep_ctrl,
+			msg, cnt, NULL, NULL);
+
+	/* Copy out */
+	if (len > 0 && msg[1].type == PID_IN) {
+		memcpy(xact_get_vaddr(&msg[1]), buf, len);
+	}
+
+	/* Cleanup */
+	usb_destroy_xact(cdc->udev->dman, msg, 2);
+}
+
+/* Communication Device Class Requests */
+void cdc_send_encap_cmd(usb_dev_t udev, void *buf, int len)
+{
+	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
+
+	usb_cdc_mgmt_msg(cdc, USB_DIR_OUT | USB_TYPE_CLS | USB_RCPT_INTERFACE,
+			SEND_ENCAPSULATED_COMMAND, 0, buf, len);
+}
+
+void cdc_get_encap_resp(usb_dev_t udev, void *buf, int len)
+{
+	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
+
+	usb_cdc_mgmt_msg(cdc, USB_DIR_IN | USB_TYPE_CLS | USB_RCPT_INTERFACE,
+			GET_ENCAPSULATED_RESPONSE, 0, buf, len);
+}
+
+/* PSTN - Abstract Control Model Requests */
+void acm_set_comm_feature(usb_dev_t udev, enum acm_comm_feature f,
+		uint16_t state)
+{
+	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
+
+	usb_cdc_mgmt_msg(cdc, USB_DIR_OUT | USB_TYPE_CLS | USB_RCPT_INTERFACE,
+			SET_COMM_FEATURE, f, &state, 2);
+}
+
+uint16_t acm_get_comm_feature(usb_dev_t udev, enum acm_comm_feature f)
+{
+	uint16_t state;
+	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
+
+	usb_cdc_mgmt_msg(cdc, USB_DIR_OUT | USB_TYPE_CLS | USB_RCPT_INTERFACE,
+			GET_COMM_FEATURE, f, &state, 2);
+	return state;
+}
+
+void acm_clear_comm_feature(usb_dev_t udev, enum acm_comm_feature f)
+{
+	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
+
+	usb_cdc_mgmt_msg(cdc, USB_DIR_OUT | USB_TYPE_CLS | USB_RCPT_INTERFACE,
+			CLEAR_COMM_FEATURE, f, NULL, 0);
+}
+
+void acm_set_line_coding(usb_dev_t udev, struct acm_line_coding *coding)
+{
+	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
+
+	usb_cdc_mgmt_msg(cdc, USB_DIR_OUT | USB_TYPE_CLS | USB_RCPT_INTERFACE,
+			SET_LINE_CODING, 0, coding, sizeof(*coding));
+}
+
+void acm_get_line_coding(usb_dev_t udev, struct acm_line_coding *coding)
+{
+	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
+
+	usb_cdc_mgmt_msg(cdc, USB_DIR_IN | USB_TYPE_CLS | USB_RCPT_INTERFACE,
+			GET_LINE_CODING, 0, coding, sizeof(*coding));
+}
+
+void acm_set_ctrl_line_state(usb_dev_t udev, uint8_t ctrl)
+{
+	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
+
+	usb_cdc_mgmt_msg(cdc, USB_DIR_OUT | USB_TYPE_CLS | USB_RCPT_INTERFACE,
+			SET_CONTROL_LINE_STATE, ctrl, NULL, 0);
+}
+
+void acm_send_break(usb_dev_t udev, uint16_t us)
+{
+	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
+
+	usb_cdc_mgmt_msg(cdc, USB_DIR_OUT | USB_TYPE_CLS | USB_RCPT_INTERFACE,
+			SEND_BREAK, us, NULL, 0);
 }
 

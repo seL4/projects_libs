@@ -91,7 +91,7 @@ struct usb_dev {
      * control endpoint is separate and is shared by all interfaces.
      */
     struct endpoint *ep_ctrl;         // Control endpoint of the device
-    struct endpoint *ep[USB_MAX_EPS]; // In endpoint of the device
+    struct endpoint *ep[USB_MAX_EPS]; // The endpoints of the device
 
     /* For device lists */
     struct usb_dev      *next;
