@@ -309,7 +309,7 @@ static inline struct usb_eth * netif_get_eth_driver(struct netif* netif) {
 static inline struct usbreq
 __clear_ep_feature_req(uint16_t ep, uint16_t feature) {
     struct usbreq r = {
-        .bmRequestType = 0b00100011,
+        .bmRequestType = (USB_DIR_OUT | USB_TYPE_CLASS | USB_RCPT_OTHER),
         .bRequest      = CLR_FEATURE,
         .wValue        = feature,
         .wIndex        = ep,
@@ -333,7 +333,7 @@ __clear_epstall(uint16_t ep) {
 static inline struct usbreq
 __get_status_req(uint16_t ep) {
     struct usbreq r = {
-        .bmRequestType = 0b10000000,
+        .bmRequestType = (USB_DIR_IN | USB_TYPE_STD | USB_RCPT_DEVICE),
         .bRequest      = GET_STATUS,
         .wValue        = 0,
         .wIndex        = ep,
@@ -341,7 +341,7 @@ __get_status_req(uint16_t ep) {
     };
     if (ep != 0) {
         /* Endpoint request type */
-        r.bmRequestType |= BIT(1);
+        r.bmRequestType |= USB_RCPT_ENDPOINT;
     }
     if (ep & 0x1) {
         /* Direction */
@@ -353,7 +353,7 @@ __get_status_req(uint16_t ep) {
 static inline struct usbreq
 __reg_write_req(uint16_t addr) {
     struct usbreq r = {
-        .bmRequestType = 0x40,
+        .bmRequestType = (USB_DIR_OUT | USB_TYPE_VEN | USB_RCPT_DEVICE),
         .bRequest      = 0xA0,
         .wValue        = 0,
         .wIndex        = addr,
@@ -366,7 +366,7 @@ __reg_write_req(uint16_t addr) {
 static inline struct usbreq
 __reg_read_req(uint16_t addr) {
     struct usbreq r = {
-        .bmRequestType = 0xC0,
+        .bmRequestType = (USB_DIR_IN | USB_TYPE_VEN | USB_RCPT_DEVICE),
         .bRequest      = 0xA1,
         .wValue        = 0,
         .wIndex        = addr,

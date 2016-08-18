@@ -101,6 +101,21 @@ struct usb_dev {
  * USB requests
  */
 
+/* Data transfer direction, bit 7 of bmRequestType */
+#define USB_DIR_OUT          0
+#define USB_DIR_IN           BIT(7)
+
+/* Request type, bit 6-5 of bmRequestType */
+#define USB_TYPE_STD         (0 * BIT(5))
+#define USB_TYPE_CLS         (1 * BIT(5))
+#define USB_TYPE_VEN         (2 * BIT(5))
+
+/* Request recipient, bit 4-0 of bmRequestType */
+#define USB_RCPT_DEVICE      0
+#define USB_RCPT_INTERFACE   1
+#define USB_RCPT_ENDPOINT    2
+#define USB_RCPT_OTHER       3
+
 /* bRequest */
 enum Request {
     GET_STATUS        = 0,
@@ -234,7 +249,7 @@ struct hid_desc {
 static inline struct usbreq
 __get_descriptor_req(enum DescriptorType t, int value, int index, int size) {
     struct usbreq r = {
-        .bmRequestType = 0b10000000,
+        .bmRequestType = (USB_DIR_IN | USB_TYPE_STD | USB_RCPT_DEVICE),
         .bRequest      = GET_DESCRIPTOR,
         .wValue        = (t << 8) + value,
         .wIndex        = index,
@@ -246,7 +261,7 @@ __get_descriptor_req(enum DescriptorType t, int value, int index, int size) {
 static inline struct usbreq
 __set_configuration_req(int index) {
     struct usbreq r = {
-        .bmRequestType = 0b00000000,
+        .bmRequestType = (USB_DIR_OUT | USB_TYPE_STD | USB_RCPT_DEVICE),
         .bRequest      = SET_CONFIGURATION,
         .wValue        = index,
         .wIndex        = 0,
@@ -258,7 +273,7 @@ __set_configuration_req(int index) {
 static inline struct usbreq
 __set_interface_req(int index) {
     struct usbreq r = {
-        .bmRequestType = 0b00000001,
+        .bmRequestType = (USB_DIR_OUT | USB_TYPE_STD | USB_RCPT_INTERFACE),
         .bRequest      = SET_INTERFACE,
         .wValue        = 0,
         .wIndex        = index,

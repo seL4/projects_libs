@@ -76,7 +76,7 @@ enum hid_ReportType {
 static inline struct usbreq
 __set_protocol_req(enum kbd_protocol p, int iface) {
     struct usbreq r = {
-        .bmRequestType = 0b10100001,
+        .bmRequestType = (USB_DIR_IN | USB_TYPE_CLS | USB_RCPT_INTERFACE),
         .bRequest      = SET_PROTOCOL,
         .wValue        = p,
         .wIndex        = iface,
@@ -88,7 +88,7 @@ __set_protocol_req(enum kbd_protocol p, int iface) {
 static inline struct usbreq
 __set_idle_req(int idle_ms, int iface) {
     struct usbreq r = {
-        .bmRequestType = 0b00100001,
+        .bmRequestType = (USB_DIR_OUT | USB_TYPE_CLS | USB_RCPT_INTERFACE),
         .bRequest      = SET_IDLE,
         .wValue        = idle_ms << 8,
         .wIndex        = iface,
@@ -101,7 +101,7 @@ __set_idle_req(int idle_ms, int iface) {
 static inline struct usbreq
 __get_report(enum hid_ReportType type, int id, int iface, int len) {
     struct usbreq r = {
-        .bmRequestType = 0b10100001,
+        .bmRequestType = (USB_DIR_IN | USB_TYPE_CLS | USB_RCPT_INTERFACE),
         .bRequest      = GET_REPORT,
         .wValue        = type << 8 | id,
         .wIndex        = iface,
@@ -113,7 +113,7 @@ __get_report(enum hid_ReportType type, int id, int iface, int len) {
 static inline struct usbreq
 __set_report(enum hid_ReportType type, int id, int iface, int len) {
     struct usbreq r = {
-        .bmRequestType = 0b00100001,
+        .bmRequestType = (USB_DIR_OUT | USB_TYPE_CLS | USB_RCPT_INTERFACE),
         .bRequest      = SET_REPORT,
         .wValue        = type << 8 | id,
         .wIndex        = iface,

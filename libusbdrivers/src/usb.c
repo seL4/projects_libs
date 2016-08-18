@@ -96,7 +96,7 @@ usb_class_get_description(enum usb_class usb_class)
 static inline struct usbreq
 __new_desc_req(enum DescriptorType t, int size) {
     struct usbreq r = {
-        .bmRequestType = 0b10000000,
+        .bmRequestType = (USB_DIR_IN | USB_TYPE_STD | USB_RCPT_DEVICE),
         .bRequest      = GET_DESCRIPTOR,
         .wValue        = t << 8,
         .wIndex        = 0,
@@ -108,7 +108,7 @@ __new_desc_req(enum DescriptorType t, int size) {
 static inline struct usbreq
 __new_address_req(int addr) {
     struct usbreq r = {
-        .bmRequestType = 0b00000000,
+        .bmRequestType = (USB_DIR_OUT | USB_TYPE_STD | USB_RCPT_DEVICE),
         .bRequest      = SET_ADDRESS,
         .wValue        = addr,
         .wIndex        = 0,

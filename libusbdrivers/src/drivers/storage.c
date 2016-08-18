@@ -73,7 +73,7 @@ static inline struct usbreq
 __get_reset_req(int interface)
 {
     struct usbreq r = {
-        .bmRequestType = 0b00100001,
+        .bmRequestType = (USB_DIR_OUT | USB_TYPE_CLS | USB_RCPT_INTERFACE),
         .bRequest      = 0b11111111,
         .wValue        = 0,
         .wIndex        = interface,
@@ -86,7 +86,7 @@ static inline struct usbreq
 __get_max_lun_req(int interface)
 {
     struct usbreq r = {
-        .bmRequestType = 0b10100001,
+        .bmRequestType = (USB_DIR_IN | USB_TYPE_CLS | USB_RCPT_INTERFACE),
         .bRequest      = 0b11111110,
         .wValue        = 0,
         .wIndex        = interface,
