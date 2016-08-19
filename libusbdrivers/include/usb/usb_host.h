@@ -80,6 +80,8 @@ enum usb_xact_status {
     XACTSTAT_HOSTERROR
 };
 
+/* TODO: The xact size has to meet the QTD limitation at the moment */
+#define MAX_XACT_SIZE  (5 * PAGE_SIZE_4K)
 struct xact {
 /// Transfer type
     enum usb_xact_type type;

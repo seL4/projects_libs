@@ -211,6 +211,96 @@ int usb_cdc_bind(usb_dev_t udev)
 	return 0;
 }
 
+int usb_cdc_read(usb_dev_t udev, void *buf, int len)
+{
+	int err;
+	int cnt;
+	int received;
+	struct usb_cdc_device *cdc;
+	struct xact *xact;
+
+	cdc = (struct usb_cdc_device*)udev->dev_data;
+
+	/* Xact needs to be virtually contiguous */
+	cnt = ROUND_UP(len, MAX_XACT_SIZE) / MAX_XACT_SIZE;
+
+	xact = usb_malloc(sizeof(struct xact) * cnt);
+
+	/* Fill in the length of each xact */
+	for (int i = 0; i < cnt; i++) {
+		xact[i].type = PID_IN;
+		xact[i].len = len < MAX_XACT_SIZE ? len : MAX_XACT_SIZE;
+		len -= xact[i].len;
+	}
+
+	/* DMA allocation */
+	err = usb_alloc_xact(udev->dman, xact, cnt);
+	assert(!err);
+
+	/* Send to the host */
+	err = usbdev_schedule_xact(udev, cdc->ep_in, xact, cnt, NULL, NULL);
+	assert(!err);
+
+	/* Copy out the received data */
+	received = 0;
+	for (int i = 0; i < cnt; i++) {
+		memcpy((char*)buf + received, xact_get_vaddr(&xact[i]), xact[i].len);
+		received += xact[i].len;
+	}
+
+	/* Cleanup */
+	usb_destroy_xact(udev->dman, xact, cnt);
+
+	usb_free(xact);
+
+	return received;
+}
+
+int usb_cdc_write(usb_dev_t udev, void *buf, int len)
+{
+	int err;
+	int cnt;
+	int offset;
+	struct usb_cdc_device *cdc;
+	struct xact *xact;
+
+	cdc = (struct usb_cdc_device*)udev->dev_data;
+
+	/* Xact needs to be virtually contiguous */
+	cnt = ROUND_UP(len, MAX_XACT_SIZE) / MAX_XACT_SIZE;
+
+	xact = usb_malloc(sizeof(struct xact) * cnt);
+
+	/* Fill in the length of each xact */
+	for (int i = 0; i < cnt; i++) {
+		xact[i].type = PID_OUT;
+		xact[i].len = len < MAX_XACT_SIZE ? len : MAX_XACT_SIZE;
+		len -= xact[i].len;
+	}
+
+	/* DMA allocation */
+	err = usb_alloc_xact(udev->dman, xact, cnt);
+	assert(!err);
+
+	/* Copy in */
+	offset = 0;
+	for (int i = 0; i < cnt; i++) {
+		memcpy(xact_get_vaddr(&xact[i]), (char*)buf + offset, xact[i].len);
+		offset += xact[i].len;
+	}
+
+	/* Send to the host */
+	err = usbdev_schedule_xact(udev, cdc->ep_out, xact, cnt, NULL, NULL);
+	assert(!err);
+
+	/* Cleanup */
+	usb_destroy_xact(udev->dman, xact, cnt);
+
+	usb_free(xact);
+
+	return len;
+}
+
 static void
 usb_cdc_mgmt_msg(struct usb_cdc_device *cdc, uint8_t req_type,
 		enum cdc_req_code code, int value, void *buf, int len)
