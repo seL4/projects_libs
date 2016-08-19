@@ -104,45 +104,5 @@ struct union_desc {
     uint8_t bSubordinateInterface[0];
 } __attribute__ ((packed));
 
-/*---------------------------------------------------------------*/
-
-/* Communication Device Class Requests */
-void cdc_send_encap_cmd(usb_dev_t udev, void *buf, int len);
-void cdc_get_encap_resp(usb_dev_t udev, void *buf, int len);
-
-/*---------------------------------------------------------------*/
-
-/* PSTN - Abstract Control Model (PSTN spec 6.2.2) */
-#define ACM_CTRL_DTR  0x1
-#define ACM_CTRL_RTS  0x2
-
-enum acm_comm_feature {
-	ABSTRACT_STATE  = 1,
-	COUNTRY_SETTING = 2
-};
-
-struct acm_line_coding {
-	uint32_t dwDTERate;
-#define ACM_STOP_1BIT   0
-#define ACM_STOP_15BIT  1
-#define ACM_STOP_2BIT   2
-	uint8_t  bCharFormat;
-#define ACM_PARITY_NONE   0
-#define ACM_PARITY_ODD    1
-#define ACM_PARITY_EVEN   2
-#define ACM_PARITY_MARK   3
-#define ACM_PARITY_SPACE  4
-	uint8_t  bParityType;
-	uint8_t  bDataBits;
-} __attribute__((packed));
-
-void acm_set_comm_feature(usb_dev_t udev, enum acm_comm_feature f, uint16_t state);
-uint16_t acm_get_comm_feature(usb_dev_t udev, enum acm_comm_feature f);
-void acm_clear_comm_feature(usb_dev_t udev, enum acm_comm_feature f);
-void acm_set_line_coding(usb_dev_t udev, struct acm_line_coding *coding);
-void acm_get_line_coding(usb_dev_t udev, struct acm_line_coding *coding);
-void acm_set_ctrl_line_state(usb_dev_t udev, uint8_t ctrl);
-void acm_send_break(usb_dev_t udev, uint16_t us);
-
 #endif /* _DRIVERS_CDC_H_ */
 
