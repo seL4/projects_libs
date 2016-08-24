@@ -186,7 +186,7 @@ int usb_cdc_bind(usb_dev_t udev)
 	}
 
 	class = usbdev_get_class(udev);
-	if (class != USB_CLASS_COMM) {
+	if (class != USB_CLASS_CDCDATA && class != USB_CLASS_COMM) {
 		CDC_DBG("Not a CDC device(%d)\n", class);
 		return -1;
 	}
