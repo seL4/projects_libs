@@ -239,9 +239,12 @@ int usb_cdc_read(usb_dev_t udev, void *buf, int len)
 
 	/* Send to the host */
 	err = usbdev_schedule_xact(udev, cdc->ep_in, xact, cnt, NULL, NULL);
-	assert(!err);
+	assert(err >= 0);
 
-	/* Copy out the received data */
+	/*
+	 * Copy out the received data
+	 * TODO: Copy the actual number of bytes received only.
+	 */
 	received = 0;
 	for (int i = 0; i < cnt; i++) {
 		memcpy((char*)buf + received, xact_get_vaddr(&xact[i]), xact[i].len);
@@ -253,7 +256,7 @@ int usb_cdc_read(usb_dev_t udev, void *buf, int len)
 
 	usb_free(xact);
 
-	return received;
+	return received - err;
 }
 
 int usb_cdc_write(usb_dev_t udev, void *buf, int len)
