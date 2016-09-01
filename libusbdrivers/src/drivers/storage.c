@@ -119,8 +119,6 @@ usb_storage_config_cb(void* token, int cfg, int iface, struct anon_desc* desc)
     struct usb_storage_device *ubms;
     struct config_desc *cdesc;
     struct iface_desc *idesc;
-    struct endpoint_desc *edsc;
-    struct endpoint *ep;
 
     if (!desc) {
         return 0;
@@ -179,32 +177,30 @@ usb_storage_set_configuration(usb_dev_t udev)
 {
     int err;
     struct usb_storage_device *ubms;
-    struct xact xact[2];
+    struct xact xact;
     struct usbreq *req;
 
     ubms = (struct usb_storage_device*)udev->dev_data;
 
     /* XXX: xact allocation relies on the xact.len */
-    xact[0].len = sizeof(struct usbreq);
-    xact[1].len = 0;
+    xact.len = sizeof(struct usbreq);
 
     /* Get memory for the request */
-    err = usb_alloc_xact(udev->dman, &xact, 2);
+    err = usb_alloc_xact(udev->dman, &xact, 1);
     if (err) {
         UBMS_DBG("Not enough DMA memory!\n");
 	assert(0);
     }
 
     /* Fill in the request */
-    xact[0].type = PID_SETUP;
-    xact[1].type = PID_IN;
-    req = xact_get_vaddr(&xact[0]);
+    xact.type = PID_SETUP;
+    req = xact_get_vaddr(&xact);
     *req = __set_configuration_req(ubms->config);
 
     /* Send the request to the host */
-    err = usbdev_schedule_xact(udev, udev->ep_ctrl, &xact, 2, NULL, NULL);
+    err = usbdev_schedule_xact(udev, udev->ep_ctrl, &xact, 1, NULL, NULL);
 //    sync_mutex_lock(ubms->mutex);
-    usb_destroy_xact(udev->dman, &xact, 2);
+    usb_destroy_xact(udev->dman, &xact, 1);
     if (err < 0) {
         UBMS_DBG("USB mass storage set configuration failed.\n");
     }
@@ -214,11 +210,8 @@ void
 usb_storage_reset(usb_dev_t udev)
 {
     int err;
-    struct usb_storage_device *ubms;
     struct xact xact;
     struct usbreq *req;
-
-    ubms = (struct usb_storage_device*)udev->dev_data;
 
     /* XXX: xact allocation relies on the xact.len */
     xact.len = sizeof(struct usbreq);
@@ -248,17 +241,13 @@ int
 usb_storage_get_max_lun(usb_dev_t udev)
 {
     int err;
-    struct usb_storage_device *ubms;
-    struct xact xact[3];
+    struct xact xact[2];
     struct usbreq *req;
     uint8_t max_lun;
 
-    ubms = (struct usb_storage_device*)udev->dev_data;
-    
     /* XXX: xact allocation relies on the xact.len */
     xact[0].len = sizeof(struct usbreq);
     xact[1].len = 1;
-    xact[2].len = 0;
 
     /* Get memory for the request */
     err = usb_alloc_xact(udev->dman, xact, sizeof(xact) / sizeof(struct xact));
@@ -274,10 +263,9 @@ usb_storage_get_max_lun(usb_dev_t udev)
 
     /* Fill in the IN packet */
     xact[1].type = PID_IN;
-    xact[2].type = PID_OUT;
 
     /* Send the request to the host */
-    err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 3, NULL, NULL);
+    err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
 //    sync_mutex_lock(ubms->mutex);
 
     max_lun = *((uint8_t*)xact[1].vaddr);
@@ -295,8 +283,6 @@ usb_storage_bind(usb_dev_t udev, sync_mutex_t *mutex)
     int err;
     struct usb_storage_device *ubms;
     int class;
-    struct string_desc desc;
-    int language = 0;
 
     assert(udev);
 
@@ -357,7 +343,7 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
     int err, i, ret;
     struct cbw *cbw;
     struct csw *csw;
-    struct xact xact[2];
+    struct xact xact;
     uint32_t tag;
     struct usb_storage_device *ubms;
     struct endpoint *ep;
@@ -365,12 +351,12 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
     ubms = (struct usb_storage_device*)udev->dev_data;
 
     /* Prepare command block */
-    xact[0].type = PID_OUT;
-    xact[0].len = sizeof(struct cbw);
-    err = usb_alloc_xact(udev->dman, xact, 1);
+    xact.type = PID_OUT;
+    xact.len = sizeof(struct cbw);
+    err = usb_alloc_xact(udev->dman, &xact, 1);
     assert(!err);
 
-    cbw = xact_get_vaddr(&xact[0]);
+    cbw = xact_get_vaddr(&xact);
     cbw->signature = UBMS_CBW_SIGN;
     cbw->tag = 0;
     cbw->data_transfer_length = 0;
@@ -385,7 +371,7 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
     /* Send CBW */
     ep = udev->ep[ubms->ep_out];
     usb_storage_print_cbw(cbw);
-    err = usbdev_schedule_xact(udev, ep, xact, 1, NULL, NULL);
+    err = usbdev_schedule_xact(udev, ep, &xact, 1, NULL, NULL);
 //    sync_mutex_lock(ubms->mutex);
     if (err < 0) {
         assert(0);
@@ -408,17 +394,17 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
     msdelay(200);
 
     /* Check CSW from IN endpoint */
-    xact[0].len = sizeof(struct csw);
-    xact[0].type = PID_IN;
-    err = usb_alloc_xact(udev->dman, xact, 1);
+    xact.len = sizeof(struct csw);
+    xact.type = PID_IN;
+    err = usb_alloc_xact(udev->dman, &xact, 1);
     assert(!err);
 
-    csw = xact_get_vaddr(&xact[0]);
+    csw = xact_get_vaddr(&xact);
     csw->signature = UBMS_CSW_SIGN;
     csw->tag = tag;
 
     ep = udev->ep[ubms->ep_in];
-    err = usbdev_schedule_xact(udev, ep, xact, 1, NULL, NULL);
+    err = usbdev_schedule_xact(udev, ep, &xact, 1, NULL, NULL);
 //    sync_mutex_lock(ubms->mutex);
     UBMS_DBG("CSW status(%u)\n", csw->status);
     if (err < 0) {
