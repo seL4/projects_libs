@@ -230,6 +230,8 @@ struct TDn {
     volatile struct TD* td;
     uintptr_t ptd;
     struct xact xact;
+    usb_cb_t cb;
+    void* token;
     struct TDn* next;
 };
 
@@ -241,8 +243,8 @@ struct QHn {
     struct TDn* tdns;
     /* Interrupts */
     int rate;
-    usb_cb_t cb;
-    void* token;
+    usb_cb_t cb;      //TODO: In TDn now, to be removed.
+    void* token;      //TODO: In TDn now, to be removed.
     int irq_pending;
     int was_cancelled;
     /* Links */
@@ -294,7 +296,8 @@ int ehci_cancel_xact(usb_host_t* hdev, void * token);
 void qhn_destroy(ps_dma_man_t* dman, struct QHn* qhn);
 int clear_async_xact(struct ehci_host* edev, void* token);
 void _async_complete(struct ehci_host* edev);
-int ehci_schedule_async(struct ehci_host* edev, struct QHn* qh_new);
+int ehci_wait_for_completion(struct TDn *tdn);
+void ehci_schedule_async(struct ehci_host* edev, struct QHn* qh_new);
 void _async_doorbell(struct ehci_host* edev);
 enum usb_xact_status qtd_get_status(volatile struct TD* qtd);
 enum usb_xact_status qhn_get_status(struct QHn * qhn);
@@ -305,9 +308,12 @@ void check_doorbell(struct ehci_host* edev);
 struct QHn* qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 	  uint8_t hub_port, enum usb_speed speed, struct endpoint *ep);
 struct TDn* qtd_alloc(struct ehci_host *edev, enum usb_speed speed,
-		struct endpoint *ep, struct xact *xact, int nxact);
+		struct endpoint *ep, struct xact *xact, int nxact,
+		usb_cb_t cb, void *token);
 void qhn_update(struct QHn *qhn, uint8_t address, struct endpoint *ep);
 void qtd_enqueue(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn);
+void ehci_add_qhn_async(struct ehci_host *edev, struct QHn *qhn);
+void ehci_add_qhn_periodic(struct ehci_host *edev, struct QHn *qhn);
 
 /**
  * Periodic Scheduling

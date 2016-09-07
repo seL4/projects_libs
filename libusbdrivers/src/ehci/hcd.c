@@ -110,7 +110,7 @@ int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t 
     }
 
     /* Allocate qTD */
-    tdn = qtd_alloc(edev, speed, ep, xact, nxact);
+    tdn = qtd_alloc(edev, speed, ep, xact, nxact, cb, t);
 
     /* Append qTD to the queue head */
     qtd_enqueue(edev, qhn, tdn);
@@ -120,7 +120,15 @@ int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t 
     
     /* Send off over the bus */
     if (ep->type == EP_BULK || ep->type == EP_CONTROL) {
-        return ehci_schedule_async(edev, qhn);
+        ehci_schedule_async(edev, qhn);
+	if (cb) {
+		return 0;
+	} else {
+		ehci_wait_for_completion(tdn);
+		qhn->tdns = NULL;
+		qhn->ntdns = 0;
+		return 0;
+	}
     } else {
         return ehci_schedule_periodic(edev, qhn, ep->interval);
     }

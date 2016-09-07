@@ -108,9 +108,9 @@ qhn_cb(struct QHn *qhn, enum usb_xact_status stat)
  */
 struct TDn*
 qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
-		struct xact *xact, int nxact)
+		struct xact *xact, int nxact, usb_cb_t cb, void *token)
 {
-	struct TDn *head_tdn, *prev_tdn, *tdn;
+	struct TDn *head_tdn, *prev_tdn, *tdn = NULL;
 	int buf_filled, cnt, total_bytes = 0;
 	int xact_stage = 0;
 
@@ -238,7 +238,9 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 	}
 
 	/* Send IRQ when finished processing the last TD */
-	tdn->td->token |= TDTOK_IOC;
+	tdn->td->token |= TDTOK_IOC;   //TODO: Maybe disable IRQ when cb == NULL
+	tdn->cb = cb;
+	tdn->token = token;
 
 	/* Mark the last TD as terminate TD */
 	tdn->td->next |= TDLP_INVALID;
@@ -397,7 +399,6 @@ qtd_enqueue(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn)
 		last_tdn->next = tdn;
 		last_tdn->td->next = tdn->ptd & ~TDLP_INVALID;
 	}
-		qhn->qh->td_overlay.next = tdn->ptd;
 }
 
 void
@@ -492,27 +493,11 @@ void ehci_add_qhn_async(struct ehci_host *edev, struct QHn *qhn)
     }
 }
 
-/* TODO: Is it okay to use alist_tail and remove qhn */
-int
-ehci_schedule_async(struct ehci_host* edev, struct QHn* qhn)
+int ehci_wait_for_completion(struct TDn *tdn)
 {
-	/* Make sure we are safe to write to the register */
-	while (((edev->op_regs->usbsts & EHCISTS_ASYNC_EN) >> 15)
-		^ ((edev->op_regs->usbcmd & EHCICMD_ASYNC_EN) >> 5));
-
-	/* Enable the async scheduling */
-	if (!(edev->op_regs->usbsts & EHCISTS_ASYNC_EN)) {
-		qhn->qh->epc[0] |= QHEPC0_H;
-		edev->op_regs->asynclistaddr = qhn->pqh;
-		edev->op_regs->usbcmd |= EHCICMD_ASYNC_EN;
-		while (edev->op_regs->usbsts & EHCISTS_ASYNC_EN) break;
-	}
-
-	struct TDn *tdn;
 	int status;
 	int cnt, sum = 0;
 
-	tdn = qhn->tdns;
 	while (tdn) {
 		cnt = 3000;
 		do {
@@ -531,10 +516,23 @@ ehci_schedule_async(struct ehci_host* edev, struct QHn* qhn)
 		tdn = tdn->next;
 	}
 
-	qhn->tdns = NULL;
-	qhn->ntdns = 0;
-
 	return sum;
+}
+
+/* TODO: Is it okay to use alist_tail and remove qhn */
+void ehci_schedule_async(struct ehci_host* edev, struct QHn* qhn)
+{
+	/* Make sure we are safe to write to the register */
+	while (((edev->op_regs->usbsts & EHCISTS_ASYNC_EN) >> 15)
+		^ ((edev->op_regs->usbcmd & EHCICMD_ASYNC_EN) >> 5));
+
+	/* Enable the async scheduling */
+	if (!(edev->op_regs->usbsts & EHCISTS_ASYNC_EN)) {
+		qhn->qh->epc[0] |= QHEPC0_H;
+		edev->op_regs->asynclistaddr = qhn->pqh;
+		edev->op_regs->usbcmd |= EHCICMD_ASYNC_EN;
+		while (edev->op_regs->usbsts & EHCISTS_ASYNC_EN) break;
+	}
 }
 
 void
