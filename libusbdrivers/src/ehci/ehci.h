@@ -21,7 +21,7 @@
 #include <usb/usb_host.h>
 #include <usb/drivers/usbhub.h>
 
-#define EHCI_DEBUG_IRQ
+//#define EHCI_DEBUG_IRQ
 #define EHCI_DEBUG
 //#define EHCI_TRAFFIC_DEBUG
 
@@ -229,7 +229,7 @@ struct QH {
 struct TDn {
     volatile struct TD* td;
     uintptr_t ptd;
-    struct xact xact;
+//    struct xact xact;
     usb_cb_t cb;
     void* token;
     struct TDn* next;
@@ -239,7 +239,7 @@ struct QHn {
     /* Transaction data */
     volatile struct QH* qh;
     uintptr_t pqh;
-    int ntdns;
+    int ntdns;        //TODO: To be removed
     struct TDn* tdns;
     /* Interrupts */
     int rate;
@@ -311,9 +311,10 @@ struct TDn* qtd_alloc(struct ehci_host *edev, enum usb_speed speed,
 		struct endpoint *ep, struct xact *xact, int nxact,
 		usb_cb_t cb, void *token);
 void qhn_update(struct QHn *qhn, uint8_t address, struct endpoint *ep);
-void qtd_enqueue(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn);
+void qtd_enqueue(struct QHn *qhn, struct TDn *tdn);
 void ehci_add_qhn_async(struct ehci_host *edev, struct QHn *qhn);
 void ehci_add_qhn_periodic(struct ehci_host *edev, struct QHn *qhn);
+void ehci_async_complete(struct ehci_host *edev);
 
 /**
  * Periodic Scheduling

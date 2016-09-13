@@ -72,6 +72,17 @@ static void print_xact(struct xact *xact, int nxact)
 	}
 }
 
+static void print_list(struct QHn *qhn)
+{
+	struct TDn *tdn = qhn->tdns;
+	printf("qhn(%p)", qhn);
+	while (tdn != NULL) {
+		printf("-->%p, %p", tdn->td, tdn->ptd);
+		tdn = tdn->next;
+	}
+	printf("\n");
+}
+
 int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_port,
                    enum usb_speed speed, struct endpoint *ep, struct xact* xact,
 		   int nxact, usb_cb_t cb, void* t)
@@ -113,8 +124,7 @@ int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t 
     tdn = qtd_alloc(edev, speed, ep, xact, nxact, cb, t);
 
     /* Append qTD to the queue head */
-    qtd_enqueue(edev, qhn, tdn);
-    qhn->ntdns = nxact;
+    qtd_enqueue(qhn, tdn);
     qhn->cb = cb;
     qhn->token = t;
     
@@ -125,8 +135,7 @@ int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t 
 		return 0;
 	} else {
 		ehci_wait_for_completion(tdn);
-		qhn->tdns = NULL;
-		qhn->ntdns = 0;
+		ehci_async_complete(edev);
 		return 0;
 	}
     } else {

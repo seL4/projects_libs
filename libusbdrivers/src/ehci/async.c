@@ -110,17 +110,17 @@ struct TDn*
 qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 		struct xact *xact, int nxact, usb_cb_t cb, void *token)
 {
-	struct TDn *head_tdn, *prev_tdn, *tdn = NULL;
+	struct TDn *head_tdn = NULL, *prev_tdn, *tdn = NULL;
 	int buf_filled, cnt, total_bytes = 0;
 	int xact_stage = 0;
 
 	assert(xact);
 	assert(nxact > 0);
 
-	head_tdn = calloc(1, sizeof(struct TDn) * nxact);
 	prev_tdn = NULL;
 	for (int i = 0; i < nxact; i++) {
-		tdn = head_tdn + sizeof(struct TDn) * i;
+		tdn = calloc(1, sizeof(struct TDn));
+		assert(tdn);
 
 		/* Allocate TD overlay */
 		tdn->td = ps_dma_alloc_pinned(edev->dman, sizeof(*tdn->td), 32, 0,
@@ -131,6 +131,8 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 		/* Fill in the TD */
 		if (prev_tdn) {
 			prev_tdn->td->next = tdn->ptd;
+		} else {
+			head_tdn = tdn;
 		}
 		tdn->td->alt = TDLP_INVALID;
 
@@ -377,7 +379,7 @@ qhn_update(struct QHn *qhn, uint8_t address, struct endpoint *ep)
 }
 
 void
-qtd_enqueue(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn)
+qtd_enqueue(struct QHn *qhn, struct TDn *tdn)
 {
 	struct TDn *last_tdn;
 
@@ -471,6 +473,52 @@ _async_complete(struct ehci_host* edev)
             }
         } while (cur != tail);
     }
+}
+
+void ehci_async_complete(struct ehci_host *edev)
+{
+	struct QHn *qhn;
+	struct TDn *tdn, *head, *tmp;
+	int sum;
+
+	qhn = edev->alist_tail;
+
+	/* Nothing to do if the queue is empty */
+	if (!qhn) {
+		return;
+	}
+
+	do {
+		tdn = qhn->tdns;
+		sum = 0;
+		head = tdn;
+		while (tdn != NULL &&
+			qtd_get_status(tdn->td) == XACTSTAT_SUCCESS) {
+			sum += TDTOK_GET_BYTES(tdn->td->token);
+			if (tdn->td->token & TDTOK_IOC) {
+				if (tdn->cb) {
+					tdn->cb(tdn->token, XACTSTAT_SUCCESS, sum);
+				}
+				sum = 0;
+				qhn->tdns = tdn->next;
+
+				/* Free */
+				while (head != tdn->next) {
+					tmp = head;
+					head = head->next;
+					ps_dma_free_pinned(edev->dman,
+							(void*)tmp->td,
+							sizeof(struct TD));
+					free(tmp);
+				}
+				head = qhn->tdns;
+				tdn = qhn->tdns;
+			} else {
+				tdn = tdn->next;
+			}
+		}
+		qhn = qhn->next;
+	} while (qhn != edev->alist_tail);
 }
 
 void ehci_add_qhn_async(struct ehci_host *edev, struct QHn *qhn)
