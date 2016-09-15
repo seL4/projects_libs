@@ -83,6 +83,24 @@ static void print_list(struct QHn *qhn)
 	printf("\n");
 }
 
+void ehci_sched_enable_irq(struct ehci_host *edev)
+{
+	uint32_t irq;
+
+	irq = edev->op_regs->usbintr;
+	irq |= EHCIINTR_USBINT;
+	edev->op_regs->usbintr = irq;
+}
+
+void ehci_sched_disable_irq(struct ehci_host *edev)
+{
+	uint32_t irq;
+
+	irq = edev->op_regs->usbintr;
+	irq &= ~EHCIINTR_USBINT;
+	edev->op_regs->usbintr = irq;
+}
+
 int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_port,
                    enum usb_speed speed, struct endpoint *ep, struct xact* xact,
 		   int nxact, usb_cb_t cb, void* t)
@@ -90,6 +108,8 @@ int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t 
     struct QHn *qhn;
     struct TDn *tdn;
     struct ehci_host* edev;
+    int ret;
+
     usb_assert(hdev);
     edev = _hcd_to_ehci(hdev);
     if (hub_addr == -1) {
@@ -134,9 +154,11 @@ int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t 
 	if (cb) {
 		return 0;
 	} else {
-		ehci_wait_for_completion(tdn);
+		ehci_sched_disable_irq(edev);
+		ret = ehci_wait_for_completion(tdn);
 		ehci_async_complete(edev);
-		return 0;
+		ehci_sched_enable_irq(edev);
+		return ret;
 	}
     } else {
         return ehci_schedule_periodic(edev, qhn, ep->interval);
@@ -162,6 +184,7 @@ ehci_handle_irq(usb_host_t* hdev)
         edev->op_regs->usbsts = EHCISTS_USBINT;
         sts &= ~EHCISTS_USBINT;
         _periodic_complete(edev);
+	ehci_async_complete(edev);
         _async_complete(edev);
     }
     if (sts & EHCISTS_FLIST_ROLL) {

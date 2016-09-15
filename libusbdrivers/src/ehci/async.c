@@ -498,8 +498,8 @@ void ehci_async_complete(struct ehci_host *edev)
 			if (tdn->td->token & TDTOK_IOC) {
 				if (tdn->cb) {
 					tdn->cb(tdn->token, XACTSTAT_SUCCESS, sum);
+					sum = 0;
 				}
-				sum = 0;
 				qhn->tdns = tdn->next;
 
 				/* Free */
