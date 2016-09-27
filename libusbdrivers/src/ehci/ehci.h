@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include <sync/spinlock.h>
 #include <usb/usb_host.h>
 #include <usb/drivers/usbhub.h>
 
@@ -247,6 +248,7 @@ struct QHn {
     void* token;      //TODO: In TDn now, to be removed.
     int irq_pending;
     int was_cancelled;
+    sync_spinlock_t lock;
     /* Links */
     uint8_t owner_addr;
     struct QHn* next;
@@ -321,7 +323,8 @@ void ehci_async_complete(struct ehci_host *edev);
  */
 int ehci_schedule_periodic_root(struct ehci_host* edev, struct xact *xact,
                             int nxact, usb_cb_t cb, void* t);
-int ehci_schedule_periodic(struct ehci_host* edev, struct QHn* qhn, int rate_ms);
+int ehci_schedule_periodic(struct ehci_host* edev);
+void ehci_periodic_complete(struct ehci_host *edev);
 enum usb_xact_status qhn_wait(struct QHn* qhn, int to_ms);
 void _periodic_complete(struct ehci_host* edev);
 int clear_periodic_xact(struct ehci_host* edev, void* token);

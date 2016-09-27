@@ -391,6 +391,8 @@ qtd_enqueue(struct QHn *qhn, struct TDn *tdn)
 		qhn->qh->td_overlay.next = tdn->ptd;
 		qhn->tdns = tdn;
 	} else {
+		sync_spinlock_lock(&qhn->lock);
+
 		/* Find the last TD */
 		last_tdn = qhn->tdns;
 		while (last_tdn->next) {
@@ -400,6 +402,8 @@ qtd_enqueue(struct QHn *qhn, struct TDn *tdn)
 		/* Add new TD to the queue and update the termination bit */
 		last_tdn->next = tdn;
 		last_tdn->td->next = tdn->ptd & ~TDLP_INVALID;
+
+		sync_spinlock_unlock(&qhn->lock);
 	}
 }
 
@@ -489,6 +493,8 @@ void ehci_async_complete(struct ehci_host *edev)
 	}
 
 	do {
+		sync_spinlock_lock(&qhn->lock);
+
 		tdn = qhn->tdns;
 		sum = 0;
 		head = tdn;
@@ -500,6 +506,7 @@ void ehci_async_complete(struct ehci_host *edev)
 					tdn->cb(tdn->token, XACTSTAT_SUCCESS, sum);
 					sum = 0;
 				}
+
 				qhn->tdns = tdn->next;
 
 				/* Free */
@@ -511,12 +518,13 @@ void ehci_async_complete(struct ehci_host *edev)
 							sizeof(struct TD));
 					free(tmp);
 				}
-				head = qhn->tdns;
 				tdn = qhn->tdns;
 			} else {
 				tdn = tdn->next;
 			}
 		}
+
+		sync_spinlock_unlock(&qhn->lock);
 		qhn = qhn->next;
 	} while (qhn != edev->alist_tail);
 }

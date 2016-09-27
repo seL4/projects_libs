@@ -100,7 +100,7 @@ ehci_schedule_periodic_root(struct ehci_host* edev, struct xact *xact,
 }
 
 int
-ehci_schedule_periodic(struct ehci_host* edev, struct QHn* qhn, int rate_ms)
+ehci_schedule_periodic(struct ehci_host* edev)
 {
 	/* Make sure we are safe to write to the register */
 	while (((edev->op_regs->usbsts & EHCISTS_PERI_EN) >> 14)
@@ -114,6 +114,8 @@ ehci_schedule_periodic(struct ehci_host* edev, struct QHn* qhn, int rate_ms)
 		edev->op_regs->usbcmd |= EHCICMD_PERI_EN;
 		while (edev->op_regs->usbsts & EHCISTS_PERI_EN) break;
 	}
+
+	return 0;
 }
 
 enum usb_xact_status
@@ -148,6 +150,28 @@ qhn_wait(struct QHn* qhn, int to_ms)
     return stat;
 }
 
+void ehci_periodic_complete(struct ehci_host *edev)
+{
+	struct QHn *qhn;
+	struct TDn *tdn;
+	int sum;
+
+	qhn = edev->intn_list;
+
+	while (qhn) {
+		tdn = qhn->tdns;
+		if (qtd_get_status(tdn->td) == XACTSTAT_SUCCESS) {
+			qhn->tdns = NULL;
+			sum = TDTOK_GET_BYTES(tdn->td->token);
+			if (tdn->cb) {
+				tdn->cb(tdn->token, XACTSTAT_SUCCESS, sum);
+			}
+			ps_dma_free_pinned(edev->dman, (void*)tdn->td, sizeof(struct TD));
+			free(tdn);
+		}
+		qhn = qhn->next;
+	}
+}
 
 void
 _periodic_complete(struct ehci_host* edev)

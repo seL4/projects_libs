@@ -124,6 +124,7 @@ int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t 
     qhn = (struct QHn*)ep->hcpriv;
     if (!qhn) {
 	    qhn = qhn_alloc(edev, addr, hub_addr, hub_port, speed, ep);
+	    sync_spinlock_init(&qhn->lock);
 	    ep->hcpriv = qhn;
 
 	    if (ep->type == EP_CONTROL || ep->type == EP_BULK) {
@@ -143,25 +144,28 @@ int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t 
     /* Allocate qTD */
     tdn = qtd_alloc(edev, speed, ep, xact, nxact, cb, t);
 
-    /* Append qTD to the queue head */
-    qtd_enqueue(qhn, tdn);
     qhn->cb = cb;
     qhn->token = t;
     
-    /* Send off over the bus */
+    /* Add qTD to the queue head and send off over the bus */
     if (ep->type == EP_BULK || ep->type == EP_CONTROL) {
         ehci_schedule_async(edev, qhn);
 	if (cb) {
+		qtd_enqueue(qhn, tdn);
 		return 0;
 	} else {
+		/* Wait for the existing TD to be processed */
+		while(qhn->tdns != NULL);
 		ehci_sched_disable_irq(edev);
+		qtd_enqueue(qhn, tdn);
 		ret = ehci_wait_for_completion(tdn);
 		ehci_async_complete(edev);
 		ehci_sched_enable_irq(edev);
 		return ret;
 	}
     } else {
-        return ehci_schedule_periodic(edev, qhn, ep->interval);
+	qtd_enqueue(qhn, tdn);
+	return ehci_schedule_periodic(edev);
     }
 }
 
@@ -183,9 +187,8 @@ ehci_handle_irq(usb_host_t* hdev)
         EHCI_IRQDBG(edev, "INT - USB\n");
         edev->op_regs->usbsts = EHCISTS_USBINT;
         sts &= ~EHCISTS_USBINT;
-        _periodic_complete(edev);
+	ehci_periodic_complete(edev);
 	ehci_async_complete(edev);
-        _async_complete(edev);
     }
     if (sts & EHCISTS_FLIST_ROLL) {
         EHCI_IRQDBG(edev, "INT - Frame list roll over\n");
