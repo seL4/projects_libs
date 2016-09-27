@@ -163,7 +163,7 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 				break;
 		}
 
-		tdn->td->token |= TDTOK_SACTIVE;
+		tdn->td->token |= TDTOK_SHALTED;
 
 		/* Ping control */
 		if (speed == USBSPEED_HIGH && xact[i].type == PID_OUT) {
@@ -212,7 +212,7 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 
 		/* Fill in the TD */
 		tdn->td->alt = TDLP_INVALID;
-		tdn->td->token = TDTOK_C_ERR(0x3) | TDTOK_SACTIVE;
+		tdn->td->token = TDTOK_C_ERR(0x3) | TDTOK_SHALTED;
 
 		if (xact_stage & TDTOK_PID_SETUP) {
 			/* Flip the PID, if there is no data stage, then IN */
@@ -399,11 +399,23 @@ qtd_enqueue(struct QHn *qhn, struct TDn *tdn)
 			last_tdn = last_tdn->next;
 		}
 
+		if (qhn->qh->td_cur == last_tdn->ptd &&
+			qhn->qh->td_overlay.next == TDLP_INVALID) {
+			qhn->qh->td_overlay.next = tdn->ptd;
+		}
+
 		/* Add new TD to the queue and update the termination bit */
 		last_tdn->next = tdn;
 		last_tdn->td->next = tdn->ptd & ~TDLP_INVALID;
 
 		sync_spinlock_unlock(&qhn->lock);
+	}
+
+	/* Enable all TDs */
+	while (tdn) {
+		tdn->td->token &= ~TDTOK_SHALTED;
+		tdn->td->token |= TDTOK_SACTIVE;
+		tdn = tdn->next;
 	}
 }
 
