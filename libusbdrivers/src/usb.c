@@ -806,7 +806,7 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
  ****************************/
 
 int
-usb_init(enum usb_host_id id, ps_io_ops_t* ioops, usb_t* host)
+usb_init(enum usb_host_id id, ps_io_ops_t* ioops, mutex_ops_t *mops, usb_t* host)
 {
     usb_hub_t  hub;
     usb_dev_t  udev;
@@ -815,7 +815,7 @@ usb_init(enum usb_host_id id, ps_io_ops_t* ioops, usb_t* host)
     /* Pre-fill the host structure */
     devlist_init(host);
 
-    err = usb_host_init(id, ioops, &host->hdev);
+    err = usb_host_init(id, ioops, mops, &host->hdev);
     if (err) {
         assert(!err);
         return -1;

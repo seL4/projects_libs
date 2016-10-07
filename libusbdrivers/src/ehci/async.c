@@ -63,7 +63,6 @@ qtd_get_status(volatile struct TD* qtd)
 enum usb_xact_status
 qhn_get_status(struct QHn * qhn)
 {
-    int i;
     struct TDn *tdn;
 
     tdn = qhn->tdns;
@@ -379,7 +378,7 @@ qhn_update(struct QHn *qhn, uint8_t address, struct endpoint *ep)
 }
 
 void
-qtd_enqueue(struct QHn *qhn, struct TDn *tdn)
+qtd_enqueue(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn)
 {
 	struct TDn *last_tdn;
 
@@ -391,7 +390,7 @@ qtd_enqueue(struct QHn *qhn, struct TDn *tdn)
 		qhn->qh->td_overlay.next = tdn->ptd;
 		qhn->tdns = tdn;
 	} else {
-		sync_spinlock_lock(&qhn->lock);
+		usb_mutex_lock(edev->mops, qhn->mutex);
 
 		/* Find the last TD */
 		last_tdn = qhn->tdns;
@@ -408,7 +407,7 @@ qtd_enqueue(struct QHn *qhn, struct TDn *tdn)
 		last_tdn->next = tdn;
 		last_tdn->td->next = tdn->ptd & ~TDLP_INVALID;
 
-		sync_spinlock_unlock(&qhn->lock);
+		usb_mutex_unlock(edev->mops, qhn->mutex);
 	}
 
 	/* Enable all TDs */
@@ -505,7 +504,7 @@ void ehci_async_complete(struct ehci_host *edev)
 	}
 
 	do {
-		sync_spinlock_lock(&qhn->lock);
+		usb_mutex_lock(edev->mops, qhn->mutex);
 
 		tdn = qhn->tdns;
 		sum = 0;
@@ -521,6 +520,18 @@ void ehci_async_complete(struct ehci_host *edev)
 
 				qhn->tdns = tdn->next;
 
+				/*
+				 * Update the QH if we are about to dequeue the
+				 * "previous" last TD in the queue. This happens
+				 * when the last TD gets partially processed
+				 * while we enqueue new TDs.
+				 */
+				if (qhn->tdns &&
+					qhn->qh->td_cur == tdn->ptd &&
+					qhn->qh->td_overlay.next == TDLP_INVALID) {
+					qhn->qh->td_overlay.next = tdn->next->ptd;
+				}
+
 				/* Free */
 				while (head != tdn->next) {
 					tmp = head;
@@ -530,13 +541,11 @@ void ehci_async_complete(struct ehci_host *edev)
 							sizeof(struct TD));
 					free(tmp);
 				}
-				tdn = qhn->tdns;
-			} else {
-				tdn = tdn->next;
 			}
+			tdn = tdn->next;
 		}
 
-		sync_spinlock_unlock(&qhn->lock);
+		usb_mutex_unlock(edev->mops, qhn->mutex);
 		qhn = qhn->next;
 	} while (qhn != edev->alist_tail);
 }

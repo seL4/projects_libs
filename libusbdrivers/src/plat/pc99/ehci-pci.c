@@ -104,7 +104,8 @@ static uintptr_t ehci_pci_init(uint16_t vid, uint16_t did,
 }
 
 int
-usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, usb_host_t* hdev)
+usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, mutex_ops_t *mops,
+		usb_host_t* hdev)
 {
 	int err;
 	uint16_t vid, did;
@@ -118,6 +119,7 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, usb_host_t* hdev)
 
 	hdev->id = id;
 	hdev->dman = &io_ops->dma_manager;
+	hdev->mops = mops;
 
 	switch (id) {
 		case USB_HOST1:

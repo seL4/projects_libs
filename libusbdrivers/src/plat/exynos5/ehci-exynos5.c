@@ -182,7 +182,8 @@ usb_plat_gpio_init(ps_io_ops_t* io_ops)
 }
 
 int
-usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, usb_host_t* hdev)
+usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, mutex_ops_t *mops,
+		usb_host_t* hdev)
 {
     int err;
     if (id < 0 || id > USB_NHOSTS) {
@@ -193,6 +194,7 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, usb_host_t* hdev)
 
     hdev->id = id;
     hdev->dman = &io_ops->dma_manager;
+    hdev->mops = mops;
 
     /* Check device mappings */
     if (_usb_regs == NULL) {

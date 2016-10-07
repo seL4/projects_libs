@@ -124,7 +124,7 @@ int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t 
     qhn = (struct QHn*)ep->hcpriv;
     if (!qhn) {
 	    qhn = qhn_alloc(edev, addr, hub_addr, hub_port, speed, ep);
-	    sync_spinlock_init(&qhn->lock);
+	    qhn->mutex = usb_mutex_init(edev->mops);
 	    ep->hcpriv = qhn;
 
 	    if (ep->type == EP_CONTROL || ep->type == EP_BULK) {
@@ -151,20 +151,20 @@ int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t 
     if (ep->type == EP_BULK || ep->type == EP_CONTROL) {
         ehci_schedule_async(edev, qhn);
 	if (cb) {
-		qtd_enqueue(qhn, tdn);
+		qtd_enqueue(edev, qhn, tdn);
 		return 0;
 	} else {
 		/* Wait for the existing TD to be processed */
 		while(qhn->tdns != NULL);
 		ehci_sched_disable_irq(edev);
-		qtd_enqueue(qhn, tdn);
+		qtd_enqueue(edev, qhn, tdn);
 		ret = ehci_wait_for_completion(tdn);
 		ehci_async_complete(edev);
 		ehci_sched_enable_irq(edev);
 		return ret;
 	}
     } else {
-	qtd_enqueue(qhn, tdn);
+	qtd_enqueue(edev, qhn, tdn);
 	return ehci_schedule_periodic(edev);
     }
 }
@@ -304,6 +304,8 @@ ehci_host_init(usb_host_t* hdev, uintptr_t regs,
     }
     edev->hubem = hubem;
     edev->dman = hdev->dman;
+    edev->mops = hdev->mops;
+
     /* Terminate the periodic schedule head */
     edev->alist_tail = NULL;
     edev->db_pending = NULL;

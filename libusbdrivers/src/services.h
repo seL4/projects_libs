@@ -16,6 +16,7 @@
 #include "debug.h"
 #include <assert.h>
 #include <utils/util.h>
+#include <usb/usb_host.h>
 
 void otg_irq(void);
 
@@ -76,4 +77,35 @@ ps_dma_free_pinned(ps_dma_man_t *dma_man, void* addr, size_t size)
     ps_dma_free(dma_man, addr, size);
 }
 
+static inline void*
+usb_mutex_init(mutex_ops_t *mops)
+{
+	assert(mops);
+	assert(mops->mutex_init);
+	return mops->mutex_init();
+}
+
+static inline void
+usb_mutex_lock(mutex_ops_t *mops, void *mutex)
+{
+	assert(mops);
+	assert(mops->mutex_lock);
+	mops->mutex_lock(mutex);
+}
+
+static inline void
+usb_mutex_unlock(mutex_ops_t *mops, void *mutex)
+{
+	assert(mops);
+	assert(mops->mutex_unlock);
+	mops->mutex_unlock(mutex);
+}
+
+static inline void
+usb_mutex_destroy(mutex_ops_t *mops, void *mutex)
+{
+	assert(mops);
+	assert(mops->mutex_destroy);
+	mops->mutex_destroy(mutex);
+}
 
