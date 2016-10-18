@@ -25,10 +25,6 @@ struct ufi_cdb {
 	uint16_t reserved;
 } __attribute__((packed));
 
-struct ufi_disk {
-	usb_dev_t udev;
-};
-
 static void ufi_print_info(char *info)
 {
 	int i = 0;
@@ -47,7 +43,7 @@ static void ufi_format_unit()
 	assert(0);
 }
 
-static void ufi_test_unit_ready(struct ufi_disk *disk)
+static void ufi_test_unit_ready(usb_dev_t udev)
 {
 	int err;
 	struct ufi_cdb cdb;
@@ -58,12 +54,12 @@ static void ufi_test_unit_ready(struct ufi_disk *disk)
 	/* Fill in the command */
 	cdb.opcode = TEST_UNIT_READY;
 
-	err = usb_storage_xfer(disk->udev, &cdb, sizeof(struct ufi_cdb),
+	err = usb_storage_xfer(udev, &cdb, sizeof(struct ufi_cdb),
 			NULL, 0, UFI_OUTPUT);
 	assert(!err);
 }
 
-static void ufi_request_sense(struct ufi_disk *disk)
+static void ufi_request_sense(usb_dev_t udev)
 {
 	int err;
 	struct ufi_cdb cdb;
@@ -77,15 +73,15 @@ static void ufi_request_sense(struct ufi_disk *disk)
 
 	data.type = PID_IN;
 	data.len = 18;
-	err = usb_alloc_xact(disk->udev->dman, &data, 1);
+	err = usb_alloc_xact(udev->dman, &data, 1);
 	assert(!err);
-	err = usb_storage_xfer(disk->udev, &cdb, sizeof(struct ufi_cdb),
+	err = usb_storage_xfer(udev, &cdb, sizeof(struct ufi_cdb),
 			&data, 1, UFI_INPUT);
 	assert(!err);
-	usb_destroy_xact(disk->udev->dman, &data, 1);
+	usb_destroy_xact(udev->dman, &data, 1);
 }
 
-static void ufi_inquiry(struct ufi_disk *disk)
+static void ufi_inquiry(usb_dev_t udev)
 {
 	int err;
 	struct ufi_cdb cdb;
@@ -99,17 +95,17 @@ static void ufi_inquiry(struct ufi_disk *disk)
 
 	data.type = PID_IN;
 	data.len = 36;
-	err = usb_alloc_xact(disk->udev->dman, &data, 1);
+	err = usb_alloc_xact(udev->dman, &data, 1);
 	assert(!err);
 
-	err = usb_storage_xfer(disk->udev, &cdb, sizeof(struct ufi_cdb),
+	err = usb_storage_xfer(udev, &cdb, sizeof(struct ufi_cdb),
 			&data, 1, UFI_INPUT);
 	assert(!err);
 
-	usb_destroy_xact(disk->udev->dman, &data, 1);
+	usb_destroy_xact(udev->dman, &data, 1);
 }
 
-static void ufi_prevent_allow_medium_removal(struct ufi_disk *disk, int enable)
+static void ufi_prevent_allow_medium_removal(usb_dev_t udev, int enable)
 {
 	int err;
 	struct ufi_cdb cdb;
@@ -119,14 +115,15 @@ static void ufi_prevent_allow_medium_removal(struct ufi_disk *disk, int enable)
 	cdb.opcode = ALLOW_REMOVAL;
 	cdb.lba = enable << 8;
 
-	err = usb_storage_xfer(disk->udev, &cdb, sizeof(struct ufi_cdb),
+	err = usb_storage_xfer(udev, &cdb, sizeof(struct ufi_cdb),
 			NULL, 0, UFI_OUTPUT);
 	assert(!err);
 }
 
-static void ufi_read_capacity(struct ufi_disk *disk)
+uint32_t ufi_read_capacity(usb_dev_t udev)
 {
 	int err;
+	uint32_t ret;
 	struct ufi_cdb cdb;
 	struct xact data;
 
@@ -136,17 +133,20 @@ static void ufi_read_capacity(struct ufi_disk *disk)
 
 	data.type = PID_IN;
 	data.len = 8;
-	err = usb_alloc_xact(disk->udev->dman, &data, 1);
+	err = usb_alloc_xact(udev->dman, &data, 1);
 	assert(!err);
 
-	err = usb_storage_xfer(disk->udev, &cdb, sizeof(struct ufi_cdb),
+	err = usb_storage_xfer(udev, &cdb, sizeof(struct ufi_cdb),
 				&data, 1, UFI_INPUT);
 	assert(!err);
 
-	usb_destroy_xact(disk->udev->dman, &data, 1);
+	ret = *(uint32_t*)data.vaddr;
+	usb_destroy_xact(udev->dman, &data, 1);
+
+	return ret;
 }
 
-static void ufi_mode_sense(struct ufi_disk *disk)
+static void ufi_mode_sense(usb_dev_t udev)
 {
 	int err;
 	struct ufi_cdb cdb;
@@ -160,17 +160,17 @@ static void ufi_mode_sense(struct ufi_disk *disk)
 
 	data.type = PID_IN;
 	data.len = 192;
-	err = usb_alloc_xact(disk->udev->dman, &data, 1);
+	err = usb_alloc_xact(udev->dman, &data, 1);
 	assert(!err);
 
-	err = usb_storage_xfer(disk->udev, &cdb, sizeof(struct ufi_cdb),
+	err = usb_storage_xfer(udev, &cdb, sizeof(struct ufi_cdb),
 				&data, 1, UFI_INPUT);
 	assert(!err);
 
-	usb_destroy_xact(disk->udev->dman, &data, 1);
+	usb_destroy_xact(udev->dman, &data, 1);
 }
 
-static void ufi_read10(struct ufi_disk *disk, uint32_t lba, uint16_t count)
+static void ufi_read10(usb_dev_t udev, uint32_t lba, uint16_t count)
 {
 	int err;
 	struct ufi_cdb cdb;
@@ -185,17 +185,17 @@ static void ufi_read10(struct ufi_disk *disk, uint32_t lba, uint16_t count)
 	data.type = PID_IN;
 	data.len = 512 * count;
 
-	err = usb_alloc_xact(disk->udev->dman, &data, 1);
+	err = usb_alloc_xact(udev->dman, &data, 1);
 	assert(!err);
 
-	err = usb_storage_xfer(disk->udev, &cdb, sizeof(struct ufi_cdb),
+	err = usb_storage_xfer(udev, &cdb, sizeof(struct ufi_cdb),
 				&data, 1, UFI_INPUT);
 	assert(!err);
 
-	usb_destroy_xact(disk->udev->dman, &data, 1);
+	usb_destroy_xact(udev->dman, &data, 1);
 }
 
-static void ufi_read12(struct ufi_disk *disk, uint32_t lba, uint32_t count)
+static void ufi_read12(usb_dev_t udev, uint32_t lba, uint32_t count)
 {
 	int err;
 	struct ufi_cdb cdb;
@@ -210,50 +210,32 @@ static void ufi_read12(struct ufi_disk *disk, uint32_t lba, uint32_t count)
 	data.type = PID_IN;
 	data.len = 512 * count;
 
-	err = usb_alloc_xact(disk->udev->dman, &data, 1);
+	err = usb_alloc_xact(udev->dman, &data, 1);
 	assert(!err);
 
-	err = usb_storage_xfer(disk->udev, &cdb, sizeof(struct ufi_cdb),
+	err = usb_storage_xfer(udev, &cdb, sizeof(struct ufi_cdb),
 				&data, 1, UFI_INPUT);
 	assert(!err);
 
-	usb_destroy_xact(disk->udev->dman, &data, 1);
+	usb_destroy_xact(udev->dman, &data, 1);
 }
 
 int
 ufi_init_disk(usb_dev_t udev)
 {
-	struct ufi_disk *disk;
+	ufi_inquiry(udev);
+	ufi_test_unit_ready(udev);
 
-	disk = malloc(sizeof(struct ufi_disk));
-	assert(disk);
+	ufi_request_sense(udev);
+	ufi_test_unit_ready(udev);
 
-	disk->udev = udev;
+	ufi_read_capacity(udev);
+	ufi_mode_sense(udev);
+	ufi_test_unit_ready(udev);
 
-	ufi_inquiry(disk);
-	ufi_test_unit_ready(disk);
-
-	ufi_request_sense(disk);
-	ufi_test_unit_ready(disk);
-
-	ufi_read_capacity(disk);
-	ufi_mode_sense(disk);
-	ufi_mode_sense(disk);
-	ufi_test_unit_ready(disk);
-
-	ufi_prevent_allow_medium_removal(disk, 0);
-	ufi_request_sense(disk);
-	ufi_test_unit_ready(disk);
-
-	ufi_read_capacity(disk);
-	ufi_mode_sense(disk);
-	ufi_mode_sense(disk);
-
-	ufi_read10(disk, 0, 1);
-	ufi_test_unit_ready(disk);
-	ufi_test_unit_ready(disk);
-
-	ufi_read10(disk, 0x001EBFFF, 1);
+	ufi_prevent_allow_medium_removal(udev, 0);
+	ufi_request_sense(udev);
+	ufi_test_unit_ready(udev);
 
 	return 0;
 }

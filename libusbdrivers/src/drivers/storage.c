@@ -298,8 +298,6 @@ usb_storage_bind(usb_dev_t udev)
 //    usb_storage_reset(udev);
     ubms->max_lun = usb_storage_get_max_lun(udev);
 
-    ufi_init_disk(udev);
-
     return 0;
 }
 
@@ -399,5 +397,25 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
 
     return ret;
 
+}
+
+/* Exported Interface */
+int usb_storage_init_disk(usb_dev_t usb_dev)
+{
+	return ufi_init_disk(usb_dev);
+}
+uint32_t usb_storage_get_capacity(usb_dev_t usb_dev)
+{
+	return ufi_read_capacity(usb_dev);
+}
+
+int usb_storage_write(usb_dev_t usb_dev, void *buf, int size)
+{
+	return 0;
+}
+
+int usb_storage_read(usb_dev_t usb_dev, void *buf, int size)
+{
+	return 0;
 }
 

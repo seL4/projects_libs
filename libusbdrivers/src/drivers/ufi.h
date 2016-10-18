@@ -33,3 +33,4 @@
 #define WRITE_12           0xAA
 
 int ufi_init_disk(usb_dev_t udev);
+uint32_t ufi_read_capacity(usb_dev_t udev);
