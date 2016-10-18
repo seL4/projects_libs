@@ -12,13 +12,11 @@
 #include <string.h>
 #include <assert.h>
 
-#include <sync/mutex.h>
-
 #include "../services.h"
 #include "storage.h"
 #include "ufi.h"
 
-#define MASS_STORAGE_DEBUG
+//#define MASS_STORAGE_DEBUG
 
 #ifdef MASS_STORAGE_DEBUG
 #define UBMS_DBG(...)            \
@@ -66,7 +64,6 @@ struct usb_storage_device {
     unsigned int   ep_in;     //BULK in endpoint
     unsigned int   ep_out;    //BULK out endpoint
     unsigned int   ep_int;    //Interrupt endpoint(for CBI devices)
-    sync_mutex_t   *mutex;
 };
 
 static inline struct usbreq
@@ -146,32 +143,6 @@ usb_storage_config_cb(void* token, int cfg, int iface, struct anon_desc* desc)
     return 0;
 }
 
-//#define usb_storage_xfer_cb NULL
-static int
-usb_storage_xfer_cb(void* token, enum usb_xact_status stat, int rbytes)
-{
-	sync_mutex_t *mutex = (sync_mutex_t*)token;
-
-	switch (stat) {
-		case XACTSTAT_SUCCESS:
-			printf("Success: %u\n", rbytes);
-			break;
-		case XACTSTAT_ERROR:
-			printf("Error: %u\n", rbytes);
-			break;
-		case XACTSTAT_HOSTERROR:
-			printf("Host err: %u\n", rbytes);
-			break;
-		default:
-			assert(0);
-			break;
-	}
-
-	sync_mutex_unlock(mutex);
-
-	return 0;
-}
-
 void
 usb_storage_set_configuration(usb_dev_t udev)
 {
@@ -199,7 +170,6 @@ usb_storage_set_configuration(usb_dev_t udev)
 
     /* Send the request to the host */
     err = usbdev_schedule_xact(udev, udev->ep_ctrl, &xact, 1, NULL, NULL);
-//    sync_mutex_lock(ubms->mutex);
     usb_destroy_xact(udev->dman, &xact, 1);
     if (err < 0) {
         UBMS_DBG("USB mass storage set configuration failed.\n");
@@ -230,7 +200,6 @@ usb_storage_reset(usb_dev_t udev)
 
     /* Send the request to the host */
     err = usbdev_schedule_xact(udev, udev->ep_ctrl, &xact, 1, NULL, NULL);
-//    sync_mutex_lock(ubms->mutex);
     usb_destroy_xact(udev->dman, &xact, 1);
     if (err < 0) {
         UBMS_DBG("USB mass storage reset failed.\n");
@@ -266,7 +235,6 @@ usb_storage_get_max_lun(usb_dev_t udev)
 
     /* Send the request to the host */
     err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
-//    sync_mutex_lock(ubms->mutex);
 
     max_lun = *((uint8_t*)xact[1].vaddr);
     usb_destroy_xact(udev->dman, xact, 2);
@@ -278,7 +246,7 @@ usb_storage_get_max_lun(usb_dev_t udev)
 }
 
 int
-usb_storage_bind(usb_dev_t udev, sync_mutex_t *mutex)
+usb_storage_bind(usb_dev_t udev)
 {
     int err;
     struct usb_storage_device *ubms;
@@ -294,7 +262,6 @@ usb_storage_bind(usb_dev_t udev, sync_mutex_t *mutex)
 
     ubms->udev = udev;
     udev->dev_data = ubms;
-    ubms->mutex = mutex;
 
     /*
      * Check if this is a storage device.
@@ -321,11 +288,11 @@ usb_storage_bind(usb_dev_t udev, sync_mutex_t *mutex)
     class = usbdev_get_class(udev);
     if (class != USB_CLASS_STORAGE) {
         UBMS_DBG("Not a USB mass storage(%d)\n", class);
+	usb_free(ubms);
         return -1;
     }
 
     UBMS_DBG("USB storage found, subclass(%x, %x)\n", ubms->subclass, ubms->protocol);
-//    sync_mutex_lock(ubms->mutex);
 
     usb_storage_set_configuration(udev);
 //    usb_storage_reset(udev);
@@ -370,9 +337,10 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
 
     /* Send CBW */
     ep = udev->ep[ubms->ep_out];
+#ifdef MASS_STORAGE_DEBUG
     usb_storage_print_cbw(cbw);
+#endif
     err = usbdev_schedule_xact(udev, ep, &xact, 1, NULL, NULL);
-//    sync_mutex_lock(ubms->mutex);
     if (err < 0) {
         assert(0);
     }
@@ -386,7 +354,6 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
             ep = udev->ep[ubms->ep_in];
         }
         err = usbdev_schedule_xact(udev, ep, data, ndata, NULL, NULL);
-//        sync_mutex_lock(ubms->mutex);
         if (err < 0) {
             assert(0);
         }
@@ -405,7 +372,6 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
 
     ep = udev->ep[ubms->ep_in];
     err = usbdev_schedule_xact(udev, ep, &xact, 1, NULL, NULL);
-//    sync_mutex_lock(ubms->mutex);
     UBMS_DBG("CSW status(%u)\n", csw->status);
     if (err < 0) {
         assert(0);

@@ -106,8 +106,6 @@ static void ufi_inquiry(struct ufi_disk *disk)
 			&data, 1, UFI_INPUT);
 	assert(!err);
 
-	ufi_print_info(xact_get_vaddr(&data));
-
 	usb_destroy_xact(disk->udev->dman, &data, 1);
 }
 
@@ -144,8 +142,6 @@ static void ufi_read_capacity(struct ufi_disk *disk)
 	err = usb_storage_xfer(disk->udev, &cdb, sizeof(struct ufi_cdb),
 				&data, 1, UFI_INPUT);
 	assert(!err);
-
-	ufi_print_info(xact_get_vaddr(&data));
 
 	usb_destroy_xact(disk->udev->dman, &data, 1);
 }
