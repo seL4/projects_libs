@@ -294,7 +294,7 @@ int _get_pstat(void* token, int port, struct port_status* _ps);
  * Async Scheduling
  */
 void ehci_handle_irq(usb_host_t* hdev);
-int ehci_cancel_xact(usb_host_t* hdev, void * token);
+int ehci_cancel_xact(usb_host_t* hdev, struct endpoint *ep);
 
 void qhn_destroy(ps_dma_man_t* dman, struct QHn* qhn);
 int clear_async_xact(struct ehci_host* edev, void* token);
@@ -317,6 +317,8 @@ void qhn_update(struct QHn *qhn, uint8_t address, struct endpoint *ep);
 void qtd_enqueue(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn);
 void ehci_add_qhn_async(struct ehci_host *edev, struct QHn *qhn);
 void ehci_add_qhn_periodic(struct ehci_host *edev, struct QHn *qhn);
+void ehci_del_qhn_async(struct ehci_host *edev, struct QHn *qhn);
+void ehci_del_qhn_periodic(struct ehci_host *edev, struct QHn *qhn);
 void ehci_async_complete(struct ehci_host *edev);
 
 /**

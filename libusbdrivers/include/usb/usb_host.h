@@ -141,8 +141,8 @@ struct usb_host {
     int (*schedule_xact)(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_port,
                          enum usb_speed speed, struct endpoint *ep,
                          struct xact* xact, int nxact, usb_cb_t cb, void* t);
-    /// Cancel all transactions for a given device address
-    int (*cancel_xact)(usb_host_t* hdev, void* token);
+    /// Cancel all transactions for a given device endpoint
+    int (*cancel_xact)(usb_host_t* hdev, struct endpoint *ep);
     /// Handle an IRQ
     void (*handle_irq)(usb_host_t* hdev);
 
@@ -182,24 +182,6 @@ usb_hcd_schedule(usb_host_t* hdev, uint8_t addr, uint8_t hub_addr, uint8_t hub_p
 {
     return hdev->schedule_xact(hdev, addr, hub_addr, hub_port, speed, ep,
                                xact, nxact, cb, t);
-}
-
-/**
- * Cancels a pending USB transaction.
- * It is assumed that a transaction can be uniquely identified by the token
- * that was to be passed to the relevant callback function. For this reason,
- * this function cancels only a single pending transaction where the provided
- * token and the registered token match.
- * @param[in] hdev  A handle to the host controller on which the transaction was
- *                  scheduled.
- * @param[in] token The token which was provided as a callback function argument
- *                  to the transaction (NULL is not supported)
- * @return          0 on success
- */
-static inline int
-usb_hcd_cancel(usb_host_t* hdev, void* token)
-{
-    return hdev->cancel_xact(hdev, token);
 }
 
 static inline void

@@ -418,44 +418,23 @@ qtd_enqueue(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn)
 	}
 }
 
-void
-qhn_destroy(ps_dma_man_t* dman, struct QHn* qhn)
+void qhn_destroy(ps_dma_man_t* dman, struct QHn* qhn)
 {
-    int i;
-#ifdef EHCI_TRAFFIC_DEBUG
-    printf("Completed QH:\n");
-    dump_qhn(qhn);
-#endif
-    for (i = 0; i < qhn->ntdns; i++) {
-        ps_dma_free_pinned(dman, (void*)qhn->tdns[i].td, sizeof(*qhn->tdns[i].td));
-    }
-    ps_dma_free_pinned(dman, (void*)qhn->qh, sizeof(*qhn->qh));
-    free(qhn->tdns);
-    free(qhn);
-}
+	struct TDn *tdn, *tmp;
 
-int
-clear_async_xact(struct ehci_host* edev, void* token)
-{
-    /* Clear from the async list. */
-    if (edev->alist_tail) {
-        struct QHn *prev, *cur, *tail;
-        /* We cache the tail due to destructive updated within the loop */
-        prev = tail = edev->alist_tail;
-        do {
-            cur = prev->next;
-            assert(cur != NULL);
-            if (cur->token == token) {
-                /* Remove it. The doorbell will notify the client */
-                cur->was_cancelled = 1;
-                _async_remove_next(edev, prev);
-                return 0;
-            } else {
-                prev = cur;
-            }
-        } while (cur != tail);
-    }
-    return 1;
+	tdn = qhn->tdns;
+	while (tdn) {
+		tmp = tdn;
+		tdn = tdn->next;
+		if (tmp->cb) {
+			tmp->cb(tmp->token, XACTSTAT_CANCELLED, 0);
+		}
+		ps_dma_free_pinned(dman, (void*)tmp->td, sizeof(struct TD));
+		free(tmp);
+	}
+
+	ps_dma_free_pinned(dman, (void*)qhn->qh, sizeof(struct QH));
+	free(qhn);
 }
 
 void
@@ -570,6 +549,76 @@ void ehci_add_qhn_async(struct ehci_host *edev, struct QHn *qhn)
     }
 }
 
+void ehci_del_qhn_async(struct ehci_host *edev, struct QHn *qhn)
+{
+	struct TDn *tdn;
+	struct QHn *prev;
+
+	/*
+	 * The EHCI spec(section 4.8.2) gives the instructions of removing a QH
+	 * from the active async queue. However, the instructions have been
+	 * proved racy and impractical. See the following link for more
+	 * information,
+	 *
+	 * https://marc.info/?l=linux-usb&m=144554811526940&w=2
+	 *
+	 * This implementation combines part of the spec instructions and
+	 * Linux's double IAA cycle approach. Hope it would minimize the chances
+	 * of trigging serious problems. Good Luck!
+	 */
+
+	/*
+	 * Deactivate all active TDs
+	 *
+	 * This is the racy part of the EHCI spec. The host may have already in
+	 * the middle of processing the TD overlay when we change the token.
+	 * But we've got no choice otherwise the host would follow the TD list
+	 * and would cause further errors.
+	 */
+	tdn = qhn->tdns;
+	while (tdn) {
+		if (tdn->td->token & TDTOK_SACTIVE) {
+			tdn->td->token &= ~TDTOK_SACTIVE;
+			tdn->td->token |= TDTOK_SHALTED;
+		}
+		tdn = tdn->next;
+	}
+
+	/* Select another queue head to set its H-bit */
+	if ((qhn->qh->epc[0] & QHEPC0_H) && qhn->next) {
+		qhn->next->qh->epc[0] |= QHEPC0_H;
+	}
+
+	/* Remove the queue head from async list */
+	prev = edev->alist_tail;
+	while (prev->next != qhn) {
+		prev = prev->next;
+	}
+
+	prev->qh->qhlptr = qhn->qh->qhlptr;
+	prev->next = qhn->next;
+
+	if (edev->alist_tail == qhn) {
+		edev->alist_tail = qhn->next;
+	}
+
+	/* Put the queue head to the recycle queue */
+	if (edev->db_pending) {
+		prev = edev->db_pending;
+		while (prev->next != NULL) {
+			prev = prev->next;
+		}
+		prev->next = qhn;
+	} else {
+		edev->db_pending = qhn;
+	}
+	qhn->next = NULL;
+	qhn->was_cancelled = 1;
+
+	/* Ring the doorbell */
+	edev->op_regs->usbcmd |= EHCICMD_ASYNC_DB;
+}
+
 int ehci_wait_for_completion(struct TDn *tdn)
 {
 	int status;
@@ -661,22 +710,35 @@ _async_remove_next(struct ehci_host* edev, struct QHn* prev)
     q->next = edev->db_pending;
     edev->db_pending = q;
 }
-void
-check_doorbell(struct ehci_host* edev)
+void check_doorbell(struct ehci_host* edev)
 {
-    if (_is_enabled_async(edev)) {
-        if (edev->db_active == NULL && edev->db_pending != NULL) {
-            /* Ring the bell */
-            edev->db_active = edev->db_pending;
-            edev->db_pending = NULL;
-            edev->op_regs->usbcmd |= EHCICMD_ASYNC_DB;
-        }
-    } else {
-        /* Clean up all dangling transactions */
-        _async_doorbell(edev);
-        edev->db_active = edev->db_pending;
-        edev->db_pending = NULL;
-        _async_doorbell(edev);
-    }
+	int again = 0;
+	struct QHn *qhn, *tmp, *tail;
+
+	qhn = edev->db_pending;
+	edev->db_pending = NULL;
+	while (qhn) {
+		tmp = qhn;
+		qhn = qhn->next;
+
+		/* Two IAA cycles have passed, safe to remove */
+		if (tmp->was_cancelled > 1) {
+			qhn_destroy(edev->dman, tmp);
+		} else {
+			tmp->was_cancelled++;
+			if (!edev->db_pending) {
+				edev->db_pending = tmp;
+			} else {
+				tail->next = tmp;
+			}
+			tail = tmp;
+
+			again = 1;
+		}
+	}
+
+	if (again) {
+		edev->op_regs->usbcmd |= EHCICMD_ASYNC_DB;
+	}
 }
 

@@ -285,6 +285,7 @@ _handle_port_change(usb_hub_t h, int port)
                 HUB_DBG(h, "port %d disconnected\n", port);
                 usbdev_disconnect(h->port[port - 1].udev);
                 h->port[port - 1].udev = NULL;
+                return;
             }
         }
         if (change & BIT(PORT_ENABLE)) {

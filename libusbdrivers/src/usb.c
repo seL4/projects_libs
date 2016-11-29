@@ -911,6 +911,8 @@ usbdev_disconnect(usb_dev_t udev)
 {
     UNUSED int err;
     usb_host_t* hdev;
+    int cnt = 0;
+
     USB_DBG(udev, "Disconnecting\n");
     assert(udev);
     assert(udev->host);
@@ -919,8 +921,17 @@ usbdev_disconnect(usb_dev_t udev)
         printf("calling device disconnect 0x%x\n", (uint32_t)udev->disconnect);
         udev->disconnect(udev);
     }
-//    err = hdev->cancel_xact(hdev, udev->addr);
-//    assert(!err);
+
+    /* Remove control endpoint */
+    err = hdev->cancel_xact(hdev, udev->ep_ctrl);
+
+    /* Remove all other endpoints */
+    while (udev->ep[cnt] && cnt < USB_MAX_EPS) {
+	    err = hdev->cancel_xact(hdev, udev->ep[cnt]);
+	    cnt++;
+    }
+
+    assert(!err);
     (void)hdev;
     devlist_remove(udev);
     if (udev->dev_data) {

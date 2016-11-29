@@ -213,38 +213,30 @@ ehci_handle_irq(usb_host_t* hdev)
         EHCI_IRQDBG(edev, "INT - async list advance\n");
         edev->op_regs->usbsts = EHCISTS_ASYNC_ADV;
         sts &= ~EHCISTS_ASYNC_ADV;
-        _async_doorbell(edev);
+        check_doorbell(edev);
     }
     if (sts) {
         printf("Unhandled USB irq. Status: 0x%x\n", sts);
         usb_assert(!"Unhandled irq");
     }
-
-    check_doorbell(edev);
 }
 
-int
-ehci_cancel_xact(usb_host_t* hdev, void * token)
+int ehci_cancel_xact(usb_host_t* hdev, struct endpoint *ep)
 {
-    struct ehci_host* edev = _hcd_to_ehci(hdev);
-    if (token != NULL) {
-        int err;
-        /* Clear from periodic schedule */
-        err = clear_periodic_xact(edev, token);
-        if (!err) {
-            return 0;
-        }
+	int err = 0;
+	struct ehci_host* edev = _hcd_to_ehci(hdev);
 
-        /* Clear from async schedule */
-        err = clear_async_xact(edev, token);
-        if (!err) {
-            /* Cancel is not called from the ISR. Ring the bell or finalise heads. */
-            check_doorbell(edev);
-            return 0;
-        }
-        EHCI_DBG(edev, "Unable to find transaction for removal (0x%x)\n", (uint32_t)token);
-    }
-    return -1;
+	usb_assert(ep);
+
+	if (ep->hcpriv) {
+		if (ep->type == EP_BULK || ep->type == EP_CONTROL) {
+			ehci_del_qhn_async(edev, ep->hcpriv);
+		} else {
+			ehci_del_qhn_periodic(edev, ep->hcpriv);
+		}
+	}
+
+	return 0;
 }
 
 

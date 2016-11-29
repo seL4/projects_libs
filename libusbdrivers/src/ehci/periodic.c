@@ -77,6 +77,10 @@ void ehci_add_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 	}
 }
 
+void ehci_del_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
+{
+}
+
 int
 ehci_schedule_periodic_root(struct ehci_host* edev, struct xact *xact,
                             int nxact, usb_cb_t cb, void* t)
