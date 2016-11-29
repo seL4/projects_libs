@@ -11,7 +11,7 @@
  */
 
 #include <autoconf.h>
-#ifdef CONFIG_LIB_LWIP
+#if 0 // CONFIG_LIB_LWIP
 
 #include <stdio.h>
 #include <stdlib.h>
