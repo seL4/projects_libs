@@ -283,6 +283,10 @@ _handle_port_change(usb_hub_t h, int port)
             } else {
                 /* Disconnect */
                 HUB_DBG(h, "port %d disconnected\n", port);
+                *req = __set_port_feature_req(port, PORT_SUSPEND);
+                ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
+                                           xact, 1, NULL, NULL);
+                assert(ret >= 0);
                 usbdev_disconnect(h->port[port - 1].udev);
                 h->port[port - 1].udev = NULL;
                 return;

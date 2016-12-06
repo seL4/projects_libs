@@ -48,7 +48,9 @@ enum port_feature {
     C_PORT_ENABLE         = 17,
     C_PORT_SUSPEND        = 18,
     C_PORT_OVER_CURRENT   = 19,
-    C_PORT_RESET          = 20
+    C_PORT_RESET          = 20,
+    PORT_TEST             = 21,
+    PORT_INDICATOR        = 22
 };
 
 

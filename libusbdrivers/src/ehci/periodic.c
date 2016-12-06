@@ -79,6 +79,42 @@ void ehci_add_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 
 void ehci_del_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 {
+	struct QHn *prev, *cur;
+	struct TDn *tdn, *tmp;
+
+	/* Remove from the frame list */
+	for (int i = 0; i < edev->flist_size; i++) {
+		if (edev->flist[i] == (qhn->pqh | QHLP_TYPE_QH)) {
+			edev->flist[i] = TDLP_INVALID;
+			break;
+		}
+	}
+
+	/* Remove from the software queue */
+	prev = edev->intn_list;
+	cur = prev;
+	while (cur != NULL) {
+		if (cur == qhn) {
+			prev->next = qhn->next;
+			tdn = qhn->tdns;
+			while (tdn) {
+				tmp = tdn;
+				tdn = tdn->next;
+				if (tmp->cb) {
+					tmp->cb(tmp->token, XACTSTAT_CANCELLED, 0);
+				}
+				ps_dma_free_pinned(edev->dman, (void*)tmp->td,
+						sizeof(struct TD));
+				free(tmp);
+			}
+
+			ps_dma_free_pinned(edev->dman, (void*)qhn->qh, sizeof(struct QH));
+			free(qhn);
+			break;
+		}
+		prev = cur;
+		cur = cur->next;
+	}
 }
 
 int
