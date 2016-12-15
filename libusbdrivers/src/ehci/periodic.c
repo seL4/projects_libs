@@ -95,7 +95,13 @@ void ehci_del_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 	cur = prev;
 	while (cur != NULL) {
 		if (cur == qhn) {
-			prev->next = qhn->next;
+			if (qhn->next) {
+				prev->qh->qhlptr = qhn->qh->qhlptr;
+				prev->next = qhn->next;
+			} else {
+				prev->qh->qhlptr = QHLP_INVALID;
+				prev->next = NULL;
+			}
 			tdn = qhn->tdns;
 			while (tdn) {
 				tmp = tdn;
