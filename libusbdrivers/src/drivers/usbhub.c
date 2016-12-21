@@ -269,8 +269,10 @@ _handle_port_change(usb_hub_t h, int port)
                 ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
                                            xact, 1, NULL, NULL);
                 assert(ret >= 0);
-                usbdev_disconnect(h->port[port - 1].udev);
-                h->port[port - 1].udev = NULL;
+                if (h->port[port - 1].udev) {
+                    usbdev_disconnect(h->port[port - 1].udev);
+                    h->port[port - 1].udev = NULL;
+                }
                 return;
             }
         }
