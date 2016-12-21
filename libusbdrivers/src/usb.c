@@ -120,14 +120,11 @@ __new_address_req(int addr) {
 
 /**** Device list ****/
 
-static usb_dev_t inactive_devlist = NULL;
-
 /* Initialise the device list */
 static void
 devlist_init(usb_t* host)
 {
     host->devlist = NULL;
-    inactive_devlist = NULL;
     host->addrbm = 1;
     host->next_addr = 1;
 }
@@ -182,34 +179,6 @@ devlist_remove(usb_dev_t d)
     host->addrbm &= ~(1 << d->addr);
     d->addr = -1;
 }
-
-static void
-devlist_activate(usb_dev_t d)
-{
-    usb_dev_t* dptr = &inactive_devlist;
-    usb_t* host = d->host;
-    while (*dptr != d) {
-        assert(*dptr != NULL || !"Device not in list");
-        dptr = &(*dptr)->next;
-    }
-    *dptr = d->next;
-    d->next = host->devlist;
-    host->devlist = d;
-    d->connect(d);
-}
-
-static usb_dev_t
-devlist_find_inactive(usb_dev_t df)
-{
-    usb_dev_t d = inactive_devlist;
-    while (d != NULL) {
-        if (df->prod_id == d->prod_id && df->vend_id == d->vend_id) {
-            return d;
-        }
-    }
-    return NULL;
-}
-
 
 /* Retrieve a device from the list */
 static usb_dev_t
@@ -787,17 +756,6 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
     *d = udev;
     usb_destroy_xact(udev->dman, xact, sizeof(xact) / sizeof(*xact));
 
-    /* Search through disconnected drivers for reconnection */
-    udev = devlist_find_inactive(*d);
-    if (udev) {
-        USB_DBG(*d, "Reconnecting existing driver\n");
-        udev->addr = (*d)->addr;
-        devlist_remove(*d);
-        devlist_activate(udev);
-        usb_free(*d);
-        *d = udev;
-    }
-
     return 0;
 }
 
@@ -948,20 +906,14 @@ usbdev_disconnect(usb_dev_t udev)
     assert(!err);
     (void)hdev;
     devlist_remove(udev);
-//    if (udev->dev_data) {
-//        /* Stow this device if a driver is attached */
-//        udev->next = inactive_devlist;
-//        inactive_devlist = udev;
-//    } else {
-        /* destroy it */
-        usb_free(udev->ep_ctrl);
-	for (int i = 0; i < USB_MAX_EPS; i++) {
-		if (udev->ep[i]) {
-			usb_free(udev->ep[i]);
-		}
-	}
-        usb_free(udev);
-//    }
+    /* destroy it */
+    usb_free(udev->ep_ctrl);
+    for (int i = 0; i < USB_MAX_EPS; i++) {
+        if (udev->ep[i]) {
+            usb_free(udev->ep[i]);
+        }
+    }
+    usb_free(udev);
 }
 
 void
