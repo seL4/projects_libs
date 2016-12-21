@@ -184,24 +184,6 @@ __set_hub_descriptor_req(void) {
 }
 
 
-struct usb_hub_port {
-    struct usb_dev* udev;
-};
-
-struct usb_hub {
-    usb_dev_t udev;
-/// Configuration parameters
-    struct endpoint *ep_int;
-    int ifno, cfgno, int_ep, int_max_pkt, int_rate_ms;
-/// Port book keeping
-    int nports;
-    struct usb_hub_port* port;
-    int power_good_delay_ms;
-/// IRQs
-    struct xact int_xact;
-    uint8_t* intbm;
-};
-
 struct usb_hubem {
     int hubem_nports;
     int pwr_delay_ms;
@@ -473,6 +455,8 @@ usb_hub_driver_bind(usb_dev_t udev, usb_hub_t* hub)
     }
     memset(h, 0, sizeof(*h));
     h->udev = udev;
+    udev->dev_data = (struct udev_priv*)h;
+
     /* Get hub descriptor for nports and power delay */
     HUB_DBG(h, "Get hub descriptor\n");
     xact[0].type = PID_SETUP;

@@ -53,8 +53,24 @@ enum port_feature {
     PORT_INDICATOR        = 22
 };
 
+struct usb_hub_port {
+    struct usb_dev* udev;
+};
 
-struct usb_hub;
+struct usb_hub {
+    usb_dev_t udev;
+/// Configuration parameters
+    struct endpoint *ep_int;
+    int ifno, cfgno, int_ep, int_max_pkt, int_rate_ms;
+/// Port book keeping
+    int nports;
+    struct usb_hub_port* port;
+    int power_good_delay_ms;
+/// IRQs
+    struct xact int_xact;
+    uint8_t* intbm;
+};
+
 typedef struct usb_hub* usb_hub_t;
 int usb_hub_driver_bind(usb_dev_t usb_dev, usb_hub_t* hub);
 
