@@ -12,6 +12,8 @@
 #include <string.h>
 #include <assert.h>
 
+#include <sync/atomic.h>
+
 #include "../services.h"
 #include "cdc.h"
 
@@ -26,6 +28,13 @@
 #else
 #define CDC_DBG(...) do{}while(0)
 #endif
+
+/*
+ * XXX: In theory the maximum xact size can be up to 20K, however, our DMA
+ * allocator cannot handle that large allocation at the moment.
+ */
+#define CDC_READ_XACT_SIZE  128
+#define CDC_READ_BUFFER_SIZE 4096
 
 static const char *subclass_codes[] = {
 	"Reserved",
@@ -94,6 +103,9 @@ struct usb_cdc_device {
 	struct endpoint *ep_int; //Interrupt endpoint
 	struct endpoint *ep_in;	 //BULK in endpoint
 	struct endpoint *ep_out; //BULK out endpoint
+	struct xact read_xact;   //Current read request
+	struct circ_buf read_buf;  //Read buffer
+	int read_in_progress;
 };
 
 static int
@@ -147,6 +159,32 @@ usb_cdc_config_cb(void *token, int cfg, int iface, struct anon_desc *desc)
 	return 0;
 }
 
+static int usb_cdc_read_cb(void *token, enum usb_xact_status stat, int rbytes)
+{
+	int err;
+	usb_dev_t udev;
+	struct usb_cdc_device *cdc;
+	char *buf;
+
+	udev = (usb_dev_t)token;
+	cdc = (struct usb_cdc_device*)udev->dev_data;
+
+	if (stat == XACTSTAT_SUCCESS) {
+		buf = (char*)xact_get_vaddr(&cdc->read_xact);
+		for (int i = 0; i < CDC_READ_XACT_SIZE - rbytes; i++) {
+			if (!circ_buf_is_full(&cdc->read_buf)) {
+				circ_buf_put(&cdc->read_buf, buf[i]);
+			} else {
+				break;
+			}
+		}
+	}
+
+	sync_atomic_decrement(&cdc->read_in_progress, __ATOMIC_RELAXED);
+
+	return 0;
+}
+
 int usb_cdc_bind(usb_dev_t udev)
 {
 	int err;
@@ -185,13 +223,33 @@ int usb_cdc_bind(usb_dev_t udev)
 		}
 	}
 
+	cdc->read_buf.buf = usb_malloc(CDC_READ_BUFFER_SIZE);
+	if (!cdc->read_buf.buf) {
+		CDC_DBG("Failed to allocate ring buffer!\n");
+		usb_free(cdc);
+		return -1;
+	}
+	cdc->read_buf.size = CDC_READ_BUFFER_SIZE;
+	cdc->read_buf.head = 0;
+	cdc->read_buf.tail = 0;
+
 	class = usbdev_get_class(udev);
 	if (class != USB_CLASS_CDCDATA && class != USB_CLASS_COMM) {
 		CDC_DBG("Not a CDC device(%d)\n", class);
+		rb_destory(cdc->read_buf);
+		usb_free(base);
+		usb_free(cdc);
 		return -1;
 	}
 
 	CDC_DBG("USB CDC found, subclass(%x)\n", cdc->subclass);
+
+	/* Allocate read request */
+	cdc->read_xact.type = PID_IN;
+	cdc->read_xact.len = CDC_READ_XACT_SIZE;
+	err = usb_alloc_xact(udev->dman, &cdc->read_xact, 1);
+	assert(!err);
+	cdc->read_in_progress = 0;
 
 	/* Activate configuration */
 	xact.len = sizeof(struct usbreq);
@@ -214,49 +272,29 @@ int usb_cdc_bind(usb_dev_t udev)
 int usb_cdc_read(usb_dev_t udev, void *buf, int len)
 {
 	int err;
-	int cnt;
-	int received;
+	int cnt = 0;
 	struct usb_cdc_device *cdc;
-	struct xact *xact;
 
 	cdc = (struct usb_cdc_device*)udev->dev_data;
 
-	/* Xact needs to be virtually contiguous */
-	cnt = ROUND_UP(len, MAX_XACT_SIZE) / MAX_XACT_SIZE;
-
-	xact = usb_malloc(sizeof(struct xact) * cnt);
-
-	/* Fill in the length of each xact */
-	for (int i = 0; i < cnt; i++) {
-		xact[i].type = PID_IN;
-		xact[i].len = len < MAX_XACT_SIZE ? len : MAX_XACT_SIZE;
-		len -= xact[i].len;
+	if (!cdc->read_in_progress) {
+		err = usbdev_schedule_xact(udev, cdc->ep_in, &cdc->read_xact, 1,
+				usb_cdc_read_cb, udev);
+		assert(err >= 0);
+		sync_atomic_increment(&cdc->read_in_progress, __ATOMIC_RELAXED);
 	}
 
-	/* DMA allocation */
-	err = usb_alloc_xact(udev->dman, xact, cnt);
-	assert(!err);
-
-	/* Send to the host */
-	err = usbdev_schedule_xact(udev, cdc->ep_in, xact, cnt, NULL, NULL);
-	assert(err >= 0);
-
-	/*
-	 * Copy out the received data
-	 * TODO: Copy the actual number of bytes received only.
-	 */
-	received = 0;
-	for (int i = 0; i < cnt; i++) {
-		memcpy((char*)buf + received, xact_get_vaddr(&xact[i]), xact[i].len);
-		received += xact[i].len;
+	/* Get data from the read buffer */
+	while (len--) {
+		if (!circ_buf_is_empty(&cdc->read_buf)) {
+			*((char*)buf + cnt) = circ_buf_get(&cdc->read_buf);
+			cnt++;
+		} else {
+			break;
+		}
 	}
 
-	/* Cleanup */
-	usb_destroy_xact(udev->dman, xact, cnt);
-
-	usb_free(xact);
-
-	return received - err;
+	return cnt;
 }
 
 int usb_cdc_write(usb_dev_t udev, void *buf, int len)
