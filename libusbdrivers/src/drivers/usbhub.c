@@ -196,171 +196,159 @@ struct usb_hubem {
     void* token;
 };
 
-
 static void
 _handle_port_change(usb_hub_t h, int port)
 {
-    struct xact xact[2];
-    struct usbreq *req;
-    struct port_status* sts;
-    uint16_t status, change;
-    int ret;
-    assert(sizeof(unsigned short) == 2);
+	struct xact xact[2];
+	struct usbreq *req;
+	struct port_status *sts;
+	uint16_t change, status;
+	int ret;
 
-    HUB_DBG(h, "Handle status change port %d\n", port);
-    /* Setup packet */
-    xact[0].type = PID_SETUP;
-    xact[0].len = sizeof(*req);
-    xact[1].type = PID_IN;
-    xact[1].len = sizeof(*sts);
-
-    /* FIXME: Memory leak, no usb_destroy_xact in this function */
-    ret = usb_alloc_xact(h->udev->dman, xact, 2);
-    assert(!ret);
-    req = xact_get_vaddr(&xact[0]);
-    sts = xact_get_vaddr(&xact[1]);
-
-
-    /* get the associated ports status change */
-    if (port == 0) {
-        *req = __get_hub_status_req();
-    } else {
-        *req = __get_port_status_req(port);
-    }
-    HUB_DBG(h, "Getting status for port %d\n", port);
-    ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl, xact, 2, NULL, NULL);
-    assert(ret >= 0);
-    change = sts->wPortChange;
-    status = sts->wPortStatus;
-
-    if (port == 0) {
-        /* HUB */
-        assert(0);
-    } else {
-        HUB_DBG(h, "Status change (0x%x) on port %d:\n",
-                change, port);
-        if (change & BIT(PORT_CONNECTION)) {
-            change &= ~BIT(PORT_CONNECTION);
-            /* Clear the change flag */
-            *req = __clear_port_feature_req(port,
-                                            C_PORT_CONNECTION);
-            ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
-                                       xact, 1, NULL, NULL);
-            assert(ret >= 0);
-            if (status & BIT(PORT_CONNECTION)) {
-                HUB_DBG(h, "port %d connected\n", port);
-                /* USB spec 9.1.2 */
-                msdelay(100);
-                assert(ret >= 0);
-                /* reset the port to enable it */
-                HUB_DBG(h, "Resetting port %d\n", port);
-                *req = __set_port_feature_req(port, PORT_RESET);
-                ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
-                                           xact, 1, NULL, NULL);
-                assert(ret >= 0);
-                if (!ret) {
-                    /* Reset changes the status so call again */
-                    return _handle_port_change(h, port);
-                }
-            } else {
-                /* Disconnect */
-                HUB_DBG(h, "port %d disconnected\n", port);
-                *req = __set_port_feature_req(port, PORT_SUSPEND);
-                ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
-                                           xact, 1, NULL, NULL);
-                assert(ret >= 0);
-                if (h->port[port - 1].udev) {
-                    usbdev_disconnect(h->port[port - 1].udev);
-                    h->port[port - 1].udev = NULL;
-                }
-                return;
-            }
-        }
-        if (change & BIT(PORT_ENABLE)) {
-            HUB_DBG(h, "%sabled\n", (status & BIT(PORT_ENABLE)) ?
-                    "en" : "dis");
-            change &= ~PORT_ENABLE;
-            *req = __clear_port_feature_req(port,
-                                            C_PORT_ENABLE);
-            ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
-                                       xact, 1, NULL, NULL);
-            assert(ret >= 0);
-        }
-        if (change & BIT(PORT_SUSPEND)) {
-            HUB_DBG(h, "%s\n", (status & BIT(PORT_SUSPEND)) ?
-                    "suspended" : "resumed");
-            change &= ~BIT(PORT_SUSPEND);
-            *req = __clear_port_feature_req(port,
-                                            C_PORT_SUSPEND);
-            ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
-                                       xact, 1, NULL, NULL);
-            assert(ret >= 0);
-        }
-        if (change & BIT(PORT_OVER_CURRENT)) {
-            HUB_DBG(h, "over current %s\n",
-                    (status & BIT(PORT_OVER_CURRENT)) ?
-                    "detected" : "removed");
-            change &= ~BIT(PORT_OVER_CURRENT);
-            *req = __clear_port_feature_req(port,
-                                            C_PORT_OVER_CURRENT);
-            ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
-                                       xact, 1, NULL, NULL);
-            assert(ret >= 0);
-        }
-        if (change & BIT(PORT_RESET)) {
-            HUB_DBG(h, "reset %s\n", (status & BIT(PORT_RESET)) ?
-                    "" : "released");
-            change &= ~BIT(PORT_RESET);
-            *req = __clear_port_feature_req(port, C_PORT_RESET);
-            ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
-                                       xact, 1, NULL, NULL);
-            assert(ret >= 0);
-            /* Was the reset part of the init process? */
-            if (status & BIT(PORT_CONNECTION)) {
-                enum usb_speed speed;
-                usb_dev_t new_dev;
-                usb_hub_t new_hub;
-                assert(status & BIT(PORT_ENABLE));
-
-                /* Create the new device */
-                if (status & BIT(PORT_HIGH_SPEED)) {
-                    speed = USBSPEED_HIGH;
-                } else if (status & BIT(PORT_LOW_SPEED)) {
-                    speed = USBSPEED_LOW;
-                } else {
-                    speed = USBSPEED_FULL;
-                }
-                ret = usb_new_device(h->udev, port, speed, &new_dev);
-                if (ret) {
-                    HUB_DBG(h, "Failed to initialise new device"
-                            " on port %d\n", port);
-                    HUB_DBG(h, "Resetting port %d\n", port);
-                    msdelay(10);
-                    *req = __set_port_feature_req(port, PORT_RESET);
-                    ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
-                                               xact, 1, NULL, NULL);
-                    assert(ret >= 0);
-                    printf("Scheduled!\n");
-                    return _handle_port_change(h, port);
-                } else {
-                    h->port[port - 1].udev = new_dev;
-                    /* See if we can bind a hub */
-                    usb_hub_driver_bind(new_dev, &new_hub);
-                }
+	assert(h);
+	if (!port) {
+		HUB_DBG(h, "Error: check hub status!\n");
 		return;
-            }
-        }
-        if (change) {
-            HUB_DBG(h, "Unhandled port change 0x%x\n", change);
-        }
-        assert(ret >= 0);
+	}
 
-	/*
-	 * FIXME: A hack to force serializing device enumeration, this function
-	 * needs rewrite.
-	 */
-	_handle_port_change(h, port);
-    }
+	HUB_DBG(h, "Handle status change of port %d\n", port);
+
+	/* Get port status change */
+	xact[0].type = PID_SETUP;
+	xact[0].len = sizeof(struct usbreq);
+	xact[1].type = PID_IN;
+	xact[1].len = sizeof(struct port_status);
+
+	ret = usb_alloc_xact(h->udev->dman, xact, 2);
+	assert(!ret);
+	req = xact_get_vaddr(&xact[0]);
+	sts = xact_get_vaddr(&xact[1]);
+
+	*req = __get_port_status_req(port);
+	ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
+			xact, 2, NULL, NULL);
+	assert(ret >= 0);
+
+	/* Cache the port status, because we need to clear it right away. */
+	change = sts->wPortChange;
+	status = sts->wPortStatus;
+
+	HUB_DBG(h, "Status change (0x%x:0x%x) on port %d.\n",
+			change, status, port);
+
+	/* Attach and detach detect event */
+	if (change & BIT(PORT_CONNECTION)) {
+		/* Clear the port connection status */
+		*req = __clear_port_feature_req(port, C_PORT_CONNECTION);
+		ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
+				xact, 1, NULL, NULL);
+		assert(ret >= 0);
+
+		if (status & BIT(PORT_CONNECTION)) {
+			HUB_DBG(h, "Port %d connected\n", port);
+			/* Wait for the device to stabilize, USB spec 9.1.2 */
+			msdelay(100);
+
+			/* Enable the connection by resetting the port */
+			*req = __set_port_feature_req(port, PORT_RESET);
+			ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
+					xact, 1, NULL, NULL);
+			assert(ret >= 0);
+
+			/*
+			 * Wait for the hub to exit the resetting state, refer
+			 * to USB spec 11.5.1.5
+			 * We also need to re-read the port status, it's updated
+			 * by the reset.
+			 */
+			*req = __get_port_status_req(port);
+			do {
+				msdelay(10);
+				ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
+						xact, 2, NULL, NULL);
+				assert(ret >= 0);
+
+				status = sts->wPortStatus;
+			} while (status & BIT(PORT_RESET));
+
+			/* Reset finished, clear reset status */
+			*req = __clear_port_feature_req(port, C_PORT_RESET);
+			ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
+					xact, 1, NULL, NULL);
+			assert(ret >= 0);
+
+			/* Create the new device */
+			enum usb_speed speed;
+			usb_dev_t new_dev;
+			usb_dev_t new_hub;
+
+			if (status & BIT(PORT_HIGH_SPEED)) {
+				speed = USBSPEED_HIGH;
+			} else if (status & BIT(PORT_LOW_SPEED)) {
+				speed = USBSPEED_LOW;
+			} else {
+				speed = USBSPEED_FULL;
+			}
+
+			ret = usb_new_device(h->udev, port, speed, &new_dev);
+			assert(!ret);
+
+			h->port[port - 1].udev = new_dev;
+			usb_hub_driver_bind(new_dev, &new_hub);
+		} else {
+			HUB_DBG(h, "Port %d disconnected\n", port);
+			*req = __set_port_feature_req(port, PORT_SUSPEND);
+			ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
+					xact, 1, NULL, NULL);
+			assert(ret >= 0);
+			if (h->port[port - 1].udev) {
+				usbdev_disconnect(h->port[port - 1].udev);
+				h->port[port - 1].udev = NULL;
+			}
+		}
+	}
+
+	/* Port enable */
+	if (change & BIT(PORT_ENABLE)) {
+		HUB_DBG(h, "Port %d enabled\n", port);
+		/* Clear the port connection status */
+		*req = __clear_port_feature_req(port, C_PORT_CONNECTION);
+		ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
+				xact, 1, NULL, NULL);
+		assert(ret >= 0);
+	}
+
+	/* Port suspend */
+	if (change & BIT(PORT_SUSPEND)) {
+		HUB_DBG(h, "Port %d suspended\n", port);
+		/* Clear suspend status */
+		*req = __clear_port_feature_req(port, C_PORT_SUSPEND);
+		ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
+				xact, 1, NULL, NULL);
+		assert(ret >= 0);
+	}
+
+	/* Port over-current */
+	if (change & BIT(PORT_OVER_CURRENT)) {
+		HUB_DBG(h, "Port %d over-current\n", port);
+		/* Clear over-current status */
+		*req = __clear_port_feature_req(port, C_PORT_OVER_CURRENT);
+		ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
+				xact, 1, NULL, NULL);
+		assert(ret >= 0);
+	}
+
+	/* Port reset */
+	if (change & BIT(PORT_RESET)) {
+		HUB_DBG(h, "Port %d reset\n", port);
+		/* Clear reset status */
+		*req = __clear_port_feature_req(port, C_PORT_RESET);
+		ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
+				xact, 1, NULL, NULL);
+		assert(ret >= 0);
+	}
+
+	usb_destroy_xact(h->udev->dman, xact, 2);
 }
 
 static int
