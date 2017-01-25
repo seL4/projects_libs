@@ -659,6 +659,7 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
     if (!udev->ep_ctrl) {
         USB_DBG(udev, "No heap memory for control endpoint\n");
 	usb_free(udev);
+	udev = NULL;
         assert(0);
         return -1;
     }
@@ -674,7 +675,8 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
     if (err) {
         USB_DBG(udev, "No DMA memory for new USB device\n");
         assert(0);
-        free(udev);
+        usb_free(udev);
+	udev = NULL;
         return -1;
     }
     req = xact_get_vaddr(&xact[0]);
@@ -703,7 +705,8 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
     err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
     if (err < 0) {
         usb_destroy_xact(udev->dman, xact, 2);
-        free(udev);
+        usb_free(udev);
+	udev = NULL;
         return -1;
     }
 
@@ -717,6 +720,7 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
         assert(0);
         usb_destroy_xact(udev->dman, xact, sizeof(xact) / sizeof(*xact));
         usb_free(udev);
+	udev = NULL;
         return -1;
     }
 
@@ -724,7 +728,13 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
     *req = __new_address_req(addr);
     USB_DBG(udev, "Setting address to %d\n", addr);
     err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 1, NULL, NULL);
-    assert(err >= 0);
+    if (err < 0) {
+        usb_destroy_xact(udev->dman, xact, 2);
+        usb_free(udev);
+	udev = NULL;
+        return -1;
+    }
+
     /* Device has 2ms to start responding to new address */
     msdelay(2);
     udev->addr = addr;
@@ -734,7 +744,13 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
     xact[1].len = sizeof(*d_desc);
     *req = __new_desc_req(DEVICE, sizeof(*d_desc));
     err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
-    assert(err >= 0);
+    if (err < 0) {
+        usb_destroy_xact(udev->dman, xact, 2);
+        usb_free(udev);
+	udev = NULL;
+        return -1;
+    }
+
     udev->prod_id = d_desc->idProduct;
     udev->vend_id = d_desc->idVendor;
     udev->class   = d_desc->bDeviceClass;
@@ -836,7 +852,6 @@ usbdev_parse_config(usb_dev_t udev, usb_config_cb cb, void* t)
     err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
     if (err < 0) {
         usb_destroy_xact(udev->dman, xact, 2);
-        assert(0);
         return -1;
     }
     tot_len = cd->wTotalLength;

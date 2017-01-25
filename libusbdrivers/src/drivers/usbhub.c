@@ -279,8 +279,8 @@ _handle_port_change(usb_hub_t h, int port)
 
 			/* Create the new device */
 			enum usb_speed speed;
-			usb_dev_t new_dev;
-			usb_dev_t new_hub;
+			usb_dev_t new_dev = NULL;
+			usb_dev_t new_hub = NULL;
 
 			if (status & BIT(PORT_HIGH_SPEED)) {
 				speed = USBSPEED_HIGH;
@@ -291,10 +291,18 @@ _handle_port_change(usb_hub_t h, int port)
 			}
 
 			ret = usb_new_device(h->udev, port, speed, &new_dev);
-			assert(!ret);
-
-			h->port[port - 1].udev = new_dev;
-			usb_hub_driver_bind(new_dev, &new_hub);
+			if (ret < 0) {
+				*req = __set_port_feature_req(port, PORT_RESET);
+				ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
+						xact, 1, NULL, NULL);
+				assert(ret >= 0);
+				if (new_dev) {
+					usbdev_disconnect(new_dev);
+				}
+			} else {
+				h->port[port - 1].udev = new_dev;
+				usb_hub_driver_bind(new_dev, &new_hub);
+			}
 		} else {
 			HUB_DBG(h, "Port %d disconnected\n", port);
 			*req = __set_port_feature_req(port, PORT_SUSPEND);
@@ -459,7 +467,9 @@ usb_hub_driver_bind(usb_dev_t udev, usb_hub_t* hub)
     *req = __get_hub_descriptor_req();
     err = usbdev_schedule_xact(udev, h->udev->ep_ctrl, xact, 2, NULL, NULL);
     if (err < 0) {
-        assert(0);
+        usb_destroy_xact(udev->dman, xact, 2);
+	usb_free(h);
+	h = NULL;
         return -1;
     }
     hdesc = xact_get_vaddr(&xact[1]);
@@ -473,7 +483,8 @@ usb_hub_driver_bind(usb_dev_t udev, usb_hub_t* hub)
     h->int_ep = -1;
     err = usbdev_parse_config(h->udev, &hub_config_cb, h);
     if (err || h->int_ep == -1) {
-        assert(0);
+	usb_free(h);
+	h = NULL;
         return -1;
     }
     HUB_DBG(h, "Configure HUB\n");
@@ -490,7 +501,9 @@ usb_hub_driver_bind(usb_dev_t udev, usb_hub_t* hub)
 
     err = usbdev_schedule_xact(udev, h->udev->ep_ctrl, xact, 1, NULL, NULL);
     if (err < 0) {
-        assert(err >= 0);
+        usb_destroy_xact(udev->dman, xact, 1);
+	usb_free(h);
+	h = NULL;
         return -1;
     }
     usb_destroy_xact(udev->dman, xact, 1);

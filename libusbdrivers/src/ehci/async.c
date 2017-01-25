@@ -634,7 +634,7 @@ int ehci_wait_for_completion(struct TDn *tdn)
 			}
 			if (cnt <= 0) {
 				printf("Timeout(%p, %p)\n", tdn->td, tdn->ptd);
-				break;
+				return -1;
 			}
 			msdelay(1);
 			cnt--;
