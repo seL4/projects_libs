@@ -63,26 +63,6 @@ _root_irq(struct ehci_host* edev)
     }
 }
 
-static void print_xact(struct xact *xact, int nxact)
-{
-	struct xact *cur;
-	for (int i = 0; i < nxact; i++) {
-		cur = xact + i;
-		printf("addr: %p, type: %d, len: %d\n", cur->paddr, cur->type, cur->len);
-	}
-}
-
-static void print_list(struct QHn *qhn)
-{
-	struct TDn *tdn = qhn->tdns;
-	printf("qhn(%p)", qhn);
-	while (tdn != NULL) {
-		printf("-->%p, %p", tdn->td, tdn->ptd);
-		tdn = tdn->next;
-	}
-	printf("\n");
-}
-
 void ehci_sched_enable_irq(struct ehci_host *edev)
 {
 	uint32_t irq;
@@ -144,9 +124,6 @@ int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t 
     /* Allocate qTD */
     tdn = qtd_alloc(edev, speed, ep, xact, nxact, cb, t);
 
-    qhn->cb = cb;
-    qhn->token = t;
-    
     /* Add qTD to the queue head and send off over the bus */
     if (ep->type == EP_BULK || ep->type == EP_CONTROL) {
         ehci_schedule_async(edev, qhn);
@@ -180,8 +157,8 @@ ehci_handle_irq(usb_host_t* hdev)
         EHCI_IRQDBG(edev, "INT - host error\n");
         edev->op_regs->usbsts = EHCISTS_HOST_ERR;
         sts &= ~EHCISTS_HOST_ERR;
-        _periodic_complete(edev);
-        _async_complete(edev);
+	ehci_periodic_complete(edev);
+	ehci_async_complete(edev);
     }
     if (sts & EHCISTS_USBINT) {
         EHCI_IRQDBG(edev, "INT - USB\n");
@@ -200,8 +177,8 @@ ehci_handle_irq(usb_host_t* hdev)
         EHCI_IRQDBG(edev, "INT - USB error\n");
         edev->op_regs->usbsts = EHCISTS_USBERRINT;
         sts &= ~EHCISTS_USBERRINT;
-        _async_complete(edev);
-        _periodic_complete(edev);
+	ehci_periodic_complete(edev);
+	ehci_async_complete(edev);
     }
     if (sts & EHCISTS_PORTC_DET) {
         EHCI_IRQDBG(edev, "INT - root hub port change\n");

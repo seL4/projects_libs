@@ -229,7 +229,6 @@ struct QH {
 struct TDn {
     volatile struct TD* td;
     uintptr_t ptd;
-//    struct xact xact;
     usb_cb_t cb;
     void* token;
     struct TDn* next;
@@ -239,12 +238,9 @@ struct QHn {
     /* Transaction data */
     volatile struct QH* qh;
     uintptr_t pqh;
-    int ntdns;        //TODO: To be removed
     struct TDn* tdns;
     /* Interrupts */
     int rate;
-    usb_cb_t cb;      //TODO: In TDn now, to be removed.
-    void* token;      //TODO: In TDn now, to be removed.
     int irq_pending;
     int was_cancelled;
     /* Links */
@@ -297,14 +293,10 @@ void ehci_handle_irq(usb_host_t* hdev);
 int ehci_cancel_xact(usb_host_t* hdev, struct endpoint *ep);
 
 void qhn_destroy(ps_dma_man_t* dman, struct QHn* qhn);
-int clear_async_xact(struct ehci_host* edev, void* token);
-void _async_complete(struct ehci_host* edev);
 int ehci_wait_for_completion(struct TDn *tdn);
 void ehci_schedule_async(struct ehci_host* edev, struct QHn* qh_new);
-void _async_doorbell(struct ehci_host* edev);
 enum usb_xact_status qtd_get_status(volatile struct TD* qtd);
 enum usb_xact_status qhn_get_status(struct QHn * qhn);
-int qhn_cb(struct QHn *qhn, enum usb_xact_status stat);
 void check_doorbell(struct ehci_host* edev);
 
 /* New APIs */
@@ -329,10 +321,6 @@ int ehci_schedule_periodic_root(struct ehci_host* edev, struct xact *xact,
 int ehci_schedule_periodic(struct ehci_host* edev);
 void ehci_periodic_complete(struct ehci_host *edev);
 enum usb_xact_status qhn_wait(struct QHn* qhn, int to_ms);
-void _periodic_complete(struct ehci_host* edev);
-int clear_periodic_xact(struct ehci_host* edev, void* token);
-void _qhn_deschedule(struct ehci_host* dev, struct QHn* qhn);
-void _async_remove_next(struct ehci_host* edev, struct QHn* prev);
 
 /**
  * Debugging

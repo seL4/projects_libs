@@ -15,16 +15,6 @@
  **** Queue scheduling ****
  **************************/
 
-void
-_qhn_deschedule(struct ehci_host* dev, struct QHn* qhn)
-{
-    int i;
-    /* TODO only supporting 1 int */
-    for (i = 0; i < dev->flist_size; i++) {
-        dev->flist[i] = QHLP_INVALID;
-    }
-}
-
 /*
  * TODO: We only support interrupt endpoint at the moment, this function is
  * subject to change when we add isochronous endpoint support.
@@ -164,38 +154,6 @@ ehci_schedule_periodic(struct ehci_host* edev)
 	return 0;
 }
 
-enum usb_xact_status
-qhn_wait(struct QHn* qhn, int to_ms)
-{
-    enum usb_xact_status stat;
-    do {
-        stat = qhn_get_status(qhn);
-        if (stat != XACTSTAT_PENDING) {
-            break;
-        } else if (to_ms-- == 0) {
-            break;
-        } else {
-            msdelay(1);
-        }
-    } while (1);
-
-    /* Check the result */
-    if (to_ms < 0) {
-        printf("USB timeout\n");
-    }
-    switch (stat) {
-    case XACTSTAT_SUCCESS:
-        break;
-    case XACTSTAT_ERROR:
-    case XACTSTAT_PENDING:
-    case XACTSTAT_HOSTERROR:
-    default:
-        printf("Bad status %d\n", stat);
-        dump_qhn(qhn);
-    }
-    return stat;
-}
-
 void ehci_periodic_complete(struct ehci_host *edev)
 {
 	struct QHn *qhn;
@@ -217,75 +175,5 @@ void ehci_periodic_complete(struct ehci_host *edev)
 		}
 		qhn = qhn->next;
 	}
-}
-
-void
-_periodic_complete(struct ehci_host* edev)
-{
-    struct QHn* qhn;
-    struct QHn** qhn_ptr;
-    qhn_ptr = &edev->intn_list;
-    qhn = edev->intn_list;
-    EHCI_IRQDBG(edev, "Scanning periodic list....\n");
-    while (qhn != NULL) {
-        if (!qhn->irq_pending) {
-            /* Check the result */
-            enum usb_xact_status stat = qhn_get_status(qhn);
-            switch (stat) {
-            case XACTSTAT_PENDING:
-                break;
-            case XACTSTAT_ERROR:
-            case XACTSTAT_SUCCESS:
-                qhn->irq_pending = 1;
-#if defined(DEBUG_DES)
-                dump_qhn(qhn);
-#endif
-		qhn->qh->qhlptr = QHLP_INVALID;
-                if (!qhn_cb(qhn, stat)) {
-                    qhn->irq_pending = 0;
-                } else {
-                    struct QHn* cur;
-                    cur = qhn;
-                    qhn = cur->next;
-                    *qhn_ptr = cur->next;
-                    _qhn_deschedule(edev, cur);
-                    qhn_destroy(edev->dman, cur);
-                    continue;
-                }
-                break;
-            case XACTSTAT_HOSTERROR:
-            default:
-                printf("Bad status %d\n", qhn_get_status(qhn));
-                dump_qhn(qhn);
-            }
-        }
-        qhn_ptr = &qhn->next;
-        qhn = qhn->next;
-    }
-}
-
-int
-clear_periodic_xact(struct ehci_host* edev, void* token)
-{
-    struct QHn** qhn_ptr;
-    struct QHn* qhn;
-    /* Clear from periodic list */
-    qhn_ptr = &edev->intn_list;
-    qhn = edev->intn_list;
-    while (qhn != NULL) {
-        if (qhn->token == token) {
-            _qhn_deschedule(edev, qhn);
-            /* Process and remove the QH node */
-            qhn_cb(qhn, XACTSTAT_CANCELLED);
-            *qhn_ptr = qhn->next;
-            qhn_destroy(edev->dman, qhn);
-            qhn = *qhn_ptr;
-            return 0;
-        } else {
-            qhn_ptr = &qhn->next;
-            qhn = qhn->next;
-        }
-    }
-    return -1;
 }
 

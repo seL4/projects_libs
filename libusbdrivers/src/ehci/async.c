@@ -16,26 +16,6 @@
 #include "ehci.h"
 #include "../services.h"
 
-static inline int
-_is_enabled_async(struct ehci_host* edev)
-{
-    return edev->op_regs->usbsts & EHCISTS_ASYNC_EN;
-}
-
-static inline void
-_enable_async(struct ehci_host* edev)
-{
-    edev->op_regs->usbcmd |= EHCICMD_ASYNC_EN;
-    while (!_is_enabled_async(edev));
-}
-
-static inline void
-_disable_async(struct ehci_host* edev)
-{
-    edev->op_regs->usbcmd &= ~EHCICMD_ASYNC_EN;
-    while (_is_enabled_async(edev));
-}
-
 enum usb_xact_status
 qtd_get_status(volatile struct TD* qtd)
 {
@@ -78,29 +58,9 @@ qhn_get_status(struct QHn * qhn)
     return qtd_get_status(&qhn->qh->td_overlay);
 }
 
-static inline int
-qhn_get_bytes_remaining(struct QHn *qhn)
-{
-    int sum = 0;
-    int i;
-
-    for (i = 0; i < qhn->ntdns; i++) {
-       sum += TDTOK_GET_BYTES(qhn->tdns->td->token);
-    }
-
-    return sum;
-}
-
-int
-qhn_cb(struct QHn *qhn, enum usb_xact_status stat)
-{
-    return qhn->cb(qhn->token, stat, qhn_get_bytes_remaining(qhn));
-}
-
 /****************************
  **** Queue manipulation ****
  ****************************/
-
 /*
  * TODO: The current data structure assumes one xact per TD, which means the
  * length of an xact can not exceed 20KB.
@@ -437,38 +397,6 @@ void qhn_destroy(ps_dma_man_t* dman, struct QHn* qhn)
 	free(qhn);
 }
 
-void
-_async_complete(struct ehci_host* edev)
-{
-	return;
-    if (edev->alist_tail) {
-        struct QHn *cur, *prev, *tail;
-        /* We cache the tail because edev->alist_tail may change during node removal */
-        prev = tail = edev->alist_tail;
-        do {
-            enum usb_xact_status stat;
-            cur = prev->next;
-            stat = qhn_get_status(cur);
-            if (stat != XACTSTAT_PENDING) {
-                if(stat == XACTSTAT_ERROR){
-                    printf("--- <Transfer error> ---\n");
-                    dump_qhn(cur);
-                    printf("------------------------\n");
-                }
-
-                /* Call the completion handler and remove cur. prev is updated to point to a new cur */
-                if (cur->cb) {
-                    qhn_cb(cur, stat);
-                    _async_remove_next(edev, prev);
-                }
-            } else {
-                /* Step over */
-                prev = cur;
-            }
-        } while (cur != tail);
-    }
-}
-
 void ehci_async_complete(struct ehci_host *edev)
 {
 	struct QHn *qhn;
@@ -661,55 +589,6 @@ void ehci_schedule_async(struct ehci_host* edev, struct QHn* qhn)
 	}
 }
 
-void
-_async_doorbell(struct ehci_host* edev)
-{
-    while (edev->db_active) {
-        struct QHn* qhn;
-        qhn = edev->db_active;
-        edev->db_active = qhn->next;
-        if (qhn->was_cancelled) {
-            enum usb_xact_status stat;
-            assert(qhn->cb);
-            stat = qhn_get_status(qhn);
-            if (stat != XACTSTAT_PENDING) {
-                /* The transfer must have completed while it was being cancelled */
-                qhn_cb(qhn, stat);
-            } else {
-                qhn_cb(qhn, XACTSTAT_CANCELLED);
-            }
-        }
-        qhn_destroy(edev->dman, qhn);
-    }
-}
-
-/* Remove from async schedule; turn the schedule off if it is empty */
-void
-_async_remove_next(struct ehci_host* edev, struct QHn* prev)
-{
-    struct QHn* q = prev->next;
-    if (prev == q) {
-        _disable_async(edev);
-        edev->alist_tail = NULL;
-        edev->op_regs->asynclistaddr = 0;
-    } else {
-        /* Remove single node from async schedule */
-        /* If we are removing the "Head", reassign it */
-        if (q->qh->epc[0] & QHEPC0_H) {
-            q->next->qh->epc[0] |= QHEPC0_H;
-        }
-        /* If we removed the tail, reassign it */
-        if (q == edev->alist_tail) {
-            edev->alist_tail = prev;
-        }
-
-        prev->qh->qhlptr = q->qh->qhlptr;
-        prev->next = q->next;
-    }
-    /* Add to doorbell list for cleanup */
-    q->next = edev->db_pending;
-    edev->db_pending = q;
-}
 void check_doorbell(struct ehci_host* edev)
 {
 	int again = 0;
