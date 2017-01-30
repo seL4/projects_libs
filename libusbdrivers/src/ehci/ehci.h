@@ -246,8 +246,8 @@ struct QHn {
     /* Links */
     uint8_t owner_addr;
     struct QHn* next;
-    /* mutex */
-    void* mutex;
+    /* Lock */
+    void* lock;
 };
 
 struct ehci_host {
@@ -274,7 +274,7 @@ struct ehci_host {
     volatile struct ehci_host_op  * op_regs;
     /* Support */
     ps_dma_man_t* dman;
-    mutex_ops_t* mops;
+    sync_ops_t* sync;
     void* state;
 };
 

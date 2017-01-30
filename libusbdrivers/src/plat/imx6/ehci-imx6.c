@@ -335,7 +335,7 @@ imx6_usb_generic_init(int id, ps_io_ops_t* ioops)
 
 
 int
-usb_host_init(enum usb_host_id id, ps_io_ops_t* ioops, mutex_ops_t *mops,
+usb_host_init(enum usb_host_id id, ps_io_ops_t* ioops, sync_ops_t *sync,
 		usb_host_t* hdev)
 {
     struct usb_host_regs * hc_regs = NULL;
@@ -348,7 +348,7 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* ioops, mutex_ops_t *mops,
 
     hdev->id = id;
     hdev->dman = &ioops->dma_manager;
-    hdev->mops = mops;
+    hdev->sync = sync;
 
     err = imx6_usb_generic_init(hdev->id, ioops);
     if (err) {

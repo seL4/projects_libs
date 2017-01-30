@@ -104,7 +104,7 @@ int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t 
     qhn = (struct QHn*)ep->hcpriv;
     if (!qhn) {
 	    qhn = qhn_alloc(edev, addr, hub_addr, hub_port, speed, ep);
-	    qhn->mutex = usb_mutex_init(edev->mops);
+	    qhn->lock = usb_sync_init(edev->sync, 1);
 	    ep->hcpriv = qhn;
 
 	    if (ep->type == EP_CONTROL || ep->type == EP_BULK) {
@@ -273,7 +273,7 @@ ehci_host_init(usb_host_t* hdev, uintptr_t regs,
     }
     edev->hubem = hubem;
     edev->dman = hdev->dman;
-    edev->mops = hdev->mops;
+    edev->sync = hdev->sync;
 
     /* Terminate the periodic schedule head */
     edev->alist_tail = NULL;

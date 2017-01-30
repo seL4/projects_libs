@@ -115,12 +115,12 @@ static inline uintptr_t xact_get_paddr(struct xact* xact)
 typedef int (*usb_cb_t)(void* token, enum usb_xact_status stat, int rbytes);
 
 
-typedef struct mutex_ops {
-	void *(*mutex_init)(void);
-	int (*mutex_lock)(void *mutex);
-	int (*mutex_unlock)(void *mutex);
-	int (*mutex_destroy)(void *mutex);
-} mutex_ops_t;
+typedef struct sync_ops {
+	void *(*sync_init)(int val);
+	int (*sync_lock)(void *lock);
+	int (*sync_unlock)(void *lock);
+	int (*sync_destroy)(void *lock);
+} sync_ops_t;
 
 struct usb_host;
 typedef struct usb_host usb_host_t;
@@ -134,8 +134,8 @@ struct usb_host {
     /// DMA allocator
     ps_dma_man_t* dman;
 
-    /// Mutex operations
-    mutex_ops_t* mops;
+    /// Synchronization operations
+    sync_ops_t* sync;
 
     /// Submit a transaction for transfer.
     int (*schedule_xact)(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_port,
@@ -204,13 +204,13 @@ usb_hcd_count_ports(usb_host_t* hdev)
  * @param[in]  id     The id of the host controller to initialise
  * @param[in]  ioops  a list of io operation functions.
  *                    of the initialised host controller
- * @param[in]  mops   a list of mutex operation functions.
+ * @param[in]  sync   a list of synchronization operation functions.
  * @param[out] hdev   A host structure to populate. This must
  *                    already be filled with a DMA allocator.
  *                    and the device ID.
  * @return            0 on success
  */
-int usb_host_init(enum usb_host_id id, ps_io_ops_t* ioops, mutex_ops_t *mops, usb_host_t* hdev);
+int usb_host_init(enum usb_host_id id, ps_io_ops_t* ioops, sync_ops_t *sync, usb_host_t* hdev);
 
 /** Return a list of IRQ numbers handled by the provided host
  * @param[in]  host   A handle to the USB host device in question

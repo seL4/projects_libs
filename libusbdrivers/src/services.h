@@ -78,35 +78,35 @@ ps_dma_free_pinned(ps_dma_man_t *dma_man, void* addr, size_t size)
 }
 
 static inline void*
-usb_mutex_init(mutex_ops_t *mops)
+usb_sync_init(sync_ops_t *sync, int val)
 {
-	assert(mops);
-	assert(mops->mutex_init);
-	return mops->mutex_init();
+	assert(sync);
+	assert(sync->sync_init);
+	return sync->sync_init(val);
 }
 
 static inline void
-usb_mutex_lock(mutex_ops_t *mops, void *mutex)
+usb_sync_lock(sync_ops_t *sync, void *lock)
 {
-	assert(mops);
-	assert(mops->mutex_lock);
-	mops->mutex_lock(mutex);
+	assert(sync);
+	assert(sync->sync_lock);
+	sync->sync_lock(lock);
 }
 
 static inline void
-usb_mutex_unlock(mutex_ops_t *mops, void *mutex)
+usb_sync_unlock(sync_ops_t *sync, void *lock)
 {
-	assert(mops);
-	assert(mops->mutex_unlock);
-	mops->mutex_unlock(mutex);
+	assert(sync);
+	assert(sync->sync_unlock);
+	sync->sync_unlock(lock);
 }
 
 static inline void
-usb_mutex_destroy(mutex_ops_t *mops, void *mutex)
+usb_sync_destroy(sync_ops_t *sync, void *lock)
 {
-	assert(mops);
-	assert(mops->mutex_destroy);
-	mops->mutex_destroy(mutex);
+	assert(sync);
+	assert(sync->sync_destroy);
+	sync->sync_destroy(lock);
 }
 
 /* Circular Buffer */

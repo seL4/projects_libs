@@ -289,14 +289,14 @@ __set_interface_req(int index) {
  *                          initialise
  * @param[in] ioops         a structure defining operations for
  *                          device access.
- * @param[in] mops          a structure defining operations for
- *                          mutex access.
+ * @param[in] sync          a structure defining operations for
+ *                          synchronization operations access.
  * @param[out] host         On success, this will be filled with
  *                          a handle to the usb host controller
  *                          associated with @ref{id}.
  * @return                  0 on success.
  */
-int usb_init(enum usb_host_id id, ps_io_ops_t* ioops, mutex_ops_t *mops, usb_t* host);
+int usb_init(enum usb_host_id id, ps_io_ops_t* ioops, sync_ops_t *sync, usb_t* host);
 
 /** Probe for a new device on the BUS.
  * This function is typically called by a HUB device when it
