@@ -81,16 +81,25 @@ void ehci_del_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 	}
 
 	/* Remove from the software queue */
-	prev = edev->intn_list;
-	cur = prev;
+	prev = NULL;
+	cur = edev->intn_list;
 	while (cur != NULL) {
 		if (cur == qhn) {
 			if (qhn->next) {
-				prev->qh->qhlptr = qhn->qh->qhlptr;
-				prev->next = qhn->next;
+				/* Check if we are removing the head */
+				if (prev) {
+					prev->qh->qhlptr = qhn->qh->qhlptr;
+					prev->next = qhn->next;
+				} else {
+					edev->intn_list = qhn->next;
+				}
 			} else {
-				prev->qh->qhlptr = QHLP_INVALID;
-				prev->next = NULL;
+				if (prev) {
+					prev->qh->qhlptr = QHLP_INVALID;
+					prev->next = NULL;
+				} else {
+					edev->intn_list = NULL;
+				}
 			}
 			tdn = qhn->tdns;
 			while (tdn) {
