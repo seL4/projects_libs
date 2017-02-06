@@ -58,8 +58,6 @@ _set_pf(void *token, int port, enum port_feature feature)
 
         return 0;
     case PORT_SUSPEND:
-        /* Must be enabled */
-        assert(*ps_reg & EHCI_PORT_ENABLE);
         /* Must port owner 0 */
         assert(!(*ps_reg & EHCI_PORT_OWNER));
         /* Perform the Suspend */
