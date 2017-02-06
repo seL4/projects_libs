@@ -229,7 +229,7 @@ ehci_host_init(usb_host_t* hdev, uintptr_t regs,
     int pwr_delay_ms;
     uint32_t v;
     int err;
-    hdev->pdata = (struct usb_hc_data*)malloc(sizeof(struct usb_hc_data));
+    hdev->pdata = (struct usb_hc_data*)usb_malloc(sizeof(struct usb_hc_data));
     if (hdev->pdata == NULL) {
         return -1;
     }
