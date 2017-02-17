@@ -602,7 +602,7 @@ parse_config(usb_dev_t udev, struct anon_desc *d, int tot_len,
             break;
         }
         /* Send to caller */
-        if (cb(t, cfg, iface, usrd)) {
+        if (cb && cb(t, cfg, iface, usrd)) {
             break;
         }
         /* Next */
@@ -611,7 +611,7 @@ parse_config(usb_dev_t udev, struct anon_desc *d, int tot_len,
     }
 
     /* Report end of list */
-    if (cur_len == tot_len) {
+    if (cb && cur_len == tot_len) {
         cb(t, cfg, iface, NULL);
     }
     /* Clean up */
@@ -855,6 +855,10 @@ usbdev_parse_config(usb_dev_t udev, usb_config_cb cb, void* t)
         return -1;
     }
     tot_len = cd->wTotalLength;
+
+    /* Some devices need a pause during initialization */
+    msdelay(100);
+
     /* Next read for the entire descriptor table */
     xact[0].len = sizeof(*req);
     xact[0].type = PID_SETUP;
