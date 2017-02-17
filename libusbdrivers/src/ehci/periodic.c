@@ -173,7 +173,8 @@ void ehci_periodic_complete(struct ehci_host *edev)
 
 	while (qhn) {
 		tdn = qhn->tdns;
-		if (qtd_get_status(tdn->td) == XACTSTAT_SUCCESS) {
+		/* TODO: Can interrupt endpoints queue multiple TDs? */
+		if (tdn && qtd_get_status(tdn->td) == XACTSTAT_SUCCESS) {
 			qhn->tdns = NULL;
 			sum = TDTOK_GET_BYTES(tdn->td->token);
 			if (tdn->cb) {
