@@ -11,7 +11,7 @@
  */
 
 #include <autoconf.h>
-#if 0 // CONFIG_LIB_LWIP
+#ifdef CONFIG_LIB_LWIP
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,17 +50,6 @@
             }                                           \
             dprintf(__VA_ARGS__);                       \
         }while(0)
-
-
-#define EP_CTRL         0
-#define EP_IN           1
-#define EP_OUT          2
-#define EP_INT          3
-
-#define EP_CTRL_SIZE   64
-#define EP_IN_SIZE    512
-#define EP_OUT_SIZE   512
-#define EP_INT_SIZE    16
 
 #define INT_MACRTO   BIT(19)
 #define INT_RXFIFO   BIT(18)
@@ -288,8 +277,10 @@
 
 struct usb_eth {
     usb_dev_t udev;
-/// Configuration parameters
-    int ifno, cfgno, int_ep, int_max_pkt, int_rate_ms;
+/// Endpoints
+    struct endpoint *ep_in;
+    struct endpoint *ep_out;
+    struct endpoint *ep_int;
 /// IRQs
     struct xact reg_read_xact[2];
     struct xact reg_write_xact[2];
@@ -309,7 +300,7 @@ static inline struct usb_eth * netif_get_eth_driver(struct netif* netif) {
 static inline struct usbreq
 __clear_ep_feature_req(uint16_t ep, uint16_t feature) {
     struct usbreq r = {
-        .bmRequestType = (USB_DIR_OUT | USB_TYPE_CLASS | USB_RCPT_OTHER),
+        .bmRequestType = (USB_DIR_OUT | USB_TYPE_CLS | USB_RCPT_OTHER),
         .bRequest      = CLR_FEATURE,
         .wValue        = feature,
         .wIndex        = ep,
@@ -388,7 +379,8 @@ static int write_register(struct usb_eth* eth, int addr, uint32_t v)
     *r = __reg_write_req(addr);
     *d = v;
 
-    err = usbdev_schedule_xact(eth->udev, EP_CTRL, eth->udev->max_pkt, 0, 0,
+    msdelay(100);
+    err = usbdev_schedule_xact(eth->udev, eth->udev->ep_ctrl,
                                eth->reg_write_xact, 2, NULL, NULL);
     assert(!err);
     return err;
@@ -404,7 +396,8 @@ static int read_register(struct usb_eth* eth, int addr, uint32_t *v)
     d = xact_get_vaddr(&eth->reg_read_xact[1]);
     *r = __reg_read_req(addr);
 
-    err = usbdev_schedule_xact(eth->udev, EP_CTRL, eth->udev->max_pkt, 0, 0,
+    msdelay(100);
+    err = usbdev_schedule_xact(eth->udev, eth->udev->ep_ctrl,
                                eth->reg_read_xact, 2, NULL, NULL);
     *v = *d;
     assert(!err);
@@ -661,6 +654,7 @@ do_lan9730_input(struct netif *netif, struct xact *xact)
 
     /* Construct the packet */
     p = pbuf_alloc(PBUF_RAW, len, PBUF_POOL);
+    assert(p);
     for (q = p; q != NULL; q = q->next) {
         memcpy(q->payload, payload, q->len);
         payload += q->len;
@@ -745,37 +739,13 @@ eth_irq_handler(void* token, enum usb_xact_status stat, int bytes_remaining)
     if (err) {
         ETH_DBG(eth, "Spurious IRQ\n");
     }
+
+    usbdev_schedule_xact(eth->udev, eth->ep_int, &eth->int_xact, 1,
+		    &eth_irq_handler, netif);
+
     return 1;
 }
 #endif
-
-static int
-eth_config_cb(void* token, int cfg, int iface,
-              struct anon_desc* d)
-{
-    struct usb_eth* eth = (struct usb_eth*)token;
-    assert(eth);
-    if (d) {
-        switch (d->bDescriptorType) {
-        case ENDPOINT: {
-            struct endpoint_desc *e = (struct endpoint_desc*)d;
-            /* We just take the first endpoint */
-            eth->int_ep = e->bEndpointAddress & 0xf;
-            eth->int_max_pkt = e->wMaxPacketSize;
-            eth->int_rate_ms = e->bInterval * 2;
-            eth->ifno = iface;
-            eth->cfgno = cfg;
-            break;
-        }
-        default:
-            /* Don't care */
-            break;
-        }
-        return 0;
-    } else {
-        return 0;
-    }
-}
 
 static err_t tx_packet(struct usb_eth* eth, struct pbuf* p)
 {
@@ -813,8 +783,7 @@ static err_t tx_packet(struct usb_eth* eth, struct pbuf* p)
         payload += q->len;
     }
     /* send it */
-    err = usbdev_schedule_xact(eth->udev, EP_OUT, EP_OUT_SIZE, 0, 0,
-                               xact, 2, NULL, NULL);
+    err = usbdev_schedule_xact(eth->udev, eth->ep_out, xact, 2, NULL, NULL);
     assert(!err);
 
     return err;
@@ -831,14 +800,13 @@ lan9730_input(struct netif *netif)
 
     /* Allocate a buffer */
     xact.type = PID_IN;
-    xact.len = EP_IN_SIZE;
+    xact.len = eth->ep_in->max_pkt;
     err = usb_alloc_xact(eth->udev->dman, &xact, 1);
     if (err) {
         return -1;
     }
     /* Read in a frame */
-    err = usbdev_schedule_xact(eth->udev, EP_IN, EP_IN_SIZE, 0, 0,
-                               &xact, 1, NULL, NULL);
+    err = usbdev_schedule_xact(eth->udev, eth->ep_in, &xact, 1, NULL, NULL);
     assert(err >= 0);
     if (err <= 0) {
         /* Nothing there. Return */
@@ -906,12 +874,11 @@ lan9730_init(struct netif* netif)
     return ERR_OK;
 }
 
-
 struct netif* lan9730_driver_bind(usb_dev_t udev) {
     struct netif* netif;
     struct usb_eth* eth;
     struct usbreq *req;
-    struct xact xact[2];
+    struct xact xact;
     int err;
 
     if (!is_eth(udev)) {
@@ -931,33 +898,44 @@ struct netif* lan9730_driver_bind(usb_dev_t udev) {
     memset(netif, 0, sizeof(*netif));
 
     eth->udev = udev;
-    ETH_DBG(eth, "Parsing config\n");
-    eth->int_ep = -1;
-    err = usbdev_parse_config(eth->udev, &eth_config_cb, eth);
-    if (err || eth->int_ep == -1) {
-        assert(0);
-        return NULL;
-    }
+    udev->dev_data = (struct udev_priv*)eth;
+
+    err = usbdev_parse_config(udev, NULL, NULL);
+    assert(!err);
+
+    /* Activate configuration */
     ETH_DBG(eth, "Configure ETH\n");
-    xact[0].type = PID_SETUP;
-    xact[0].len = sizeof(*req);
-    xact[1] = xact[0];
-    err = usb_alloc_xact(eth->udev->dman, xact, 2);
+    xact.type = PID_SETUP;
+    xact.len = sizeof(*req);
+    err = usb_alloc_xact(eth->udev->dman, &xact, 1);
     if (err) {
         assert(!err);
         return NULL;
     }
-    req = xact_get_vaddr(&xact[0]);
-    *req = __set_configuration_req(eth->cfgno);
-    req = xact_get_vaddr(&xact[1]);
-    *req = __set_interface_req(eth->ifno);
-    err = usbdev_schedule_xact(udev, 0, eth->udev->max_pkt, 0, 0,
-                               xact, 2, NULL, NULL);
+    req = xact_get_vaddr(&xact);
+    *req = __set_configuration_req(1);
+    err = usbdev_schedule_xact(udev, udev->ep_ctrl, &xact, 1, NULL, NULL);
     if (err < 0) {
         assert(err >= 0);
         return NULL;
     }
-    usb_destroy_xact(eth->udev->dman, xact, 2);
+    usb_destroy_xact(udev->dman, &xact, 1);
+
+    /* Find endpoints */
+    for (int i = 0; udev->ep[i] != NULL; i++) {
+	    if (udev->ep[i]->type == EP_BULK) {
+		    if (udev->ep[i]->dir == EP_DIR_OUT) {
+			    eth->ep_out = udev->ep[i];
+		    } else {
+			    eth->ep_in = udev->ep[i];
+		    }
+	    } else if (udev->ep[i]->type == EP_INTERRUPT) {
+		    eth->ep_int = udev->ep[i];
+	    } else {
+		    continue;
+	    }
+    }
+
     /* Cache a transactions buffer for register access */
     eth->reg_read_xact[0].type = PID_SETUP;
     eth->reg_read_xact[0].len = sizeof(struct usbreq);
@@ -980,14 +958,13 @@ struct netif* lan9730_driver_bind(usb_dev_t udev) {
 
 #if defined(ETH_ENABLE_IRQS)
     eth->int_xact.type = PID_IN;
-    eth->int_xact.len = eth->int_max_pkt;
+    eth->int_xact.len = eth->ep_int->max_pkt;
     err = usb_alloc_xact(udev->dman, &eth->int_xact, 1);
     assert(!err);
     eth->intbm = xact_get_vaddr(&eth->int_xact);
     memset(eth->intbm, 0, eth->int_xact.len);
-    ETH_DBG(eth, "Registering for INT (%d ms)\n", eth->int_rate_ms);
-    usbdev_schedule_xact(udev, EP_INT, eth->int_max_pkt, eth->int_rate_ms, 0,
-                         &eth->int_xact, 1, &eth_irq_handler, netif);
+    ETH_DBG(eth, "Registering for INT (%d ms)\n", eth->ep_int->interval);
+    usbdev_schedule_xact(udev, eth->ep_int, &eth->int_xact, 1,&eth_irq_handler, netif);
 #else
     eth->intbm = NULL;
     eth->int_xact.vaddr = NULL;
@@ -1019,8 +996,7 @@ lan9730_poll_status(struct netif *netif)
     assert(!err);
     status = (uint32_t*)xact_get_vaddr(&xact[0]);
 
-    err = usbdev_schedule_xact(eth->udev, EP_INT, EP_CTRL_SIZE, 0, 0,
-                               xact, 1, NULL, NULL);
+    err = usbdev_schedule_xact(eth->udev, eth->ep_int, xact, 1, NULL, NULL);
     if (!err) {
         err = eth_process_status(netif, *status);
     }

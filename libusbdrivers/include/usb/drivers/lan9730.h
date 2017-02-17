@@ -22,7 +22,7 @@ static inline int is_eth(usb_dev_t dev)
 }
 
 
-#if 0 //CONFIG_LIB_LWIP
+#ifdef CONFIG_LIB_LWIP
 #include <lwip/netif.h>
 struct netif* lan9730_driver_bind(usb_dev_t udev);
 
