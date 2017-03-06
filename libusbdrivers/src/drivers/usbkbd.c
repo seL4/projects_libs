@@ -76,7 +76,7 @@ enum hid_ReportType {
 static inline struct usbreq
 __set_protocol_req(enum kbd_protocol p, int iface) {
     struct usbreq r = {
-        .bmRequestType = (USB_DIR_IN | USB_TYPE_CLS | USB_RCPT_INTERFACE),
+        .bmRequestType = (USB_DIR_OUT | USB_TYPE_CLS | USB_RCPT_INTERFACE),
         .bRequest      = SET_PROTOCOL,
         .wValue        = p,
         .wIndex        = iface,
@@ -399,6 +399,10 @@ kbd_irq_handler(void* token, enum usb_xact_status stat, int bytes_remaining)
     } else {
         printf("<!!0x%x>", key);
     }
+
+    usbdev_schedule_xact(kbd->udev, kbd->udev->ep[0], kbd->int_xact, 1,
+                         &kbd_irq_handler, kbd);
+
     return 1;
 }
 
@@ -427,7 +431,7 @@ static int
 kbd_connect(usb_dev_t udev)
 {
     usb_kbd_t kbd;
-    struct xact xact[4];
+    struct xact xact;
     struct usbreq* req;
     int i;
     int err;
@@ -436,29 +440,33 @@ kbd_connect(usb_dev_t udev)
     kbd = &udev->dev_data->kbd;
     assert(kbd);
     /* Create a buffer for setting up the device */
-    for (i = 0; i < sizeof(xact) / sizeof(*xact); i++) {
-        xact[i].type = PID_SETUP;
-        xact[i].len = sizeof(*req);
-    }
-    err = usb_alloc_xact(kbd->udev->dman, xact, sizeof(xact) / sizeof(*xact));
+    xact.type = PID_SETUP;
+    xact.len = sizeof(*req);
+    err = usb_alloc_xact(kbd->udev->dman, &xact, 1);
     if (err) {
         assert(0);
         return -1;
     }
     KBD_DBG(kbd, "Configuring keyboard (config=%d, iface=%d)\n",
             kbd->cfgno, kbd->ifno);
-    req = xact_get_vaddr(&xact[0]);
+    req = xact_get_vaddr(&xact);
     *req = __set_configuration_req(kbd->cfgno);
-    req = xact_get_vaddr(&xact[1]);
+    err = usbdev_schedule_xact(udev, kbd->udev->ep_ctrl, &xact, 1, NULL, NULL);
+
+    req = xact_get_vaddr(&xact);
     *req = __set_interface_req(kbd->ifno);
-    req = xact_get_vaddr(&xact[2]);
+    err = usbdev_schedule_xact(udev, kbd->udev->ep_ctrl, &xact, 1, NULL, NULL);
+
+    req = xact_get_vaddr(&xact);
     *req = __set_protocol_req(BOOT, kbd->ifno);
-    req = xact_get_vaddr(&xact[3]);
+    err = usbdev_schedule_xact(udev, kbd->udev->ep_ctrl, &xact, 1, NULL, NULL);
+
+    req = xact_get_vaddr(&xact);
     *req = __set_idle_req(0, kbd->ifno);
-    err = usbdev_schedule_xact(udev, kbd->udev->ep_ctrl,  xact,
-                               sizeof(xact) / sizeof(*xact), NULL, NULL);
+    err = usbdev_schedule_xact(udev, kbd->udev->ep_ctrl, &xact, 1, NULL, NULL);
+
     kbd->repeat_rate = 0;
-    usb_destroy_xact(udev->dman, xact, sizeof(xact) / sizeof(*xact));
+    usb_destroy_xact(udev->dman, &xact, 1);
     if (err < 0) {
         KBD_DBG(kbd, "Keyboard initialisation error\n");
         assert(err >= 0);
