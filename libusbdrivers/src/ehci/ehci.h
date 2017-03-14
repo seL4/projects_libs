@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include <utils/list.h>
 #include <usb/usb_host.h>
 #include <usb/drivers/usbhub.h>
 
@@ -98,6 +99,9 @@ struct ehci_host_op {
 #define EHCISTS_PORTC_DET     BIT( 2)
 #define EHCISTS_USBERRINT     BIT( 1)
 #define EHCISTS_USBINT        BIT( 0)
+#define EHCISTS_MASK          (EHCISTS_USBINT | EHCISTS_USBERRINT | \
+			       EHCISTS_PORTC_DET | EHCISTS_FLIST_ROLL | \
+			       EHCISTS_HOST_ERR | EHCISTS_ASYNC_ADV)
     uint32_t usbsts;           /* +0x04 */
 #define EHCIINTR_ASYNC_ADV    BIT( 5)
 #define EHCIINTR_HOST_ERR     BIT( 4)
@@ -240,7 +244,7 @@ struct QHn {
     uintptr_t pqh;
     struct TDn* tdns;
     /* Interrupts */
-    int rate;
+    int rate;         //Polling frame rate(frame = 1ms, uframe = 125us)
     int irq_pending;
     int was_cancelled;
     /* Links */
@@ -268,7 +272,8 @@ struct ehci_host {
     uint32_t* flist;
     uintptr_t pflist;
     int flist_size;
-    struct QHn* intn_list;
+    struct QHn** periodic_tbl;
+    list_t intn_list;
     /* Standard registers */
     volatile struct ehci_host_cap * cap_regs;
     volatile struct ehci_host_op  * op_regs;

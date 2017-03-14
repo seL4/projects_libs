@@ -14,6 +14,23 @@
 /**************************
  **** Queue scheduling ****
  **************************/
+static void ehci_disable_periodic(struct ehci_host* edev)
+{
+	/* Make sure we are safe to write to the register */
+	while (((edev->op_regs->usbsts & EHCISTS_PERI_EN) >> 14)
+		^ ((edev->op_regs->usbcmd & EHCICMD_PERI_EN) >> 4));
+
+	/* Disable the periodic schedule */
+	if (edev->op_regs->usbsts & EHCISTS_PERI_EN) {
+		edev->op_regs->usbcmd &= ~EHCICMD_PERI_EN;
+		while (!(edev->op_regs->usbsts & EHCISTS_PERI_EN)) break;
+	}
+}
+
+static int qhn_cmp(void *d1, void *d2)
+{
+	return !(d1 == d2);
+}
 
 /*
  * TODO: We only support interrupt endpoint at the moment, this function is
@@ -22,6 +39,7 @@
 void ehci_add_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 {
 	struct QHn *last_qhn;
+	struct QHn *cur;
 
 	/* Allocate the frame list */
 	if (!edev->flist) {
@@ -36,90 +54,102 @@ void ehci_add_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 		for (int i = 0; i < edev->flist_size; i++) {
 			edev->flist[i] = TDLP_INVALID;
 		}
+
+		/* Allocate the software list */
+		edev->periodic_tbl = usb_malloc(edev->flist_size * sizeof(struct QHn*));
+		usb_assert(edev->periodic_tbl);
 	}
 
-	/* Find an empty slot and insert the queue head */
-	for (int i = 0; i < edev->flist_size; i++) {
-		/*
-		 * FIXME: We disable an interrupt ep by setting the TDLP_INVALID
-		 * of the frame list, there is a race here.
-		 */
-		if (edev->flist[i] & TDLP_INVALID) {
+	/* Check if the queue head has already been scheduled */
+	if (list_exists(&edev->intn_list, qhn, qhn_cmp)) {
+		return;
+	}
+
+	/*
+	 * Insert the queue head into the frame list. The queue heads in each
+	 * slot are sorted, from low rate to high rate.
+	 */
+	ehci_disable_periodic(edev);
+	for (int i = qhn->rate - 1; i < edev->flist_size; i += qhn->rate) {
+		cur = edev->periodic_tbl[i];
+
+		if (!cur || cur->rate <= qhn->rate) {
+			edev->periodic_tbl[i] = qhn;
+
+			qhn->next = cur;
 			edev->flist[i] = qhn->pqh | QHLP_TYPE_QH;
-			break;
+
+			if (cur) {
+				qhn->qh->qhlptr = cur->pqh | QHLP_TYPE_QH;
+				cur->qh->qhlptr = QHLP_INVALID;
+			}
+		} else {
+			while (cur->next && cur->next->rate > qhn->rate) {
+				cur = cur->next;
+			}
+			qhn->next = cur->next;
+			cur->next = qhn;
+
+			cur->qh->qhlptr = qhn->pqh | QHLP_TYPE_QH;
+			if (qhn->next) {
+				qhn->qh->qhlptr = qhn->next->qh->qhlptr | QHLP_TYPE_QH;
+			}
 		}
 	}
 
 	/* Add new queue head to the software queue */
-	if (edev->intn_list) {
-		/* Find the last queue head */
-		last_qhn = edev->intn_list;
-		while (last_qhn->next) {
-		    last_qhn = last_qhn->next;
-		}
-
-		/* Add queue head to the list */
-		last_qhn->next = qhn;
-		/* TODO: Do we really need this line? */
-		last_qhn->qh->qhlptr = qhn->pqh | QHLP_TYPE_QH;
-	} else {
-		edev->intn_list = qhn;
-	}
+	list_append(&edev->intn_list, qhn);
 }
 
+/*
+ * FIXME: If the queue head is for a full/low speed device. Simply removing it
+ * could cause problems with ongoing split transaction. We cannot wait until the
+ * current TD returns, because the interrupt could never happen, i.e the TD
+ * remains active. The correct way is to use the "Inactive on Next Transaction"
+ * bit in the queue head. Read EHCI spec 4.12.2.5.
+ */
 void ehci_del_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 {
-	struct QHn *prev, *cur;
-	struct TDn *tdn, *tmp;
+	struct QHn *cur;
+	struct TDn *tdn;
 
-	/* Remove from the frame list */
-	for (int i = 0; i < edev->flist_size; i++) {
-		if (edev->flist[i] == (qhn->pqh | QHLP_TYPE_QH)) {
-			edev->flist[i] = TDLP_INVALID;
-			break;
-		}
-	}
+	/* Remove the active bit from the TD */
+	tdn = qhn->tdns;
+	tdn->td->token &= ~TDTOK_SACTIVE;
 
-	/* Remove from the software queue */
-	prev = NULL;
-	cur = edev->intn_list;
-	while (cur != NULL) {
+	/* Remove from the periodic schedule table */
+	for (int i = qhn->rate - 1; i < edev->flist_size; i += qhn->rate) {
+		cur = edev->periodic_tbl[i];
+
+		/*
+		 * If we are removing the first element, we need to update the
+		 * hardware frame list. There's no need to check if removing
+		 * queue head points to another valid queue head, because even
+		 * if this queue head points to NULL, its horizontal link pointer
+		 * should have already had the terminate bit set to 1.
+		 */
 		if (cur == qhn) {
-			if (qhn->next) {
-				/* Check if we are removing the head */
-				if (prev) {
-					prev->qh->qhlptr = qhn->qh->qhlptr;
-					prev->next = qhn->next;
-				} else {
-					edev->intn_list = qhn->next;
-				}
-			} else {
-				if (prev) {
-					prev->qh->qhlptr = QHLP_INVALID;
-					prev->next = NULL;
-				} else {
-					edev->intn_list = NULL;
-				}
+			edev->periodic_tbl[i] = qhn->next;
+			edev->flist[i] = qhn->qh->qhlptr;
+		} else {
+			while (cur->next != qhn) {
+				cur = cur->next;
 			}
-			tdn = qhn->tdns;
-			while (tdn) {
-				tmp = tdn;
-				tdn = tdn->next;
-				if (tmp->cb) {
-					tmp->cb(tmp->token, XACTSTAT_CANCELLED, 0);
-				}
-				ps_dma_free_pinned(edev->dman, (void*)tmp->td,
-						sizeof(struct TD));
-				free(tmp);
-			}
-
-			ps_dma_free_pinned(edev->dman, (void*)qhn->qh, sizeof(struct QH));
-			free(qhn);
-			break;
+			cur->next = qhn->next;
+			cur->qh->qhlptr = qhn->qh->qhlptr;
 		}
-		prev = cur;
-		cur = cur->next;
 	}
+
+	/* Remove from the software list */
+	list_remove(&edev->intn_list, qhn, qhn_cmp);
+
+	/* Free */
+	ps_dma_free_pinned(edev->dman, qhn->tdns, sizeof(struct TDn));
+	usb_free(qhn->tdns);
+	qhn->tdns = NULL;
+
+	ps_dma_free_pinned(edev->dman, qhn, sizeof(struct QHn));
+	usb_free(qhn);
 }
 
 int
@@ -163,27 +193,41 @@ ehci_schedule_periodic(struct ehci_host* edev)
 	return 0;
 }
 
+static int qhn_act(void *data)
+{
+	struct QHn *qhn;
+	struct TDn *tdn;
+
+	qhn = (struct QHn*)data;
+	tdn = qhn->tdns;
+
+	if (tdn && qtd_get_status(tdn->td) == XACTSTAT_SUCCESS) {
+		return data;
+	}
+
+	return 0;
+}
+
 void ehci_periodic_complete(struct ehci_host *edev)
 {
 	struct QHn *qhn;
 	struct TDn *tdn;
 	int sum;
 
-	qhn = edev->intn_list;
+	qhn = (struct QHn*)list_foreach(&edev->intn_list, qhn_act);
 
-	while (qhn) {
+	/* Interrupt endpoints would never queue multiple TDs */
+	if (qhn) {
 		tdn = qhn->tdns;
-		/* TODO: Can interrupt endpoints queue multiple TDs? */
-		if (tdn && qtd_get_status(tdn->td) == XACTSTAT_SUCCESS) {
-			qhn->tdns = NULL;
-			sum = TDTOK_GET_BYTES(tdn->td->token);
-			if (tdn->cb) {
-				tdn->cb(tdn->token, XACTSTAT_SUCCESS, sum);
-			}
-			ps_dma_free_pinned(edev->dman, (void*)tdn->td, sizeof(struct TD));
-			free(tdn);
+		qhn->tdns = NULL;
+
+		sum = TDTOK_GET_BYTES(tdn->td->token);
+		if (tdn->cb) {
+			tdn->cb(tdn->token, XACTSTAT_SUCCESS, sum);
 		}
-		qhn = qhn->next;
+
+		ps_dma_free_pinned(edev->dman, (void*)tdn->td, sizeof(struct TD));
+		usb_free(tdn);
 	}
 }
 

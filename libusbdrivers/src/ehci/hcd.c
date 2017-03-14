@@ -110,6 +110,20 @@ int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t 
 	    if (ep->type == EP_CONTROL || ep->type == EP_BULK) {
 		    ehci_add_qhn_async(edev, qhn);
 	    } else {
+		    /*
+		     * Polling rate calculation.
+		     * USB spec 5.6.4, 5.7.4 and 9.6.6
+		     *
+		     * XXX: There's no low speed isochronous devices?
+		     */
+		    if (speed == USBSPEED_HIGH) {
+			    qhn->rate = (1 << ep->interval - 1) / 8;
+		    } else if (speed == USBSPEED_FULL && ep->type == EP_ISOCHRONOUS) {
+			    qhn->rate = (1 << ep->interval - 1);
+		    } else {
+			    qhn->rate = ep->interval;
+		    }
+
 		    ehci_add_qhn_periodic(edev, qhn);
 	    }
 
@@ -146,56 +160,54 @@ int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t 
     }
 }
 
-void
-ehci_handle_irq(usb_host_t* hdev)
+void ehci_handle_irq(usb_host_t *hdev)
 {
-    struct ehci_host* edev = _hcd_to_ehci(hdev);
-    uint32_t sts;
-    sts = edev->op_regs->usbsts;
-    sts &= edev->op_regs->usbintr;
-    if (sts & EHCISTS_HOST_ERR) {
-        EHCI_IRQDBG(edev, "INT - host error\n");
-        edev->op_regs->usbsts = EHCISTS_HOST_ERR;
-        sts &= ~EHCISTS_HOST_ERR;
-	ehci_periodic_complete(edev);
-	ehci_async_complete(edev);
-    }
-    if (sts & EHCISTS_USBINT) {
-        EHCI_IRQDBG(edev, "INT - USB\n");
-        edev->op_regs->usbsts = EHCISTS_USBINT;
-        sts &= ~EHCISTS_USBINT;
-	ehci_periodic_complete(edev);
-	ehci_async_complete(edev);
-    }
-    if (sts & EHCISTS_FLIST_ROLL) {
-        EHCI_IRQDBG(edev, "INT - Frame list roll over\n");
-        edev->op_regs->usbsts = EHCISTS_FLIST_ROLL;
-        sts &= ~EHCISTS_FLIST_ROLL;
-    }
+	struct ehci_host *edev = _hcd_to_ehci(hdev);
+	uint32_t sts;
 
-    if (sts & EHCISTS_USBERRINT) {
-        EHCI_IRQDBG(edev, "INT - USB error\n");
-        edev->op_regs->usbsts = EHCISTS_USBERRINT;
-        sts &= ~EHCISTS_USBERRINT;
-	ehci_periodic_complete(edev);
-	ehci_async_complete(edev);
-    }
-    if (sts & EHCISTS_PORTC_DET) {
-        EHCI_IRQDBG(edev, "INT - root hub port change\n");
-        edev->op_regs->usbsts = EHCISTS_PORTC_DET;
-        sts &= ~EHCISTS_PORTC_DET;
-        _root_irq(edev);
-    }
-    if (sts & EHCISTS_ASYNC_ADV) {
-        EHCI_IRQDBG(edev, "INT - async list advance\n");
-        edev->op_regs->usbsts = EHCISTS_ASYNC_ADV;
-        sts &= ~EHCISTS_ASYNC_ADV;
-        check_doorbell(edev);
-    }
-    if (sts) {
-        printf("Unhandled USB irq. Status: 0x%x\n", sts);
-        usb_assert(!"Unhandled irq");
-    }
+	sts = edev->op_regs->usbsts & EHCISTS_MASK;
+
+	/* We cannot recover from fatal host error */
+	if (sts & EHCISTS_HOST_ERR) {
+		EHCI_IRQDBG(edev, "INT - host error\n");
+		usb_assert(0);
+	}
+
+	if (sts & EHCISTS_USBINT) {
+		EHCI_IRQDBG(edev, "INT - USB\n");
+		ehci_periodic_complete(edev);
+		ehci_async_complete(edev);
+	}
+
+	/*
+	 * TODO: To recover from transaction error, we need to scan both the
+	 * periodic queue and the async queue, find the error TD and reschedule
+	 * it.
+	 */
+	if (sts & EHCISTS_USBERRINT) {
+		EHCI_IRQDBG(edev, "INT - USB error\n");
+	}
+
+	/*
+	 * We don't handle frame list roll over interrupt, but some controllers
+	 * don't like it always being set to 1, so simply clear it.
+	 */
+	if (sts & EHCISTS_FLIST_ROLL) {
+		EHCI_IRQDBG(edev, "INT - Frame list roll over\n");
+	}
+
+	if (sts & EHCISTS_PORTC_DET) {
+		EHCI_IRQDBG(edev, "INT - root hub port change\n");
+		_root_irq(edev);
+	}
+
+	if (sts & EHCISTS_ASYNC_ADV) {
+		EHCI_IRQDBG(edev, "INT - async list advance\n");
+		check_doorbell(edev);
+	}
+
+	/* Write to clear */
+	edev->op_regs->usbsts = sts;
 }
 
 int ehci_cancel_xact(usb_host_t* hdev, struct endpoint *ep)
@@ -215,7 +227,6 @@ int ehci_cancel_xact(usb_host_t* hdev, struct endpoint *ep)
 
 	return 0;
 }
-
 
 /****************************
  **** Exported functions ****
@@ -280,7 +291,7 @@ ehci_host_init(usb_host_t* hdev, uintptr_t regs,
     edev->db_pending = NULL;
     edev->db_active = NULL;
     edev->flist = NULL;
-    edev->intn_list = NULL;
+    list_init(&edev->intn_list);
     /* Initialise IRQ */
     edev->irq_cb = NULL;
     edev->irq_token = NULL;

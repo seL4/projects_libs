@@ -276,11 +276,6 @@ qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 		}
 	}
 
-	if ((ep->type == EP_INTERRUPT || ep->type == EP_ISOCHRONOUS) &&
-			speed != USBSPEED_HIGH) {
-		qh->epc[0] |= QHEPC0_I;
-	}
-
 	/* epc1 */
 	qh->epc[1] = QHEPC1_MULT(1);
 	if (speed != USBSPEED_HIGH) {
@@ -298,7 +293,7 @@ qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 	}
 	
 	qh->td_overlay.next = TDLP_INVALID;
-	qh->td_overlay.alt= TDLP_INVALID;
+	qh->td_overlay.alt = TDLP_INVALID;
 
 	return qhn;
 }
