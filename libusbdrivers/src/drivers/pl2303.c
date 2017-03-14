@@ -48,6 +48,7 @@ struct pl2303_device {
 	struct endpoint *ep_int; //Interrupt endpoint
 	struct endpoint *ep_in;	 //BULK in endpoint
 	struct endpoint *ep_out; //BULK out endpoint
+	struct xact int_xact;    //Interrupt xact
 };
 
 static int
@@ -72,6 +73,22 @@ pl2303_config_cb(void *token, int cfg, int iface, struct anon_desc *desc)
 	}
 
 	return 0;
+}
+
+static int
+pl2303_interrupt_cb(void* token, enum usb_xact_status stat, int rbytes)
+{
+	int err;
+	struct pl2303_device *dev;
+	usb_dev_t udev;
+
+	udev = (usb_dev_t)token;
+	dev = (struct pl2303_device*)udev->dev_data;
+
+	/* Queue another request */
+	err = usbdev_schedule_xact(udev, dev->ep_int, &dev->int_xact, 1,
+			pl2303_interrupt_cb, udev);
+	assert(!err);
 }
 
 static void
@@ -181,6 +198,17 @@ int usb_pl2303_bind(usb_dev_t udev)
 	usb_destroy_xact(udev->dman, &xact, 1);
 
 	pl2303_startup_magic(udev);
+
+	/* Allocate interrupt xact */
+	dev->int_xact.type = PID_IN;
+	dev->int_xact.len = dev->ep_int->max_pkt;
+	err = usb_alloc_xact(udev->dman, &dev->int_xact, 1);
+	assert(!err);
+
+	/* Schedule a interrupt request */
+	err = usbdev_schedule_xact(udev, dev->ep_int, &dev->int_xact, 1,
+			pl2303_interrupt_cb, udev);
+	assert(!err);
 
 	return 0;
 }
