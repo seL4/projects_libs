@@ -18,7 +18,6 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include <utils/list.h>
 #include <usb/usb_host.h>
 #include <usb/drivers/usbhub.h>
 
@@ -272,8 +271,8 @@ struct ehci_host {
     uint32_t* flist;
     uintptr_t pflist;
     int flist_size;
-    struct QHn** periodic_tbl;
-    list_t intn_list;
+    struct QHn *intn_list;
+    struct QHn **shadow_flist;
     /* Standard registers */
     volatile struct ehci_host_cap * cap_regs;
     volatile struct ehci_host_op  * op_regs;

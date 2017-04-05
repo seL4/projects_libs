@@ -371,6 +371,9 @@ qtd_enqueue(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn)
 		tdn->td->token |= TDTOK_SACTIVE;
 		tdn = tdn->next;
 	}
+
+	/* Make sure the controller sees all the active TDs */
+	dsb();
 }
 
 void qhn_destroy(ps_dma_man_t* dman, struct QHn* qhn)
@@ -432,6 +435,7 @@ void ehci_async_complete(struct ehci_host *edev)
 					qhn->qh->td_cur == tdn->ptd &&
 					qhn->qh->td_overlay.next == TDLP_INVALID) {
 					qhn->qh->td_overlay.next = tdn->next->ptd;
+					dsb();
 				}
 
 				/* Free */
@@ -470,6 +474,8 @@ void ehci_add_qhn_async(struct ehci_host *edev, struct QHn *qhn)
 
 	    qhn->qh->qhlptr = qhn->pqh | QHLP_TYPE_QH;
     }
+
+    dsb();
 }
 
 void ehci_del_qhn_async(struct ehci_host *edev, struct QHn *qhn)
@@ -506,6 +512,8 @@ void ehci_del_qhn_async(struct ehci_host *edev, struct QHn *qhn)
 		}
 		tdn = tdn->next;
 	}
+
+	dsb();
 
 	/* Select another queue head to set its H-bit */
 	if ((qhn->qh->epc[0] & QHEPC0_H) && qhn->next) {

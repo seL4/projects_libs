@@ -27,18 +27,12 @@ static void ehci_disable_periodic(struct ehci_host* edev)
 	}
 }
 
-static int qhn_cmp(void *d1, void *d2)
-{
-	return !(d1 == d2);
-}
-
 /*
  * TODO: We only support interrupt endpoint at the moment, this function is
  * subject to change when we add isochronous endpoint support.
  */
 void ehci_add_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 {
-	struct QHn *last_qhn;
 	struct QHn *cur;
 
 	/* Allocate the frame list */
@@ -55,50 +49,55 @@ void ehci_add_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 			edev->flist[i] = TDLP_INVALID;
 		}
 
-		/* Allocate the software list */
-		edev->periodic_tbl = usb_malloc(edev->flist_size * sizeof(struct QHn*));
-		usb_assert(edev->periodic_tbl);
+		/*
+		 * Allocate shadow frame list to keep track of the virtual
+		 * address of the queue heads.
+		 */
+		edev->shadow_flist = (struct QHn**)usb_malloc(
+				sizeof(struct QHn*) * edev->flist_size);
 	}
 
 	/* Check if the queue head has already been scheduled */
-	if (list_exists(&edev->intn_list, qhn, qhn_cmp)) {
-		return;
+	cur = edev->intn_list;
+	while (cur) {
+		if (cur == qhn) {
+			return;
+		}
+		cur = cur->next;
 	}
 
 	/*
-	 * Insert the queue head into the frame list. The queue heads in each
-	 * slot are sorted, from low rate to high rate.
+	 * Insert the queue head into the list. The queue heads are sorted, from
+	 * low rate to high rate.
 	 */
-	ehci_disable_periodic(edev);
-	for (int i = qhn->rate - 1; i < edev->flist_size; i += qhn->rate) {
-		cur = edev->periodic_tbl[i];
+	cur = edev->intn_list;
+	qhn->qh->qhlptr = QHLP_INVALID;
+	if (!cur) {
+		edev->intn_list = qhn;
+		qhn->next = NULL;
+	} else {
+		while (cur->next && cur->next->rate >= qhn->rate) {
+			cur = cur->next;
+		}
+		qhn->next = cur->next;
+		cur->next = qhn;
 
-		if (!cur || cur->rate <= qhn->rate) {
-			edev->periodic_tbl[i] = qhn;
-
-			qhn->next = cur;
-			edev->flist[i] = qhn->pqh | QHLP_TYPE_QH;
-
-			if (cur) {
-				qhn->qh->qhlptr = cur->pqh | QHLP_TYPE_QH;
-				cur->qh->qhlptr = QHLP_INVALID;
-			}
-		} else {
-			while (cur->next && cur->next->rate > qhn->rate) {
-				cur = cur->next;
-			}
-			qhn->next = cur->next;
-			cur->next = qhn;
-
-			cur->qh->qhlptr = qhn->pqh | QHLP_TYPE_QH;
-			if (qhn->next) {
-				qhn->qh->qhlptr = qhn->next->qh->qhlptr | QHLP_TYPE_QH;
-			}
+		cur->qh->qhlptr = qhn->pqh | QHLP_TYPE_QH;
+		if (qhn->next) {
+			qhn->qh->qhlptr = qhn->next->pqh | QHLP_TYPE_QH;
 		}
 	}
 
-	/* Add new queue head to the software queue */
-	list_append(&edev->intn_list, qhn);
+	/* Update the frame list */
+	for (int i = qhn->rate - 1; i < edev->flist_size; i += qhn->rate) {
+		cur = edev->shadow_flist[i];
+		if (!cur || cur->rate < qhn->rate) {
+			edev->shadow_flist[i] = qhn;
+			edev->flist[i] = qhn->pqh | QHLP_TYPE_QH;
+		}
+	}
+
+	dsb();
 }
 
 /*
@@ -117,9 +116,25 @@ void ehci_del_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 	tdn = qhn->tdns;
 	tdn->td->token &= ~TDTOK_SACTIVE;
 
+	/* Remove from the software list */
+	cur = edev->intn_list;
+	if (cur == qhn) {
+		edev->intn_list = qhn->next;
+	} else {
+		while (cur->next && cur->next != qhn) {
+			cur = cur->next;
+		}
+		cur->next = qhn->next;
+		if (qhn->next) {
+			cur->qh->qhlptr = qhn->next->pqh | QHLP_TYPE_QH;
+		} else {
+			cur->qh->qhlptr = QHLP_INVALID;
+		}
+	}
+
 	/* Remove from the periodic schedule table */
 	for (int i = qhn->rate - 1; i < edev->flist_size; i += qhn->rate) {
-		cur = edev->periodic_tbl[i];
+		cur = edev->shadow_flist[i];
 
 		/*
 		 * If we are removing the first element, we need to update the
@@ -129,19 +144,12 @@ void ehci_del_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 		 * should have already had the terminate bit set to 1.
 		 */
 		if (cur == qhn) {
-			edev->periodic_tbl[i] = qhn->next;
+			edev->shadow_flist[i] = qhn->next;
 			edev->flist[i] = qhn->qh->qhlptr;
-		} else {
-			while (cur->next != qhn) {
-				cur = cur->next;
-			}
-			cur->next = qhn->next;
-			cur->qh->qhlptr = qhn->qh->qhlptr;
 		}
 	}
 
-	/* Remove from the software list */
-	list_remove(&edev->intn_list, qhn, qhn_cmp);
+	dsb();
 
 	/* Free */
 	ps_dma_free_pinned(edev->dman, qhn->tdns, sizeof(struct TDn));
@@ -193,41 +201,30 @@ ehci_schedule_periodic(struct ehci_host* edev)
 	return 0;
 }
 
-static int qhn_act(void *data)
-{
-	struct QHn *qhn;
-	struct TDn *tdn;
-
-	qhn = (struct QHn*)data;
-	tdn = qhn->tdns;
-
-	if (tdn && qtd_get_status(tdn->td) == XACTSTAT_SUCCESS) {
-		return data;
-	}
-
-	return 0;
-}
-
 void ehci_periodic_complete(struct ehci_host *edev)
 {
 	struct QHn *qhn;
 	struct TDn *tdn;
 	int sum;
 
-	qhn = (struct QHn*)list_foreach(&edev->intn_list, qhn_act);
-
 	/* Interrupt endpoints would never queue multiple TDs */
-	if (qhn) {
+	qhn = edev->intn_list;
+	while (qhn) {
 		tdn = qhn->tdns;
-		qhn->tdns = NULL;
+		if (tdn && qtd_get_status(tdn->td) == XACTSTAT_SUCCESS) {
+			/* Restore the queue head to its initial state */
+			qhn->tdns = NULL;
 
-		sum = TDTOK_GET_BYTES(tdn->td->token);
-		if (tdn->cb) {
-			tdn->cb(tdn->token, XACTSTAT_SUCCESS, sum);
+			sum = TDTOK_GET_BYTES(tdn->td->token);
+			if (tdn->cb) {
+				tdn->cb(tdn->token, XACTSTAT_SUCCESS, sum);
+			}
+
+			ps_dma_free_pinned(edev->dman, (void*)tdn->td,
+					sizeof(struct TD));
+			usb_free(tdn);
 		}
-
-		ps_dma_free_pinned(edev->dman, (void*)tdn->td, sizeof(struct TD));
-		usb_free(tdn);
+		qhn = qhn->next;
 	}
 }
 

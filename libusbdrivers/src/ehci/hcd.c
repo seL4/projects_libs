@@ -8,6 +8,8 @@
  * @TAG(NICTA_BSD)
  */
 
+#include <math.h>
+
 #include "../services.h"
 #include "ehci.h"
 
@@ -114,14 +116,22 @@ int ehci_schedule_xact(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t 
 		     * Polling rate calculation.
 		     * USB spec 5.6.4, 5.7.4 and 9.6.6
 		     *
-		     * XXX: There's no low speed isochronous devices?
+		     * In order to maintain the integrity of periodic schedule,
+		     * all polling rates have to be a power of two.
 		     */
 		    if (speed == USBSPEED_HIGH) {
-			    qhn->rate = (1 << ep->interval - 1) / 8;
+			    qhn->rate = (1 << (ep->interval - 1)) / 8;
 		    } else if (speed == USBSPEED_FULL && ep->type == EP_ISOCHRONOUS) {
-			    qhn->rate = (1 << ep->interval - 1);
+			    qhn->rate = (1 << (ep->interval - 1));
 		    } else {
-			    qhn->rate = ep->interval;
+			    qhn->rate = (1 << ilogb(ep->interval));
+		    }
+
+		    /* Make sure the rate is sane */
+		    if (qhn->rate < 1) {
+			    qhn->rate = 1;
+		    } if (qhn->rate > 1024) {
+			    qhn->rate = 1024;
 		    }
 
 		    ehci_add_qhn_periodic(edev, qhn);
@@ -212,7 +222,6 @@ void ehci_handle_irq(usb_host_t *hdev)
 
 int ehci_cancel_xact(usb_host_t* hdev, struct endpoint *ep)
 {
-	int err = 0;
 	struct ehci_host* edev = _hcd_to_ehci(hdev);
 
 	usb_assert(ep);
@@ -291,7 +300,7 @@ ehci_host_init(usb_host_t* hdev, uintptr_t regs,
     edev->db_pending = NULL;
     edev->db_active = NULL;
     edev->flist = NULL;
-    list_init(&edev->intn_list);
+    edev->intn_list = NULL;
     /* Initialise IRQ */
     edev->irq_cb = NULL;
     edev->irq_token = NULL;
