@@ -75,6 +75,8 @@ struct usb_dev {
     usb_t *host;
     usb_dev_t hub;
     uint8_t  port;
+    uint8_t tt_addr;
+    uint8_t tt_port;
     enum usb_speed speed;
     ps_dma_man_t* dman;
     /* Filled on creation/init */

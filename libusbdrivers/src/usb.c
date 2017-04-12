@@ -625,6 +625,7 @@ static int
 usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed speed, usb_dev_t* d)
 {
     usb_dev_t udev = NULL;
+    usb_dev_t parent = NULL, child = NULL;
     struct usbreq *req;
     struct device_desc* d_desc;
     struct string_desc s_desc;
@@ -640,6 +641,8 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
         return -1;
     }
     udev->addr = 0;
+    udev->tt_addr = 0;
+    udev->tt_port = 0;
     udev->connect = NULL;
     udev->disconnect = NULL;
     udev->dev_data = NULL;
@@ -648,6 +651,25 @@ usb_new_device_with_host(usb_dev_t hub, usb_t* host, int port, enum usb_speed sp
     udev->speed = speed;
     udev->host = host;
     udev->dman = host->hdev.dman;
+
+    /*
+     * Work out the TT hub for full/low speed devices.
+     * Assuming all high speed hubs have TT.
+     */
+    if (speed != USBSPEED_HIGH) {
+	    parent = hub;
+	    child = udev;
+	    while (parent) {
+		    if (parent->speed == USBSPEED_HIGH) {
+			    udev->tt_addr = parent->addr;
+			    udev->tt_port = child->port;
+			    break;
+		    } else {
+			    child = parent;
+			    parent = parent->hub;
+		    }
+	    }
+    }
 
     /*
      * Allocate control endpoint
@@ -956,11 +978,11 @@ usbdev_schedule_xact(usb_dev_t udev, struct endpoint *ep, struct xact* xact,
     assert(udev->host->hdev.schedule_xact);
     hdev = &udev->host->hdev;
     if (udev->hub) {
-        hub_addr = udev->hub->addr;
+        hub_addr = udev->tt_addr;
     } else {
         hub_addr = -1;
     }
-    err = usb_hcd_schedule(hdev, udev->addr, hub_addr, udev->port, udev->speed,
+    err = usb_hcd_schedule(hdev, udev->addr, hub_addr, udev->tt_port, udev->speed,
                            ep, xact, nxact, cb, token);
     return err;
 }
