@@ -584,6 +584,10 @@ parse_config(usb_dev_t udev, struct anon_desc *d, int tot_len,
             break;
         case INTERFACE:
             iface = ((struct iface_desc*)usrd)->bInterfaceNumber;
+	    /* Device class defined at interface level */
+	    if (!udev->class) {
+		    udev->class = ((struct iface_desc*)usrd)->bInterfaceClass;
+	    }
             break;
 	case ENDPOINT:
 	    edsc = (struct endpoint_desc*)usrd;

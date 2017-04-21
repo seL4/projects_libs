@@ -10,16 +10,14 @@
  * @TAG(DATA61_BSD)
  */
 
-#include "usbkbd.h"
-
-#include <platsupport/chardev.h>
-
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
 
 #include "../services.h"
+#include "hid.h"
+#include "usbkbd.h"
 
 #define KBD_DEBUG
 //#define KBDIRQ_DEBUG
@@ -43,8 +41,8 @@
 
 #define _KBD_DBG(k, ...)                                \
         do {                                            \
-            usb_kbd_t _k = k;                           \
-            if(_k && _k->udev){                         \
+            struct usb_kbd_device *_k = k;              \
+            if(_k){                                     \
                 printf("KBD %2d: ", _k->udev->addr);    \
             }else{                                      \
                 printf("KBD  ?: ");                     \
@@ -52,75 +50,6 @@
             printf(__VA_ARGS__);                        \
         }while(0)
 
-enum kbd_protocol {
-    BOOT = 0,
-    REPORT = 1
-};
-
-enum kbd_bRequest {
-    GET_REPORT   = 0x1,
-    GET_IDLE     = 0x2,
-    GET_PROTOCOL = 0x3,
-    SET_REPORT   = 0x9,
-    SET_IDLE     = 0xA,
-    SET_PROTOCOL = 0xB
-};
-
-enum hid_ReportType {
-    HID_INPUT    = 0x01,
-    HID_OUTPUT   = 0x02,
-    HID_FEATURE  = 0x03,
-    HID_RESERVED = 0x04
-};
-
-static inline struct usbreq
-__set_protocol_req(enum kbd_protocol p, int iface) {
-    struct usbreq r = {
-        .bmRequestType = (USB_DIR_OUT | USB_TYPE_CLS | USB_RCPT_INTERFACE),
-        .bRequest      = SET_PROTOCOL,
-        .wValue        = p,
-        .wIndex        = iface,
-        .wLength       = 0
-    };
-    return r;
-}
-
-static inline struct usbreq
-__set_idle_req(int idle_ms, int iface) {
-    struct usbreq r = {
-        .bmRequestType = (USB_DIR_OUT | USB_TYPE_CLS | USB_RCPT_INTERFACE),
-        .bRequest      = SET_IDLE,
-        .wValue        = idle_ms << 8,
-        .wIndex        = iface,
-        .wLength       = 0
-    };
-    return r;
-}
-
-
-static inline struct usbreq
-__get_report(enum hid_ReportType type, int id, int iface, int len) {
-    struct usbreq r = {
-        .bmRequestType = (USB_DIR_IN | USB_TYPE_CLS | USB_RCPT_INTERFACE),
-        .bRequest      = GET_REPORT,
-        .wValue        = type << 8 | id,
-        .wIndex        = iface,
-        .wLength       = len
-    };
-    return r;
-}
-
-static inline struct usbreq
-__set_report(enum hid_ReportType type, int id, int iface, int len) {
-    struct usbreq r = {
-        .bmRequestType = (USB_DIR_OUT | USB_TYPE_CLS | USB_RCPT_INTERFACE),
-        .bRequest      = SET_REPORT,
-        .wValue        = type << 8 | id,
-        .wIndex        = iface,
-        .wLength       = len
-    };
-    return r;
-}
 
 /*
  * Ring buffer for key logging
@@ -188,17 +117,12 @@ rb_consume(struct ringbuf* rb)
 
 
 struct usb_kbd_device {
-/// A handle to the underlying USB device
     usb_dev_t udev;
-/// Configuration parameters
-    int ifno, cfgno, int_ep, int_max_pkt, int_rate_ms;
-/// A generic transaction for indicator and idle requests
-    struct xact xact[2];
-    struct usbreq* req;
+    struct usb_hid_device *hid;
+    struct endpoint *ep_int;
+    struct xact int_xact;
 /// Indicator state. This is a pointer to our universal buffer at index 1
-    uint8_t* ind;
-/// An interrupt transaction
-    struct xact int_xact[1];
+    uint8_t ind;
 /// Store old keys for repeat detection
     uint8_t old_keys[KBD_KEYS_SIZE];
 /// new keys is a pointer to our interrupt buffer
@@ -208,23 +132,6 @@ struct usb_kbd_device {
 /// ring buffer for characters waiting to be read by the application.
     struct ringbuf rb;
 };
-typedef struct usb_kbd_device* usb_kbd_t;
-
-struct udev_priv {
-    struct usb_kbd_device kbd;
-};
-
-static inline usb_kbd_t
-cdev_get_kbd(struct ps_chardevice* cdev)
-{
-    return (usb_kbd_t)cdev->vaddr;
-}
-
-static inline void
-cdev_set_kbd(struct ps_chardevice* cdev, usb_kbd_t kbd)
-{
-    cdev->vaddr = (void*)kbd;
-}
 
 #define KBDFN_CTRL   0x01
 #define KBDFN_SHIFT  0x02
@@ -263,27 +170,27 @@ static const char num_kcodes[] = {
 #define KBDKEY_SCROLLLOCK 0x47
 
 static int
-kbd_update_ind(usb_kbd_t kbd)
+kbd_update_ind(struct usb_kbd_device *kbd)
 {
-    /* Send the request! */
-    *kbd->req = __set_report(HID_OUTPUT, 0, kbd->ifno, 1);
-    return usbdev_schedule_xact(kbd->udev, kbd->udev->ep_ctrl, kbd->xact, 2,
-                                NULL, NULL);
+	int err;
+
+	err = usb_hid_set_report(kbd->hid, REPORT_OUTPUT, &kbd->ind, 1);
+
+	return err;
 }
 
 static int
-kbd_update_repeat_rate(usb_kbd_t kbd)
+kbd_update_repeat_rate(struct usb_kbd_device *kbd)
 {
     KBDIRQ_DBG(kbd, "Changing rate to %dms\n", kbd->repeat_rate * 4);
-    *kbd->req = __set_idle_req(kbd->repeat_rate, kbd->ifno);
-    return usbdev_schedule_xact(kbd->udev, kbd->udev->ep_ctrl,
-                                kbd->xact, 1, NULL, NULL);
+
+    return usb_hid_set_idle(kbd->hid, kbd->repeat_rate);
 }
 
 static int
 kbd_irq_handler(void* token, enum usb_xact_status stat, int bytes_remaining)
 {
-    usb_kbd_t kbd = (usb_kbd_t)token;
+    struct usb_kbd_device *kbd = (struct usb_kbd_device*)token;
     uint8_t afn;
     uint8_t key;
     int new_rate = -1;
@@ -295,7 +202,7 @@ kbd_irq_handler(void* token, enum usb_xact_status stat, int bytes_remaining)
         KBD_DBG(kbd, "Received unsuccessful IRQ\n");
         return 1;
     }
-    len = kbd->int_xact->len - bytes_remaining;
+    len = kbd->int_xact.len - bytes_remaining;
     if (len < 4) {
         KBD_DBG(kbd, "Short read on INT packet (%d)\n", len);
         return 1;
@@ -350,7 +257,7 @@ kbd_irq_handler(void* token, enum usb_xact_status stat, int bytes_remaining)
         }
         /* Check and update for capslock */
         cl = c | 0x20;
-        if (cl >= 'a' && cl <= 'z' && (*kbd->ind & KBDIND_CAPS)) {
+        if (cl >= 'a' && cl <= 'z' && (kbd->ind & KBDIND_CAPS)) {
             c ^= 0x20;
         }
         /* Register the character */
@@ -361,18 +268,18 @@ kbd_irq_handler(void* token, enum usb_xact_status stat, int bytes_remaining)
             rb_produce(&kbd->rb, &c, 1);
         }
     } else if (key == KBDKEY_NUMLOCK) {
-        *kbd->ind ^= KBDIND_NUM;
+        kbd->ind ^= KBDIND_NUM;
         kbd_update_ind(kbd);
     } else if (key == KBDKEY_CAPSLOCK) {
-        *kbd->ind ^= KBDIND_CAPS;
+        kbd->ind ^= KBDIND_CAPS;
         kbd_update_ind(kbd);
     } else if (key == KBDKEY_SCROLLLOCK) {
-        *kbd->ind ^= KBDIND_SCRL;
+        kbd->ind ^= KBDIND_SCRL;
         kbd_update_ind(kbd);
     } else if (key < 0x54) {
         /* TODO handle these codes (see below) */
         printf("<!0x%x>", key);
-    } else if (key < 0x64 && (*kbd->ind & KBDIND_NUM)) {
+    } else if (key < 0x64 && (kbd->ind & KBDIND_NUM)) {
         c = num_kcodes[key - 0x54];
         rb_produce(&kbd->rb, &c, 1);
     } else if (key < 0x66) {
@@ -400,7 +307,7 @@ kbd_irq_handler(void* token, enum usb_xact_status stat, int bytes_remaining)
         printf("<!!0x%x>", key);
     }
 
-    usbdev_schedule_xact(kbd->udev, kbd->udev->ep[0], kbd->int_xact, 1,
+    usbdev_schedule_xact(kbd->udev, kbd->ep_int, &kbd->int_xact, 1,
                          &kbd_irq_handler, kbd);
 
     return 1;
@@ -410,10 +317,10 @@ static ssize_t
 kbd_read(ps_chardevice_t* d, void* vdata, size_t bytes,
          chardev_callback_t cb, void* token)
 {
-    usb_kbd_t kbd;
+    struct usb_kbd_device *kbd;
     char *data;
     int i;
-    kbd = cdev_get_kbd(d);
+    kbd = (struct usb_kbd_device*)d->vaddr;
     data = (char*)vdata;
     for (i = 0; i < bytes; i++) {
         int c;
@@ -427,198 +334,67 @@ kbd_read(ps_chardevice_t* d, void* vdata, size_t bytes,
     return i;
 }
 
-static int
-kbd_connect(usb_dev_t udev)
+int usb_kbd_driver_bind(usb_dev_t usb_dev, struct ps_chardevice *cdev)
 {
-    usb_kbd_t kbd;
-    struct xact xact;
-    struct usbreq* req;
-    int i;
-    int err;
+	struct usb_kbd_device *kbd;
+	struct xact xact;
+	int err;
 
-    assert(udev);
-    kbd = &udev->dev_data->kbd;
-    assert(kbd);
-    /* Create a buffer for setting up the device */
-    xact.type = PID_SETUP;
-    xact.len = sizeof(*req);
-    err = usb_alloc_xact(kbd->udev->dman, &xact, 1);
-    if (err) {
-        assert(0);
-        return -1;
-    }
-    KBD_DBG(kbd, "Configuring keyboard (config=%d, iface=%d)\n",
-            kbd->cfgno, kbd->ifno);
-    req = xact_get_vaddr(&xact);
-    *req = __set_configuration_req(kbd->cfgno);
-    err = usbdev_schedule_xact(udev, kbd->udev->ep_ctrl, &xact, 1, NULL, NULL);
+	kbd = (struct usb_kbd_device*)usb_malloc(sizeof(struct usb_kbd_device));
+	assert(kbd);
 
-    req = xact_get_vaddr(&xact);
-    *req = __set_interface_req(kbd->ifno);
-    err = usbdev_schedule_xact(udev, kbd->udev->ep_ctrl, &xact, 1, NULL, NULL);
+	usb_dev->dev_data = (struct udev_priv*)kbd;
+	kbd->udev = usb_dev;
+	kbd->repeat_rate = 0;
+	rb_init(&kbd->rb);
 
-    req = xact_get_vaddr(&xact);
-    *req = __set_protocol_req(BOOT, kbd->ifno);
-    err = usbdev_schedule_xact(udev, kbd->udev->ep_ctrl, &xact, 1, NULL, NULL);
+	kbd->hid = usb_hid_alloc(usb_dev);
 
-    req = xact_get_vaddr(&xact);
-    *req = __set_idle_req(0, kbd->ifno);
-    err = usbdev_schedule_xact(udev, kbd->udev->ep_ctrl, &xact, 1, NULL, NULL);
+	if (kbd->hid->protocol != 1) {
+		KBD_DBG(kbd, "Not a keyboard: %d\n", kbd->hid->protocol);
+		assert(0);
+	}
 
-    kbd->repeat_rate = 0;
-    usb_destroy_xact(udev->dman, &xact, 1);
-    if (err < 0) {
-        KBD_DBG(kbd, "Keyboard initialisation error\n");
-        assert(err >= 0);
-        return -1;
-    }
-    KBD_DBG(kbd, "Keyboard configured\n");
+	/* Find endpoint */
+	kbd->ep_int = usb_dev->ep[kbd->hid->iface];
+	assert(kbd->ep_int != NULL && kbd->ep_int->type == EP_INTERRUPT);
 
-    /* Initialise LEDS */
-    kbd_update_ind(kbd);
-    /* Initialise IRQs */
+	KBD_DBG(kbd, "Configuring keyboard\n");
+
+	err = usb_hid_set_idle(kbd->hid, 0);
+	if (err < 0) {
+		KBD_DBG(kbd, "Keyboard initialisation error\n");
+		assert(0);
+	}
+
+	cdev->vaddr = kbd;
+	cdev->read = kbd_read;
+
+	/* Initialise LEDS */
+	kbd_update_ind(kbd);
+
+	/* Initialise IRQs */
+	if (kbd->ep_int->dir == EP_DIR_IN) {
+		kbd->int_xact.type = PID_IN;
+	} else {
+		kbd->int_xact.type = PID_OUT;
+	}
+
+	kbd->int_xact.len = kbd->ep_int->max_pkt;
+
+	err = usb_alloc_xact(usb_dev->dman, &kbd->int_xact, 1);
+	assert(!err);
+
+	kbd->new_keys = xact_get_vaddr(&kbd->int_xact);
+
 #if defined(KBD_ENABLE_IRQS)
-    KBD_DBG(kbd, "Scheduling IRQS\n");
-    /* Register for interrupts */
-    /* FIXME: Search for the right ep */
-    usbdev_schedule_xact(udev, udev->ep[0], kbd->int_xact, 1,
-                         &kbd_irq_handler, kbd);
+	KBD_DBG(kbd, "Scheduling IRQS\n");
+	usbdev_schedule_xact(usb_dev, kbd->ep_int, &kbd->int_xact, 1,
+			&kbd_irq_handler, kbd);
 #else
-    (void)kbd_irq_handler;
+	(void)kbd_irq_handler;
 #endif
-    KBD_DBG(kbd, "Successfully initialised\n");
-    return 0;
+	KBD_DBG(kbd, "Successfully initialised\n");
+
+	return 0;
 }
-
-static int
-kbd_disconnect(usb_dev_t udev)
-{
-    /* Nothing to do... We are a passive device */
-    usb_kbd_t kbd = &udev->dev_data->kbd;
-    KBD_DBG(kbd, "Disconnect requested\n");
-    return 0;
-}
-
-
-static int
-kbd_config_cb(void* token, int cfg, int iface,
-              struct anon_desc* d)
-{
-    usb_kbd_t kbd = (usb_kbd_t)token;
-    assert(kbd);
-    if (d && kbd->int_ep == -1) {
-        switch (d->bDescriptorType) {
-        case INTERFACE: {
-            struct iface_desc *id = (struct iface_desc*)d;
-            if (id->bInterfaceClass == USB_CLASS_HID &&
-                    id->bInterfaceProtocol == KBD_PROTOCOL) {
-                kbd->ifno = iface;
-                kbd->cfgno = cfg;
-            }
-            break;
-        }
-        case ENDPOINT: {
-            struct endpoint_desc *e = (struct endpoint_desc*)d;
-            /* We just take the first endpoint */
-            if (kbd->ifno != -1) {
-                kbd->int_ep = e->bEndpointAddress & 0xf;
-                kbd->int_max_pkt = e->wMaxPacketSize;
-                kbd->int_rate_ms = e->bInterval * 2;
-            }
-            break;
-        }
-        default:
-            /* Don't care */
-            break;
-        }
-    }
-    return 0;
-}
-
-int
-usb_kbd_driver_bind(usb_dev_t udev, struct ps_chardevice *cdev)
-{
-    usb_kbd_t kbd = NULL;
-    int class;
-    struct usbreq *req;
-    struct udev_priv* dev_data;
-    int err;
-    assert(udev);
-    /* Check that this is a HID device */
-    class = usbdev_get_class(udev);
-    if (class != USB_CLASS_HID && class != USB_CLASS_UNSPECIFIED) {
-        KBD_DBG(kbd, "No keyboard candidate at address %d\n", udev->addr);
-        return -1;
-    }
-
-    KBD_DBG(kbd, "Found a keyboard candidate\n");
-    /* Create a keyboard device driver structure */
-    dev_data = usb_malloc(sizeof(*dev_data));
-    if (dev_data == NULL) {
-        KBD_DBG(kbd, "No heap memory for driver\n");
-        assert(0);
-        return -1;
-    }
-    kbd = &dev_data->kbd;
-    kbd->udev = udev;
-    kbd->cfgno = kbd->ifno = kbd->int_ep = -1;
-    rb_init(&kbd->rb);
-
-    /* Okay, now we *might be a keyboard... Read the config */
-    err = usbdev_parse_config(udev, kbd_config_cb, (void*)kbd);
-    if (err || kbd->int_ep == -1) {
-        KBD_DBG(kbd, "Not a USB keyboard\n");
-        usb_free(dev_data);
-        return -1;
-    }
-    KBD_DBG(kbd, "Found USB keyboard device\n");
-    udev->dev_data = dev_data;
-    /* Allocate a buffer for our IRQs */
-    kbd->int_xact[0].len = KBD_KEYS_SIZE;
-    kbd->int_xact[0].type = PID_IN;
-    err = usb_alloc_xact(udev->dman, kbd->int_xact, 1);
-    if (err) {
-        assert(0);
-        usb_free(dev_data);
-        return -1;
-    }
-    kbd->new_keys = xact_get_vaddr(&kbd->int_xact[0]);
-    memset(kbd->old_keys, 0, sizeof(kbd->old_keys));
-    /* Allocate a buffer for indicators/repeat delay */
-    kbd->xact[0].len = sizeof(*req);
-    kbd->xact[0].type = PID_SETUP;
-    kbd->xact[1].len = 1;
-    kbd->xact[1].type = PID_OUT;
-    err = usb_alloc_xact(udev->dman, kbd->xact, 2);
-    if (err) {
-        usb_destroy_xact(udev->dman, kbd->int_xact, 1);
-        usb_free(dev_data);
-        assert(0);
-        return -1;
-    }
-    kbd->req = xact_get_vaddr(&kbd->xact[0]);
-    kbd->ind = xact_get_vaddr(&kbd->xact[1]);
-    *kbd->ind = KBDIND_NUM;
-    /* Configure and set up the device */
-    udev->connect = &kbd_connect;
-    udev->disconnect = &kbd_disconnect;
-    err = udev->connect(udev);
-    if (err) {
-        assert(0);
-        return -1;
-    }
-    /* Bind to a character device */
-    if (ps_cdev_new(NULL, cdev) == NULL) {
-        usb_destroy_xact(udev->dman, kbd->int_xact, 1);
-        usb_destroy_xact(udev->dman, kbd->xact, 1);
-        usb_free(dev_data);
-        assert(0);
-        return -2;
-    }
-    cdev_set_kbd(cdev, kbd);
-    cdev->read = &kbd_read;
-    /* DONE! */
-    return 0;
-}
-
-

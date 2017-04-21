@@ -158,6 +158,8 @@ enum DescriptorType {
     INTERFACE_POWER           = 0x08,
     /* Class specific types */
     HID                       = 0x21,
+    HID_REPORT                = 0x22,
+    HID_PHYSICAL              = 0x23,
     CS_INTERFACE              = 0x24, //USB class-specific
     CS_ENDPOINT               = 0x25, //USB class-specific
     HUB                       = 0x29
