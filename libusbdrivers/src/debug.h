@@ -83,13 +83,11 @@
 
 #define set_colour(x) printf(x);
 
-
 #define cprintf(col, ...) do { \
         set_colour(col);       \
         printf(__VA_ARGS__);  \
         set_colour(COL_DEF);   \
     }while(0)
-
 
 /* Memory related issues */
 #ifdef DEBUG_MEM
@@ -127,6 +125,5 @@
 #else
 #define DBG_PIP(...) nop()
 #endif
-
 
 #endif /* _DEBUG_H_ */

@@ -147,30 +147,29 @@ void ehci_del_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 	usb_free(qhn);
 }
 
-int
-ehci_schedule_periodic_root(struct ehci_host* edev, struct xact *xact,
-                            int nxact, usb_cb_t cb, void* t)
+int ehci_schedule_periodic_root(struct ehci_host *edev, struct xact *xact,
+                            int nxact, usb_cb_t cb, void *t)
 {
-    int port;
-    usb_assert(xact->vaddr);
-    usb_assert(cb);
-    edev->irq_xact = *xact;
-    edev->irq_cb = cb;
-    edev->irq_token = t;
-    /* Enable IRQS */
-    for (port = 1; port <= EHCI_HCS_N_PORTS(edev->cap_regs->hcsparams); port++) {
-        volatile uint32_t* ps_reg = _get_portsc(edev, port);
-        uint32_t v;
-        v = *ps_reg & ~(EHCI_PORT_CHANGE);
-        v |= (EHCI_PORT_WO_OCURRENT | EHCI_PORT_WO_DCONNECT | EHCI_PORT_WO_CONNECT);
-        *ps_reg = v;
-    }
-    edev->op_regs->usbintr |= EHCIINTR_PORTC_DET;
-    return 0;
+	int port;
+	usb_assert(xact->vaddr);
+	usb_assert(cb);
+	edev->irq_xact = *xact;
+	edev->irq_cb = cb;
+	edev->irq_token = t;
+	/* Enable IRQS */
+	for (port = 1; port <= EHCI_HCS_N_PORTS(edev->cap_regs->hcsparams); port++) {
+		volatile uint32_t *ps_reg = _get_portsc(edev, port);
+		uint32_t v;
+		v = *ps_reg & ~(EHCI_PORT_CHANGE);
+		v |= (EHCI_PORT_WO_OCURRENT | EHCI_PORT_WO_DCONNECT |
+			EHCI_PORT_WO_CONNECT);
+		*ps_reg = v;
+	}
+	edev->op_regs->usbintr |= EHCIINTR_PORTC_DET;
+	return 0;
 }
 
-int
-ehci_schedule_periodic(struct ehci_host* edev)
+int ehci_schedule_periodic(struct ehci_host *edev)
 {
 	/* Make sure we are safe to write to the register */
 	while (((edev->op_regs->usbsts & EHCISTS_PERI_EN) >> 14)

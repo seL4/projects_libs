@@ -16,46 +16,42 @@
 #include "ehci.h"
 #include "../services.h"
 
-enum usb_xact_status
-qtd_get_status(volatile struct TD* qtd)
+enum usb_xact_status qtd_get_status(volatile struct TD* qtd)
 {
-    uint32_t t = qtd->token;
-    if (t & TDTOK_SACTIVE) {
-        /* Note that we have already returned an error code
-         * if this TD is still pending due to an error in
-         * a previous TD */
-        return XACTSTAT_PENDING;
-
-    } else if (t & TDTOK_SHALTED){
-        if (t & TDTOK_SXACTERR) {
-            return XACTSTAT_ERROR;
-        } else if (t & TDTOK_ERROR) {
-            return XACTSTAT_HOSTERROR;
-        }
-        printf("EHCI: Unknown QTD error code 0x%x\n", t);
-        return XACTSTAT_HOSTERROR;
-
-    } else {
-        return XACTSTAT_SUCCESS;
-    }
+	uint32_t t = qtd->token;
+	if (t & TDTOK_SACTIVE) {
+		/* Note that we have already returned an error code
+		 * if this TD is still pending due to an error in
+		 * a previous TD */
+		return XACTSTAT_PENDING;
+	} else if (t & TDTOK_SHALTED) {
+		if (t & TDTOK_SXACTERR) {
+			return XACTSTAT_ERROR;
+		} else if (t & TDTOK_ERROR) {
+			return XACTSTAT_HOSTERROR;
+		}
+		printf("EHCI: Unknown QTD error code 0x%x\n", t);
+		return XACTSTAT_HOSTERROR;
+	} else {
+		return XACTSTAT_SUCCESS;
+	}
 }
 
-enum usb_xact_status
-qhn_get_status(struct QHn * qhn)
+enum usb_xact_status qhn_get_status(struct QHn * qhn)
 {
-    struct TDn *tdn;
+	struct TDn *tdn;
 
-    tdn = qhn->tdns;
-    while (tdn) {
-            enum usb_xact_status stat;
-            stat = qtd_get_status(tdn->td);
-            if (stat != XACTSTAT_SUCCESS) {
-                return stat;
-            }
-	    tdn = tdn->next;
-    }
-    /* All TDs complete, return the status of the QH */
-    return qtd_get_status(&qhn->qh->td_overlay);
+	tdn = qhn->tdns;
+	while (tdn) {
+		enum usb_xact_status stat;
+		stat = qtd_get_status(tdn->td);
+		if (stat != XACTSTAT_SUCCESS) {
+			return stat;
+		}
+		tdn = tdn->next;
+	}
+	/* All TDs complete, return the status of the QH */
+	return qtd_get_status(&qhn->qh->td_overlay);
 }
 
 /****************************

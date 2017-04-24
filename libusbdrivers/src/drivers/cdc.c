@@ -80,7 +80,7 @@ static const char *func_subtype_codes[] = {
 	"Command Set Detail Functional",
 	"Telephone Control Model Functional",
 	"OBEX Service Identifier Functional",
-	"NCM Functional"
+	"NCM Functional",
 	"MBIM Functional",
 	"MBIM Extended Functional",
 	"RESERVED (future use)",

@@ -54,113 +54,106 @@
 #define REG_PRTR34       0xFC
 #define REG_STCD         0xFF
 
-
-static int
-read_reg(usb3503_t* hub, int addr)
+static int read_reg(usb3503_t *hub, int addr)
 {
-    int count;
-    char data;
-    count = i2c_kvslave_read(&hub->i2c_slave, addr, &data, 1);
-    if (count != 1) {
-        return -1;
-    } else {
-        return data;
-    }
+	int count;
+	char data;
+	count = i2c_kvslave_read(&hub->i2c_slave, addr, &data, 1);
+	if (count != 1) {
+		return -1;
+	} else {
+		return data;
+	}
 }
 
-static int
-write_reg(usb3503_t* hub, int addr, int data)
+static int write_reg(usb3503_t *hub, int addr, int data)
 {
-    int count;
-    char cdata;
-    cdata = data;
-    count = i2c_kvslave_write(&hub->i2c_slave, addr, &cdata, 1);
-    if (count != 1) {
-        return -1;
-    } else {
-        return 0;
-    }
+	int count;
+	char cdata;
+	cdata = data;
+	count = i2c_kvslave_write(&hub->i2c_slave, addr, &cdata, 1);
+	if (count != 1) {
+		return -1;
+	} else {
+		return 0;
+	}
 }
 
 int
-usb3503_init(i2c_bus_t* i2c_bus, gpio_sys_t* gpio_sys, gpio_id_t o_nreset,
-             gpio_id_t o_hubconnect, gpio_id_t i_nint, usb3503_t* hub)
+usb3503_init(i2c_bus_t *i2c_bus, gpio_sys_t *gpio_sys, gpio_id_t o_nreset,
+	     gpio_id_t o_hubconnect, gpio_id_t i_nint, usb3503_t *hub)
 {
-    if (i2c_kvslave_init(i2c_bus, USB3503_I2C_ADDR, BIG8, BIG8, &hub->i2c_slave)) {
-        return -1;
-    }
-    if (gpio_new(gpio_sys, o_nreset    , GPIO_DIR_OUT, &hub->o_nreset)) {
-        return -1;
-    }
-    if (gpio_new(gpio_sys, o_hubconnect, GPIO_DIR_OUT, &hub->o_hubconnect)) {
-        return -1;
-    }
-    if (gpio_new(gpio_sys, i_nint      , GPIO_DIR_OUT,  &hub->i_nint)) {
-        return -1;
-    }
-    /* Turn off the HUB */
-    gpio_clr(&hub->o_nreset);
-    gpio_clr(&hub->o_hubconnect);
+	if (i2c_kvslave_init
+	    (i2c_bus, USB3503_I2C_ADDR, BIG8, BIG8, &hub->i2c_slave)) {
+		return -1;
+	}
+	if (gpio_new(gpio_sys, o_nreset, GPIO_DIR_OUT, &hub->o_nreset)) {
+		return -1;
+	}
+	if (gpio_new(gpio_sys, o_hubconnect, GPIO_DIR_OUT, &hub->o_hubconnect)) {
+		return -1;
+	}
+	if (gpio_new(gpio_sys, i_nint, GPIO_DIR_OUT, &hub->i_nint)) {
+		return -1;
+	}
+	/* Turn off the HUB */
+	gpio_clr(&hub->o_nreset);
+	gpio_clr(&hub->o_hubconnect);
 
-    /* Select Primary or Secondary reference clock
-     * Primary reference clock freq (NINT high during init)
-     * SEL -> FREQ
-     * 00  -> 38.4 MHz
-     * 01  -> 26.0 MHz
-     * 10  -> 19.2 MHz
-     * 11  -> 12.0 MHz
-     *
-     * Secondary reference clock freq (NINT low during init)
-     * SEL -> FREQ
-     * 00  -> 24.0 MHz
-     * 01  -> 27.0 MHz
-     * 10  -> 25.0 MHz
-     * 11  -> 50.0 MHz
-     *
-     * Known platforms:
-     * Odroid - SEL = 00
-     */
-    gpio_clr(&hub->i_nint);
-    /* TODO set clock frequency */
+	/* Select Primary or Secondary reference clock
+	 * Primary reference clock freq (NINT high during init)
+	 * SEL -> FREQ
+	 * 00  -> 38.4 MHz
+	 * 01  -> 26.0 MHz
+	 * 10  -> 19.2 MHz
+	 * 11  -> 12.0 MHz
+	 *
+	 * Secondary reference clock freq (NINT low during init)
+	 * SEL -> FREQ
+	 * 00  -> 24.0 MHz
+	 * 01  -> 27.0 MHz
+	 * 10  -> 25.0 MHz
+	 * 11  -> 50.0 MHz
+	 *
+	 * Known platforms:
+	 * Odroid - SEL = 00
+	 */
+	gpio_clr(&hub->i_nint);
+	/* TODO set clock frequency */
 
-    /* Start the init process */
-    gpio_set(&hub->o_nreset);
-    return 0;
+	/* Start the init process */
+	gpio_set(&hub->o_nreset);
+	return 0;
 }
 
-void
-usb3503_reset(usb3503_t* hub)
+void usb3503_reset(usb3503_t *hub)
 {
-    write_reg(hub, REG_STCD, BIT(1));
+	write_reg(hub, REG_STCD, BIT(1));
 }
 
-void
-usb3503_hard_reset(usb3503_t* hub)
+void usb3503_hard_reset(usb3503_t *hub)
 {
-    gpio_clr(&hub->o_nreset);
-    udelay(100);
-    gpio_set(&hub->o_nreset);
+	gpio_clr(&hub->o_nreset);
+	udelay(100);
+	gpio_set(&hub->o_nreset);
 }
 
-void
-usb3503_connect(usb3503_t* hub)
+void usb3503_connect(usb3503_t *hub)
 {
-    gpio_set(&hub->o_hubconnect);
+	gpio_set(&hub->o_hubconnect);
 }
 
-void
-usb3503_disconnect(usb3503_t* hub)
+void usb3503_disconnect(usb3503_t *hub)
 {
-    gpio_clr(&hub->o_hubconnect);
+	gpio_clr(&hub->o_hubconnect);
 }
 
-void
-usb3503_handle_irq(usb3503_t* hub)
+void usb3503_handle_irq(usb3503_t *hub)
 {
-    uint8_t status, mask;
-    status = read_reg(hub, REG_INT_STATUS);
-    mask = read_reg(hub, REG_INT_MASK);
-    printf("HUB IRQ status: 0x%02x/0x%02x\n", status, mask);
+	uint8_t status, mask;
+	status = read_reg(hub, REG_INT_STATUS);
+	mask = read_reg(hub, REG_INT_MASK);
+	printf("HUB IRQ status: 0x%02x/0x%02x\n", status, mask);
 }
 
 #endif

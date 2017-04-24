@@ -50,56 +50,52 @@
             printf(__VA_ARGS__);                        \
         }while(0)
 
-
 /*
  * Ring buffer for key logging
  */
 
 struct ringbuf {
-    char b[100];
-    int head;
-    int tail;
-    int size;
+	char b[100];
+	int head;
+	int tail;
+	int size;
 };
 
-static void
-rb_init(struct ringbuf* rb)
+static void rb_init(struct ringbuf *rb)
 {
-    rb->head = 0;
-    rb->tail = 0;
-    rb->size = 0;
+	rb->head = 0;
+	rb->tail = 0;
+	rb->size = 0;
 }
 
-static int
-rb_produce(struct ringbuf* rb, const char* str, int size)
+static int rb_produce(struct ringbuf *rb, const char *str, int size)
 {
-    if (sizeof(rb->b) / sizeof(*rb->b) - rb->size >= size) {
-        while (size--) {
-            rb->b[rb->tail++] = *str++;
-            if (rb->tail == sizeof(rb->b) / sizeof(*rb->b)) {
-                rb->tail = 0;
-            }
-            rb->size++;
-        }
-        return 0;
-    } else {
-        return 1;
-    }
+	if (sizeof(rb->b) / sizeof(*rb->b) - rb->size >= size) {
+		while (size--) {
+			rb->b[rb->tail++] = *str++;
+			if (rb->tail == sizeof(rb->b) / sizeof(*rb->b)) {
+				rb->tail = 0;
+			}
+			rb->size++;
+		}
+		return 0;
+	} else {
+		return 1;
+	}
 }
 
-static int
-rb_consume(struct ringbuf* rb)
+static int rb_consume(struct ringbuf *rb)
 {
-    char c;
-    if (rb->size) {
-        c = rb->b[rb->head++];
-        if (rb->head == sizeof(rb->b) / sizeof(*rb->b)) {
-            rb->head = 0;
-        }
-        rb->size--;
-        return ((int)c) & 0xff;
-    }
-    return -1;
+	char c;
+	if (rb->size) {
+		c = rb->b[rb->head++];
+		if (rb->head == sizeof(rb->b) / sizeof(*rb->b)) {
+			rb->head = 0;
+		}
+		rb->size--;
+		return ((int)c) & 0xff;
+	}
+	return -1;
 }
 
 /*
@@ -115,22 +111,21 @@ rb_consume(struct ringbuf* rb)
 #define KBDIND_NUM     0x1
 #define KBDIND_SCRL    0x4
 
-
 struct usb_kbd_device {
-    usb_dev_t udev;
-    struct usb_hid_device *hid;
-    struct endpoint *ep_int;
-    struct xact int_xact;
+	usb_dev_t udev;
+	struct usb_hid_device *hid;
+	struct endpoint *ep_int;
+	struct xact int_xact;
 /// Indicator state. This is a pointer to our universal buffer at index 1
-    uint8_t ind;
+	uint8_t ind;
 /// Store old keys for repeat detection
-    uint8_t old_keys[KBD_KEYS_SIZE];
+	uint8_t old_keys[KBD_KEYS_SIZE];
 /// new keys is a pointer to our interrupt buffer
-    uint8_t* new_keys;
+	uint8_t *new_keys;
 /// Cache the current repeat rate to avoid USB transfers
-    int repeat_rate;
+	int repeat_rate;
 /// ring buffer for characters waiting to be read by the application.
-    struct ringbuf rb;
+	struct ringbuf rb;
 };
 
 #define KBDFN_CTRL   0x01
@@ -141,26 +136,25 @@ struct usb_kbd_device {
 #define KBDFN_RIGHT(FN)    ((KBDFN_##FN) << 4)
 #define KBDFN_TEST(FN, x)  !!((x) & (KBDFN_LEFT(FN) | KBDFN_RIGHT(FN)))
 static const char std_kcodes[] = {
-    /*       0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F */
-    /*0x00*/                'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l',
-    /*0x10*/'m', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2',
-    /*0x20*/'3', '4', '5', '6', '7', '8', '9', '0', 10, 27,  8,  9, ' ', '-', '=', '[',
-    /*0x30*/']', 92, 0 , ';', 39, '`', ',', '.', '/'
+	/*       0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F */
+	/*0x00 */ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l',
+	/*0x10 */ 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2',
+	/*0x20 */ '3', '4', '5', '6', '7', '8', '9', '0', 10, 27, 8, 9, ' ', '-', '=', '[',
+	/*0x30 */ ']', 92, 0, ';', 39, '`', ',', '.', '/'
 };
 
 static const char stdshift_kcodes[] = {
-    /*       0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F */
-    /*0x00*/                'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
-    /*0x10*/'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '!', '@',
-    /*0x20*/'#', '$', '%', '^', '&', '*', '(', ')', 10, 27,  8,  9, ' ', '_', '+', '{',
-    /*0x30*/'}', '|', 0 , ':', 39, '~', '<', '>', '?'
+	/*       0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F */
+	/*0x00 */ 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
+	/*0x10 */ 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '!', '@',
+	/*0x20 */ '#', '$', '%', '^', '&', '*', '(', ')', 10, 27, 8, 9, ' ', '_', '+', '{',
+	/*0x30 */ '}', '|', 0, ':', 39, '~', '<', '>', '?'
 };
 
-
 static const char num_kcodes[] = {
-    /*       0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F */
-    /*0x50*/                '/', '*', '-', '+', 10, '1', '2', '3', '4', '5', '6', '7',
-    /*0x60*/'8', '9', '0', '.'
+	/*       0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F */
+	/*0x50 */ '/', '*', '-', '+', 10, '1', '2', '3', '4', '5', '6', '7',
+	/*0x60 */ '8', '9', '0', '.'
 };
 
 #define KBDKEY_NONE       0x00
@@ -169,8 +163,7 @@ static const char num_kcodes[] = {
 #define KBDKEY_CAPSLOCK   0x39
 #define KBDKEY_SCROLLLOCK 0x47
 
-static int
-kbd_update_ind(struct usb_kbd_device *kbd)
+static int kbd_update_ind(struct usb_kbd_device *kbd)
 {
 	int err;
 
@@ -179,159 +172,148 @@ kbd_update_ind(struct usb_kbd_device *kbd)
 	return err;
 }
 
-static int
-kbd_update_repeat_rate(struct usb_kbd_device *kbd)
+static int kbd_update_repeat_rate(struct usb_kbd_device *kbd)
 {
-    KBDIRQ_DBG(kbd, "Changing rate to %dms\n", kbd->repeat_rate * 4);
+	KBDIRQ_DBG(kbd, "Changing rate to %dms\n", kbd->repeat_rate * 4);
 
-    return usb_hid_set_idle(kbd->hid, kbd->repeat_rate);
+	return usb_hid_set_idle(kbd->hid, kbd->repeat_rate);
 }
 
 static int
-kbd_irq_handler(void* token, enum usb_xact_status stat, int bytes_remaining)
+kbd_irq_handler(void *token, enum usb_xact_status stat, int bytes_remaining)
 {
-    struct usb_kbd_device *kbd = (struct usb_kbd_device*)token;
-    uint8_t afn;
-    uint8_t key;
-    int new_rate = -1;
-    char c;
-    int len;
+	struct usb_kbd_device *kbd = (struct usb_kbd_device *)token;
+	uint8_t afn;
+	uint8_t key;
+	int new_rate = -1;
+	char c;
+	int len;
 
-    /* Check the status */
-    if (stat != XACTSTAT_SUCCESS) {
-        KBD_DBG(kbd, "Received unsuccessful IRQ\n");
-        return 1;
-    }
-    len = kbd->int_xact.len - bytes_remaining;
-    if (len < 4) {
-        KBD_DBG(kbd, "Short read on INT packet (%d)\n", len);
-        return 1;
-    }
+	/* Check the status */
+	if (stat != XACTSTAT_SUCCESS) {
+		KBD_DBG(kbd, "Received unsuccessful IRQ\n");
+		return 1;
+	}
+	len = kbd->int_xact.len - bytes_remaining;
+	if (len < 4) {
+		KBD_DBG(kbd, "Short read on INT packet (%d)\n", len);
+		return 1;
+	}
 #if defined(KBDIRQ_DEBUG)
-    {
-        int i;
-        for (i = 0; i < len; i++) {
-            printf("[0x%02x]", kbd->new_keys[i]);
-        }
-        printf("\n");
-    }
+	{
+		int i;
+		for (i = 0; i < len; i++) {
+			printf("[0x%02x]", kbd->new_keys[i]);
+		}
+		printf("\n");
+	}
 #endif
 
-    /* Multiple key press. Ignore input */
-    if (kbd->new_keys[3] != KBDKEY_NONE) {
-        kbd->new_keys[2] = kbd->old_keys[2] = KBDKEY_NONE;
-    }
-    /* Read in key parameters */
-    afn = kbd->new_keys[0];
-    key = kbd->new_keys[2];
-    /* Handle repeat delay */
-    if (key == KBDKEY_NONE) {
-        /* No key pressed or someone is being a jerk - idle */
-        new_rate = 0;
-    } else if (kbd->old_keys[2] == key) {
-        /* Someone is holding down a key */
-        new_rate = KBDRPT_RATE;
-    } else {
-        /* Someone pressed a new key! Start repeat delay */
-        new_rate = KBDRPT_DELAY;
-    }
-    /* Adjust the idle delay if required */
-    if (new_rate != kbd->repeat_rate) {
-        kbd->repeat_rate = new_rate;
-        kbd_update_repeat_rate(kbd);
-    }
-    /* Process the key */
-    memcpy(kbd->old_keys, kbd->new_keys, KBD_KEYS_SIZE);
-    if (key == KBDKEY_NONE || key == KBDKEY_MASH) {
-        /* Ignore it */
-    } else if (key < 0x04) {
-        printf("<!0x%x>", key);
-    } else if (key < 0x39) {
-        char cl;
-        /* Decode the key */
-        c = std_kcodes[key - 0x04];
-        if (KBDFN_TEST(CTRL, afn) && c >= '@' && c <= '_') {
-            c -= '@';
-        } else if (KBDFN_TEST(SHIFT, afn)) {
-            c = stdshift_kcodes[key - 0x04];
-        }
-        /* Check and update for capslock */
-        cl = c | 0x20;
-        if (cl >= 'a' && cl <= 'z' && (kbd->ind & KBDIND_CAPS)) {
-            c ^= 0x20;
-        }
-        /* Register the character */
-        if (KBDFN_TEST(ALT, afn)) {
-            char str[2] = {0x1B, c};
-            rb_produce(&kbd->rb, str, 2);
-        } else {
-            rb_produce(&kbd->rb, &c, 1);
-        }
-    } else if (key == KBDKEY_NUMLOCK) {
-        kbd->ind ^= KBDIND_NUM;
-        kbd_update_ind(kbd);
-    } else if (key == KBDKEY_CAPSLOCK) {
-        kbd->ind ^= KBDIND_CAPS;
-        kbd_update_ind(kbd);
-    } else if (key == KBDKEY_SCROLLLOCK) {
-        kbd->ind ^= KBDIND_SCRL;
-        kbd_update_ind(kbd);
-    } else if (key < 0x54) {
-        /* TODO handle these codes (see below) */
-        printf("<!0x%x>", key);
-    } else if (key < 0x64 && (kbd->ind & KBDIND_NUM)) {
-        c = num_kcodes[key - 0x54];
-        rb_produce(&kbd->rb, &c, 1);
-    } else if (key < 0x66) {
-        /* TODO find scan codes for these keys and keypad
-         * with no numlock */
+	/* Multiple key press. Ignore input */
+	if (kbd->new_keys[3] != KBDKEY_NONE) {
+		kbd->new_keys[2] = kbd->old_keys[2] = KBDKEY_NONE;
+	}
+	/* Read in key parameters */
+	afn = kbd->new_keys[0];
+	key = kbd->new_keys[2];
+	/* Handle repeat delay */
+	if (key == KBDKEY_NONE) {
+		/* No key pressed or someone is being a jerk - idle */
+		new_rate = 0;
+	} else if (kbd->old_keys[2] == key) {
+		/* Someone is holding down a key */
+		new_rate = KBDRPT_RATE;
+	} else {
+		/* Someone pressed a new key! Start repeat delay */
+		new_rate = KBDRPT_DELAY;
+	}
+	/* Adjust the idle delay if required */
+	if (new_rate != kbd->repeat_rate) {
+		kbd->repeat_rate = new_rate;
+		kbd_update_repeat_rate(kbd);
+	}
+	/* Process the key */
+	memcpy(kbd->old_keys, kbd->new_keys, KBD_KEYS_SIZE);
+	if (key == KBDKEY_NONE || key == KBDKEY_MASH) {
+		/* Ignore it */
+	} else if (key < 0x04) {
+		printf("<!0x%x>", key);
+	} else if (key < 0x39) {
+		char cl;
+		/* Decode the key */
+		c = std_kcodes[key - 0x04];
+		if (KBDFN_TEST(CTRL, afn) && c >= '@' && c <= '_') {
+			c -= '@';
+		} else if (KBDFN_TEST(SHIFT, afn)) {
+			c = stdshift_kcodes[key - 0x04];
+		}
+		/* Check and update for capslock */
+		cl = c | 0x20;
+		if (cl >= 'a' && cl <= 'z' && (kbd->ind & KBDIND_CAPS)) {
+			c ^= 0x20;
+		}
+		/* Register the character */
+		if (KBDFN_TEST(ALT, afn)) {
+			char str[2] = { 0x1B, c };
+			rb_produce(&kbd->rb, str, 2);
+		} else {
+			rb_produce(&kbd->rb, &c, 1);
+		}
+	} else if (key == KBDKEY_NUMLOCK) {
+		kbd->ind ^= KBDIND_NUM;
+		kbd_update_ind(kbd);
+	} else if (key == KBDKEY_CAPSLOCK) {
+		kbd->ind ^= KBDIND_CAPS;
+		kbd_update_ind(kbd);
+	} else if (key == KBDKEY_SCROLLLOCK) {
+		kbd->ind ^= KBDIND_SCRL;
+		kbd_update_ind(kbd);
+	} else if (key < 0x54) {
+		/* TODO handle these codes (see below) */
+		printf("<!0x%x>", key);
+	} else if (key < 0x64 && (kbd->ind & KBDIND_NUM)) {
+		c = num_kcodes[key - 0x54];
+		rb_produce(&kbd->rb, &c, 1);
+	} else if (key < 0x66) {
+		/* TODO find scan codes for these keys and keypad
+		 * with no numlock */
 #if 0
-        F1 - F12         3a - 45
-        prntscrn / sysrq 46
-        pause / break    48
-        insert         49
-        home           4a
-        pgup           4b
-        delete         4c
-        end            4d
-        pgdwn          4e
-        right          4f
-        left           50
-        down           51
-        up             52
-        macro          64
-        dropdown       65
+		F1 - F12 3 a - 45
+		    prntscrn / sysrq 46
+		    pause / break 48
+		    insert 49 home 4 a pgup 4 b delete 4 c end 4 d pgdwn 4e
+ right 4f left 50 down 51 up 52 macro 64 dropdown 65
 #endif
-        printf("<!0x%x>", key);
-    } else {
-        printf("<!!0x%x>", key);
-    }
+		    printf("<!0x%x>", key);
+	} else {
+		printf("<!!0x%x>", key);
+	}
 
-    usbdev_schedule_xact(kbd->udev, kbd->ep_int, &kbd->int_xact, 1,
-                         &kbd_irq_handler, kbd);
+	usbdev_schedule_xact(kbd->udev, kbd->ep_int, &kbd->int_xact, 1,
+			     &kbd_irq_handler, kbd);
 
-    return 1;
+	return 1;
 }
 
 static ssize_t
-kbd_read(ps_chardevice_t* d, void* vdata, size_t bytes,
-         chardev_callback_t cb, void* token)
+kbd_read(ps_chardevice_t *d, void *vdata, size_t bytes,
+	 chardev_callback_t cb, void *token)
 {
-    struct usb_kbd_device *kbd;
-    char *data;
-    int i;
-    kbd = (struct usb_kbd_device*)d->vaddr;
-    data = (char*)vdata;
-    for (i = 0; i < bytes; i++) {
-        int c;
-        c = rb_consume(&kbd->rb);
-        if (c >= 0) {
-            *data++ = c;
-        } else {
-            break;
-        }
-    }
-    return i;
+	struct usb_kbd_device *kbd;
+	char *data;
+	int i;
+	kbd = (struct usb_kbd_device *)d->vaddr;
+	data = (char *)vdata;
+	for (i = 0; i < bytes; i++) {
+		int c;
+		c = rb_consume(&kbd->rb);
+		if (c >= 0) {
+			*data++ = c;
+		} else {
+			break;
+		}
+	}
+	return i;
 }
 
 int usb_kbd_driver_bind(usb_dev_t usb_dev, struct ps_chardevice *cdev)
@@ -389,7 +371,7 @@ int usb_kbd_driver_bind(usb_dev_t usb_dev, struct ps_chardevice *cdev)
 #if defined(KBD_ENABLE_IRQS)
 	KBD_DBG(kbd, "Scheduling IRQS\n");
 	usbdev_schedule_xact(usb_dev, kbd->ep_int, &kbd->int_xact, 1,
-			&kbd_irq_handler, kbd);
+			     &kbd_irq_handler, kbd);
 #else
 	(void)kbd_irq_handler;
 #endif

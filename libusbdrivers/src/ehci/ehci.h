@@ -48,28 +48,27 @@
             dprintf(__VA_ARGS__);               \
         }while(0)
 
-
 /*******************
  **** Registers ****
  *******************/
 
 struct ehci_host_cap {
-    uint8_t  caplength;        /* +0x00 */
-    uint8_t  res0[1];
-    uint16_t hciversion;       /* +0x02 */
+	uint8_t caplength;	/* +0x00 */
+	uint8_t res0[1];
+	uint16_t hciversion;	/* +0x02 */
 #define EHCI_HCS_N_PORTS(x)    (((x) & 0xf) >> 0)
-    uint32_t hcsparams;        /* +0x04 */
+	uint32_t hcsparams;	/* +0x04 */
 #define EHCI_HCC_EECP(x)       (((x) >> 8) & 0xff)
 #define EHCI_HCC_ISOTHRES(x)   (((x) >> 4) & 0xf)
 #define EHCI_HCC_PARK          BIT(2)
 #define EHCI_HCC_PFRAMELIST    BIT(1)
 #define EHCI_HCC_64BIT         BIT(0)
-    uint32_t hccparams;        /* +0x08 */
-    uint32_t hcsp_portroute;   /* +0x0C */
-    uint32_t res1[4];
-    /* OTG only */
-    uint16_t dciversion;         /* +0x20 */
-    uint32_t dccparams;          /* +0x24 */
+	uint32_t hccparams;	/* +0x08 */
+	uint32_t hcsp_portroute;	/* +0x0C */
+	uint32_t res1[4];
+	/* OTG only */
+	uint16_t dciversion;	/* +0x20 */
+	uint32_t dccparams;	/* +0x24 */
 };
 
 struct ehci_host_op {
@@ -87,7 +86,7 @@ struct ehci_host_op {
 #define EHCICMD_LIST_SMASK    (0x3 * BIT(2))
 #define EHCICMD_HCRESET       BIT(1)
 #define EHCICMD_RUNSTOP       BIT(0)
-    uint32_t usbcmd;           /* +0x00 */
+	uint32_t usbcmd;	/* +0x00 */
 #define EHCISTS_ASYNC_EN      BIT(15)
 #define EHCISTS_PERI_EN       BIT(14)
 #define EHCISTS_ASYNC_EMPTY   BIT(13)
@@ -101,26 +100,26 @@ struct ehci_host_op {
 #define EHCISTS_MASK          (EHCISTS_USBINT | EHCISTS_USBERRINT | \
 			       EHCISTS_PORTC_DET | EHCISTS_FLIST_ROLL | \
 			       EHCISTS_HOST_ERR | EHCISTS_ASYNC_ADV)
-    uint32_t usbsts;           /* +0x04 */
+	uint32_t usbsts;	/* +0x04 */
 #define EHCIINTR_ASYNC_ADV    BIT( 5)
 #define EHCIINTR_HOST_ERR     BIT( 4)
 #define EHCIINTR_FLIST_ROLL   BIT( 3)
 #define EHCIINTR_PORTC_DET    BIT( 2)
 #define EHCIINTR_USBERRINT    BIT( 1)
 #define EHCIINTR_USBINT       BIT( 0)
-    uint32_t usbintr;          /* +0x08 */
+	uint32_t usbintr;	/* +0x08 */
 /// Translate a frame index into a micro frame index
 #define FRAME2UFRAME(x)       ((x) << 3)
 /// Translate a micro frame index into a frame index
 #define UFRAME2FRAME(x)       ((x) >> 3)
 #define FRINDEX_UF(x)         ((x) & 0x7)
-    uint32_t frindex;          /* +0x0C */
-    uint32_t ctrldssegment;    /* +0x10 */
-    uint32_t periodiclistbase; /* +0x14 */
-    uint32_t asynclistaddr;    /* +0x18 */
-    uint32_t res0[9];
+	uint32_t frindex;	/* +0x0C */
+	uint32_t ctrldssegment;	/* +0x10 */
+	uint32_t periodiclistbase;	/* +0x14 */
+	uint32_t asynclistaddr;	/* +0x18 */
+	uint32_t res0[9];
 #define EHCICFLAG_CFLAG        BIT( 0)
-    uint32_t configflag;       /* +0x40 */
+	uint32_t configflag;	/* +0x40 */
 #define EHCI_PORT_WO_OCURRENT  BIT(22)
 #define EHCI_PORT_WO_DCONNECT  BIT(21)
 #define EHCI_PORT_WO_CONNECT   BIT(20)
@@ -142,7 +141,7 @@ struct ehci_host_op {
                                 EHCI_PORT_ENABLE_C   | \
                                 EHCI_PORT_CONNECT_C)
 
-    uint32_t portsc[];         /* +0x44 */
+	uint32_t portsc[];	/* +0x44 */
 };
 
 /*********************
@@ -151,9 +150,9 @@ struct ehci_host_op {
 
 struct TD {
 #define TDLP_INVALID           BIT(0)
-    uint32_t next;
+	uint32_t next;
 #define TDALTTDPTR_NAKCNT(x)   (((x) >> 1) & 0x7)
-    uint32_t alt;
+	uint32_t alt;
 #define TDTOK_DT               BIT(31)
 #define TDTOK_BYTES(x)         (((x) & 0x7fff) << 16)
 #define TDTOK_BYTES_MASK       TDTOK_BYTES(0x7fff)
@@ -179,14 +178,14 @@ struct TD {
                                 TDTOK_SBABDET  | \
                                 TDTOK_SXACTERR | \
                                 TDTOK_SUFRAME_MISS)
-    uint32_t token;
+	uint32_t token;
 #define TDBUF0_CUROFFSET(x)    (((x) & 0xfff) * BIT(0))
 #define TDBUF0_CUROFFSET_MASK  TDBUF0_CUROFFSET(0xfff)
 #define QHBUF1_CPROGMASK(x)    (((x) &  0xff) * BIT(0))
 #define QHBUF2_SBYTES(x)       (((x) &  0xff) * BIT(5))
 #define QHBUF2_FRAMETAG(x)     (((x) &   0xf) * BIT(0))
-    uint32_t buf[5];
-    uint32_t buf_hi[5];        /* 64-bit capability(Appendix B) */
+	uint32_t buf[5];
+	uint32_t buf_hi[5];	/* 64-bit capability(Appendix B) */
 };
 
 struct QH {
@@ -195,7 +194,7 @@ struct QH {
 #define QHLP_TYPE_SITD         (0x2 * BIT(1))
 #define QHLP_TYPE_FSTN         (0x3 * BIT(1))
 #define QHLP_INVALID           BIT(0)
-    uint32_t qhlptr;
+	uint32_t qhlptr;
 #define QHEPC0_NAKCNT_RL(x)    (((x) &  0xf) * BIT(28))
 #define QHEPC0_NAKCNT_RL_MASK  QHEPC0_NAKCNT_RL(0xf)
 #define QHEPC0_C               BIT(27)
@@ -219,96 +218,96 @@ struct QH {
 #define QHEPC1_UFRAME_SMASK(x) (((x) & 0xff) * BIT( 0))
 #define QHEPC1_UFRAME_MASK     (QHEPC1_UFRAME_CMASK(0xff) | \
                                 QHEPC1_UFRAME_CMASK(0xff))
-    uint32_t epc[2];
-    uint32_t td_cur;
-    struct TD td_overlay;
+	uint32_t epc[2];
+	uint32_t td_cur;
+	struct TD td_overlay;
 };
-
 
 /****************************
  **** Private structures ****
  ****************************/
 
 struct TDn {
-    volatile struct TD* td;
-    uintptr_t ptd;
-    usb_cb_t cb;
-    void* token;
-    struct TDn* next;
+	volatile struct TD *td;
+	uintptr_t ptd;
+	usb_cb_t cb;
+	void *token;
+	struct TDn *next;
 };
 
 struct QHn {
-    /* Transaction data */
-    volatile struct QH* qh;
-    uintptr_t pqh;
-    struct TDn* tdns;
-    /* Interrupts */
-    int rate;         //Polling frame rate(frame = 1ms, uframe = 125us)
-    int irq_pending;
-    int was_cancelled;
-    /* Links */
-    uint8_t owner_addr;
-    struct QHn* next;
-    /* Lock */
-    void* lock;
+	/* Transaction data */
+	volatile struct QH *qh;
+	uintptr_t pqh;
+	struct TDn *tdns;
+	/* Interrupts */
+	int rate;		//Polling frame rate(frame = 1ms, uframe = 125us)
+	int irq_pending;
+	int was_cancelled;
+	/* Links */
+	uint8_t owner_addr;
+	struct QHn *next;
+	/* Lock */
+	void *lock;
 };
 
 struct ehci_host {
-    int devid;
-    /* Hub emulation */
-    usb_hubem_t hubem;
-    void (*board_pwren)(int port, int state);
-    /* IRQ data */
-    struct xact irq_xact;
-    usb_cb_t irq_cb;
-    void* irq_token;
-    uint32_t bmreset_c;
-    /* Async schedule */
-    struct QHn* alist_tail;
-    struct QHn* db_pending;
-    struct QHn* db_active;
-    /* Periodic frame list */
-    uint32_t* flist;
-    uintptr_t pflist;
-    int flist_size;
-    struct QHn *intn_list;
-    struct QHn **shadow_flist;
-    /* Standard registers */
-    volatile struct ehci_host_cap * cap_regs;
-    volatile struct ehci_host_op  * op_regs;
-    /* Support */
-    ps_dma_man_t* dman;
-    sync_ops_t* sync;
-    void* state;
+	int devid;
+	/* Hub emulation */
+	usb_hubem_t hubem;
+	void (*board_pwren) (int port, int state);
+	/* IRQ data */
+	struct xact irq_xact;
+	usb_cb_t irq_cb;
+	void *irq_token;
+	uint32_t bmreset_c;
+	/* Async schedule */
+	struct QHn *alist_tail;
+	struct QHn *db_pending;
+	struct QHn *db_active;
+	/* Periodic frame list */
+	uint32_t *flist;
+	uintptr_t pflist;
+	int flist_size;
+	struct QHn *intn_list;
+	struct QHn **shadow_flist;
+	/* Standard registers */
+	volatile struct ehci_host_cap *cap_regs;
+	volatile struct ehci_host_op *op_regs;
+	/* Support */
+	ps_dma_man_t *dman;
+	sync_ops_t *sync;
+	void *state;
 };
 
 /**
  * Hub Emulation
  */
-volatile uint32_t* _get_portsc(struct ehci_host* h, int port);
+volatile uint32_t *_get_portsc(struct ehci_host *h, int port);
 int _set_pf(void *token, int port, enum port_feature feature);
 int _clr_pf(void *token, int port, enum port_feature feature);
-int _get_pstat(void* token, int port, struct port_status* _ps);
+int _get_pstat(void *token, int port, struct port_status *_ps);
 
 /**
  * Async Scheduling
  */
-void ehci_handle_irq(usb_host_t* hdev);
-int ehci_cancel_xact(usb_host_t* hdev, struct endpoint *ep);
+void ehci_handle_irq(usb_host_t * hdev);
+int ehci_cancel_xact(usb_host_t * hdev, struct endpoint *ep);
 
-void qhn_destroy(ps_dma_man_t* dman, struct QHn* qhn);
+void qhn_destroy(ps_dma_man_t * dman, struct QHn *qhn);
 int ehci_wait_for_completion(struct TDn *tdn);
-void ehci_schedule_async(struct ehci_host* edev, struct QHn* qh_new);
-enum usb_xact_status qtd_get_status(volatile struct TD* qtd);
-enum usb_xact_status qhn_get_status(struct QHn * qhn);
-void check_doorbell(struct ehci_host* edev);
+void ehci_schedule_async(struct ehci_host *edev, struct QHn *qh_new);
+enum usb_xact_status qtd_get_status(volatile struct TD *qtd);
+enum usb_xact_status qhn_get_status(struct QHn *qhn);
+void check_doorbell(struct ehci_host *edev);
 
 /* New APIs */
-struct QHn* qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
-	  uint8_t hub_port, enum usb_speed speed, struct endpoint *ep);
-struct TDn* qtd_alloc(struct ehci_host *edev, enum usb_speed speed,
-		struct endpoint *ep, struct xact *xact, int nxact,
-		usb_cb_t cb, void *token);
+struct QHn *qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
+		      uint8_t hub_port, enum usb_speed speed,
+		      struct endpoint *ep);
+struct TDn *qtd_alloc(struct ehci_host *edev, enum usb_speed speed,
+		      struct endpoint *ep, struct xact *xact, int nxact,
+		      usb_cb_t cb, void *token);
 void qhn_update(struct QHn *qhn, uint8_t address, struct endpoint *ep);
 void qtd_enqueue(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn);
 void ehci_add_qhn_async(struct ehci_host *edev, struct QHn *qhn);
@@ -320,19 +319,19 @@ void ehci_async_complete(struct ehci_host *edev);
 /**
  * Periodic Scheduling
  */
-int ehci_schedule_periodic_root(struct ehci_host* edev, struct xact *xact,
-                            int nxact, usb_cb_t cb, void* t);
-int ehci_schedule_periodic(struct ehci_host* edev);
+int ehci_schedule_periodic_root(struct ehci_host *edev, struct xact *xact,
+				int nxact, usb_cb_t cb, void *t);
+int ehci_schedule_periodic(struct ehci_host *edev);
 void ehci_periodic_complete(struct ehci_host *edev);
-enum usb_xact_status qhn_wait(struct QHn* qhn, int to_ms);
+enum usb_xact_status qhn_wait(struct QHn *qhn, int to_ms);
 
 /**
  * Debugging
  */
-void dump_qtd(volatile struct TD* qtd);
-void dump_qhn(struct QHn* qhn);
-void dump_q(struct QHn* qhn);
-void dump_edev(struct ehci_host* edev);
+void dump_qtd(volatile struct TD *qtd);
+void dump_qhn(struct QHn *qhn);
+void dump_q(struct QHn *qhn);
+void dump_edev(struct ehci_host *edev);
 
 /**
  * Initialise a EHCI host controller
@@ -350,9 +349,7 @@ void dump_edev(struct ehci_host* edev);
  *                            to be manually controlled.
  * @return                    0 on success
  */
-int ehci_host_init(usb_host_t* hdev, uintptr_t cap_regs,
-                   void (*board_pwren)(int port, int state));
-
-
+int ehci_host_init(usb_host_t * hdev, uintptr_t cap_regs,
+		   void (*board_pwren) (int port, int state));
 
 #endif /* _EHCI_EHCI_H_ */

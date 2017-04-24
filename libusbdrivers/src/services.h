@@ -27,7 +27,7 @@ static inline void udelay(uint32_t us)
 {
 	volatile uint32_t i;
 	for (; us > 0; us--) {
-		for (i = 0; i < 1000; i++);
+		for (i = 0; i < 1000; i++) ;
 	}
 }
 #endif
@@ -37,7 +37,6 @@ static inline void udelay(uint32_t us)
         do{                      \
             assert(test);        \
         } while(0)
-
 
 #define usb_malloc(...) calloc(1, __VA_ARGS__)
 #define usb_free(...) free(__VA_ARGS__)
@@ -56,53 +55,49 @@ static inline void udelay(uint32_t us)
 #define dmb() asm volatile ("mfence" ::: "memory")
 #endif
 
-static inline void*
-ps_dma_alloc_pinned(ps_dma_man_t *dma_man, size_t size, int align, int cache,
-	       ps_mem_flags_t flags, uintptr_t* paddr)
+static inline void *ps_dma_alloc_pinned(ps_dma_man_t * dma_man, size_t size,
+					int align, int cache,
+					ps_mem_flags_t flags, uintptr_t * paddr)
 {
-    void* addr;
-    assert(dma_man);
-    addr = ps_dma_alloc(dma_man, size, align, cache, flags);
-    if (addr != NULL) {
-        *paddr = ps_dma_pin(dma_man, addr, size);
-    }
-    return addr;
+	void *addr;
+	assert(dma_man);
+	addr = ps_dma_alloc(dma_man, size, align, cache, flags);
+	if (addr != NULL) {
+		*paddr = ps_dma_pin(dma_man, addr, size);
+	}
+	return addr;
 }
 
 static inline void
-ps_dma_free_pinned(ps_dma_man_t *dma_man, void* addr, size_t size)
+ps_dma_free_pinned(ps_dma_man_t * dma_man, void *addr, size_t size)
 {
-    assert(dma_man);
-    ps_dma_unpin(dma_man, addr, size);
-    ps_dma_free(dma_man, addr, size);
+	assert(dma_man);
+	ps_dma_unpin(dma_man, addr, size);
+	ps_dma_free(dma_man, addr, size);
 }
 
-static inline void*
-usb_sync_init(sync_ops_t *sync, int val)
+static inline void *usb_sync_init(sync_ops_t * sync, int val)
 {
 	assert(sync);
 	assert(sync->sync_init);
 	return sync->sync_init(val);
 }
 
-static inline void
-usb_sync_lock(sync_ops_t *sync, void *lock)
+static inline void usb_sync_lock(sync_ops_t * sync, void *lock)
 {
 	assert(sync);
 	assert(sync->sync_lock);
 	sync->sync_lock(lock);
 }
 
-static inline void
-usb_sync_unlock(sync_ops_t *sync, void *lock)
+static inline void usb_sync_unlock(sync_ops_t * sync, void *lock)
 {
 	assert(sync);
 	assert(sync->sync_unlock);
 	sync->sync_unlock(lock);
 }
 
-static inline void
-usb_sync_destroy(sync_ops_t *sync, void *lock)
+static inline void usb_sync_destroy(sync_ops_t * sync, void *lock)
 {
 	assert(sync);
 	assert(sync->sync_destroy);
