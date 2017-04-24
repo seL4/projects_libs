@@ -337,7 +337,6 @@ kbd_read(ps_chardevice_t* d, void* vdata, size_t bytes,
 int usb_kbd_driver_bind(usb_dev_t usb_dev, struct ps_chardevice *cdev)
 {
 	struct usb_kbd_device *kbd;
-	struct xact xact;
 	int err;
 
 	kbd = (struct usb_kbd_device*)usb_malloc(sizeof(struct usb_kbd_device));

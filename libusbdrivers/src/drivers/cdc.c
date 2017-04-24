@@ -161,7 +161,6 @@ usb_cdc_config_cb(void *token, int cfg, int iface, struct anon_desc *desc)
 
 static int usb_cdc_read_cb(void *token, enum usb_xact_status stat, int rbytes)
 {
-	int err;
 	usb_dev_t udev;
 	struct usb_cdc_device *cdc;
 	char *buf;

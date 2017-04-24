@@ -92,7 +92,7 @@ __get_max_lun_req(int interface)
     return r;
 }
 
-static void
+static void __attribute__((unused))
 usb_storage_print_cbw(struct cbw *cbw)
 {
 	assert(cbw);
@@ -261,7 +261,7 @@ usb_storage_bind(usb_dev_t udev)
     }
 
     ubms->udev = udev;
-    udev->dev_data = ubms;
+    udev->dev_data = (struct udev_priv*)ubms;
 
     /*
      * Check if this is a storage device.

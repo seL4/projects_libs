@@ -105,7 +105,6 @@ dump_qhn(struct QHn* qhn)
     uint32_t v;
     volatile struct QH* qh;
     const char* col;
-    int i;
     col = dump_colour(qhn_get_status(qhn));
     qh = qhn->qh;
     printf(CINVERT"%s", col);

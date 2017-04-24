@@ -564,7 +564,8 @@ int ehci_wait_for_completion(struct TDn *tdn)
 				break;
 			}
 			if (cnt <= 0) {
-				printf("Timeout(%p, %p)\n", tdn->td, tdn->ptd);
+				printf("Timeout(%p, %p)\n", tdn->td,
+						(void*)tdn->ptd);
 				return -1;
 			}
 			msdelay(1);
@@ -595,7 +596,7 @@ void ehci_schedule_async(struct ehci_host* edev, struct QHn* qhn)
 void check_doorbell(struct ehci_host* edev)
 {
 	int again = 0;
-	struct QHn *qhn, *tmp, *tail;
+	struct QHn *qhn, *tmp, *tail = NULL;
 
 	qhn = edev->db_pending;
 	edev->db_pending = NULL;

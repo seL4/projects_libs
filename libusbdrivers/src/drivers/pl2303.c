@@ -89,6 +89,8 @@ pl2303_interrupt_cb(void* token, enum usb_xact_status stat, int rbytes)
 	err = usbdev_schedule_xact(udev, dev->ep_int, &dev->int_xact, 1,
 			pl2303_interrupt_cb, udev);
 	assert(!err);
+
+	return err;
 }
 
 static void
@@ -102,7 +104,7 @@ pl2303_startup_magic(usb_dev_t udev)
 
 	xact[0].len = sizeof(struct usbreq);
 	xact[1].len = 1;
-	err = usb_alloc_xact(udev->dman, &xact, 2);
+	err = usb_alloc_xact(udev->dman, xact, 2);
 	assert(!err);
 
 	/* Fill in the request */
@@ -118,7 +120,7 @@ pl2303_startup_magic(usb_dev_t udev)
 	req->wIndex = idx; \
 	req->wValue = val; \
 	req->wLength = (typ == PL2303_READ_TYPE) ? 1 : 0; \
-	err = usbdev_schedule_xact(udev, udev->ep_ctrl, &xact, \
+	err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, \
 			req->wLength + 1, NULL, NULL); \
 	assert(!err);
 
@@ -134,7 +136,7 @@ pl2303_startup_magic(usb_dev_t udev)
 	magic_request(PL2303_WRITE_TYPE, 0, 1);
 	magic_request(PL2303_WRITE_TYPE, 0x44, 2);
 
-	usb_destroy_xact(udev->dman, &xact, 2);
+	usb_destroy_xact(udev->dman, xact, 2);
 }
 
 int usb_pl2303_bind(usb_dev_t udev)
@@ -223,7 +225,7 @@ int usb_pl2303_configure(usb_dev_t udev, uint32_t bps, uint8_t char_size,
 
 	xact[0].len = sizeof(struct usbreq);
 	xact[1].len = 7;
-	err = usb_alloc_xact(udev->dman, &xact, 2);
+	err = usb_alloc_xact(udev->dman, xact, 2);
 	assert(!err);
 
 	xact[0].type = PID_SETUP;
@@ -269,7 +271,7 @@ int usb_pl2303_configure(usb_dev_t udev, uint32_t bps, uint8_t char_size,
 	req->wLength = 7;
 	req->wValue = 0;
 
-	err = usbdev_schedule_xact(udev, udev->ep_ctrl, &xact, 2, NULL, NULL);
+	err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
 	assert(!err);
 
 	/* Activate device */
@@ -279,10 +281,10 @@ int usb_pl2303_configure(usb_dev_t udev, uint32_t bps, uint8_t char_size,
 	req->wLength = 0;
 	req->wValue = PL2303_CTRL_DTR | PL2303_CTRL_RTS;
 
-	err = usbdev_schedule_xact(udev, udev->ep_ctrl, &xact, 1, NULL, NULL);
+	err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 1, NULL, NULL);
 	assert(!err);
 
-	usb_destroy_xact(udev->dman, &xact, 2);
+	usb_destroy_xact(udev->dman, xact, 2);
 
 	return 0;
 }

@@ -241,9 +241,9 @@ int usb_hid_set_report(struct usb_hid_device *hid, enum hid_report_type type,
 
 	memcpy(xact_get_vaddr(&xact[1]), buf, size);
 
-	err = usbdev_schedule_xact(hid->udev, hid->udev->ep_ctrl, &xact, 2, NULL, NULL);
+	err = usbdev_schedule_xact(hid->udev, hid->udev->ep_ctrl, xact, 2, NULL, NULL);
 	assert(!err);
-	usb_destroy_xact(hid->udev->dman, &xact, 2);
+	usb_destroy_xact(hid->udev->dman, xact, 2);
 
 	return err;
 }

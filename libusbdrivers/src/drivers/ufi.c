@@ -25,19 +25,6 @@ struct ufi_cdb {
 	uint16_t reserved;
 } __attribute__((packed));
 
-static void ufi_print_info(char *info)
-{
-	int i = 0;
-
-	for (i = 0; i < 36; i++) {
-		printf("%x, ", info[i]);
-		if ((i+1) % 8 == 0) {
-			printf("\n");
-		}
-	}
-	printf("\n");
-}
-
 static void ufi_format_unit()
 {
 	assert(0);
@@ -47,7 +34,6 @@ static void ufi_test_unit_ready(usb_dev_t udev)
 {
 	int err;
 	struct ufi_cdb cdb;
-	struct xact data;
 
 	memset(&cdb, 0, sizeof(struct ufi_cdb));
 

@@ -280,7 +280,7 @@ _handle_port_change(usb_hub_t h, int port)
 			/* Create the new device */
 			enum usb_speed speed;
 			usb_dev_t new_dev = NULL;
-			usb_dev_t new_hub = NULL;
+			usb_hub_t new_hub = NULL;
 
 			if (status & BIT(PORT_HIGH_SPEED)) {
 				speed = USBSPEED_HIGH;

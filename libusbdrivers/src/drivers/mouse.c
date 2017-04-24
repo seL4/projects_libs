@@ -74,12 +74,13 @@ static int mouse_irq_handler(void* token, enum usb_xact_status stat, int bytes_r
 
 	usbdev_schedule_xact(mouse->udev, mouse->ep_int, &mouse->int_xact, 1,
 			&mouse_irq_handler, mouse);
+
+	return 0;
 }
 
 int usb_mouse_driver_bind(usb_dev_t usb_dev, struct ps_chardevice *cdev)
 {
 	struct usb_mouse_device *mouse;
-	struct xact xact;
 	int err;
 
 	mouse = (struct usb_mouse_device*)usb_malloc(sizeof(struct usb_mouse_device));
@@ -102,11 +103,11 @@ int usb_mouse_driver_bind(usb_dev_t usb_dev, struct ps_chardevice *cdev)
 	mouse->ep_int = usb_dev->ep[mouse->hid->iface];
 	assert(mouse->ep_int != NULL && mouse->ep_int->type == EP_INTERRUPT);
 
-	MOUSE_DBG(mouse, "Configuring mouse\n");
+	MOUSE_DBG("Configuring mouse\n");
 
 	err = usb_hid_set_idle(mouse->hid, 0);
 	if (err < 0) {
-		MOUSE_DBG(mouse, "Mouse initialisation error\n");
+		MOUSE_DBG("Mouse initialisation error\n");
 		assert(0);
 	}
 

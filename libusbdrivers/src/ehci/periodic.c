@@ -14,19 +14,6 @@
 /**************************
  **** Queue scheduling ****
  **************************/
-static void ehci_disable_periodic(struct ehci_host* edev)
-{
-	/* Make sure we are safe to write to the register */
-	while (((edev->op_regs->usbsts & EHCISTS_PERI_EN) >> 14)
-		^ ((edev->op_regs->usbcmd & EHCICMD_PERI_EN) >> 4));
-
-	/* Disable the periodic schedule */
-	if (edev->op_regs->usbsts & EHCISTS_PERI_EN) {
-		edev->op_regs->usbcmd &= ~EHCICMD_PERI_EN;
-		while (!(edev->op_regs->usbsts & EHCISTS_PERI_EN)) break;
-	}
-}
-
 /*
  * TODO: We only support interrupt endpoint at the moment, this function is
  * subject to change when we add isochronous endpoint support.
