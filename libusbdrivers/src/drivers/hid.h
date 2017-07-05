@@ -12,7 +12,7 @@
 #ifndef _HID_H_
 #define _HID_H_
 
-#include <usb/drivers/hid.h>
+#include <usb/usb.h>
 
 /*
  * USB Human Input Device
