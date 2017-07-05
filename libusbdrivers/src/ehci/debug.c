@@ -8,7 +8,6 @@
  * @TAG(NICTA_BSD)
  */
 
-#include "../debug.h"
 #include "ehci.h"
 
 /****** DEBUG printing *******/
@@ -16,12 +15,12 @@ static const char *dump_colour(enum usb_xact_status stat)
 {
 	switch (stat) {
 	case XACTSTAT_PENDING:
-		return CYELLOW;
+		return A_FG_Y;
 	case XACTSTAT_ERROR:
 	case XACTSTAT_HOSTERROR:
-		return CRED;
+		return A_FG_R;
 	case XACTSTAT_SUCCESS:
-		return CGREEN;
+		return A_FG_G;
 	default:
 		return "";
 	}
@@ -32,9 +31,9 @@ void dump_qtd(volatile struct TD *qtd)
 	int pid;
 	uint32_t tok;
 	const char *col = dump_colour(qtd_get_status(qtd));
-	printf(CINVERT "%s", col);
+	printf("%s", col);
 	printf("-- td 0x%08x\n", (uint32_t) qtd);
-	printf(CREGULAR "%s", col);
+	printf("%s", col);
 	printf("-    next: 0x%08x | 0x%08x (%s)\n",
 	       qtd->next, qtd->next & ~0x1f,
 	       (qtd->next & 0x1) ? "TERMINATE" : "CONTINUE");
@@ -94,7 +93,7 @@ void dump_qtd(volatile struct TD *qtd)
 			}
 		}
 	}
-	set_colour(COL_DEF);
+	printf(A_FG_RESET);
 }
 
 void dump_qhn(struct QHn *qhn)
@@ -104,9 +103,9 @@ void dump_qhn(struct QHn *qhn)
 	const char *col;
 	col = dump_colour(qhn_get_status(qhn));
 	qh = qhn->qh;
-	printf(CINVERT "%s", col);
+	printf("%s", col);
 	printf("++ qh 0x%08x(0x%08x)\n", (uint32_t) qh, (uint32_t) qhn->pqh);
-	printf(CREGULAR "%s", col);
+	printf("%s", col);
 	printf("+ link: 0x%08x | 0x%08x (%s|",
 	       qh->qhlptr, qh->qhlptr & ~0xf,
 	       (qh->qhlptr & 0x1) ? "TERMINATE" : "CONTINUE");
@@ -172,10 +171,7 @@ void dump_qhn(struct QHn *qhn)
 		dump_qtd(tdn->td);
 		tdn = tdn->next;
 	}
-//    for (i = 0; i < qhn->ntdns; i++) {
-//        dump_qtd(qhn->tdns[i].td);
-//    }
-	set_colour(COL_DEF);
+	printf(A_FG_RESET);
 }
 
 void UNUSED dump_q(struct QHn *qhn)

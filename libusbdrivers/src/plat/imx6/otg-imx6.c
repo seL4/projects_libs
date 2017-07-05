@@ -302,11 +302,11 @@ dump_odev(struct ehci_otg* odev)
 static void
 dump_dtd(volatile struct dTD* dtd)
 {
-    const char* col = CYELLOW;
+    const char* col = A_FG_Y;
     int i;
-    printf(CINVERT"%s", col);
+    printf("%s", col);
     printf("DTD @ 0x%x\n", (uint32_t)dtd);
-    printf(CREGULAR"%s", col);
+    printf("%s", col);
     printf("   next: 0x%08x | %s\n", dtd->dTD_next,
            (dtd->dTD_next & DTDNEXT_INVALID) ?
            "invalid" : "valid");
@@ -332,7 +332,7 @@ dump_dtd(volatile struct dTD* dtd)
     for (i = 0; i < 5; i++) {
         printf("   buf%d: 0x%x\n", i, dtd->buf[i]);
     }
-    set_colour(COL_DEF);
+    printf(A_FG_RESET);
 }
 
 static void
@@ -363,11 +363,11 @@ dump_dtdn(struct dTDn* dtdn)
 static void
 dump_dqh(volatile struct dQH* dqh)
 {
-    const char* col = CPURPLE;
+    const char* col = A_FG_M;
     struct usbreq* r = (struct usbreq*)dqh->usbreq;
-    printf(CINVERT"%s", col);
+    printf("%s", col);
     printf("DQH @ 0x%x\n", (uint32_t)dqh);
-    printf(CREGULAR"%s", col);
+    printf("%s", col);
     printf(" ep cap: 0x%x | ", dqh->ep_cap);
     printf("mult: %d,", (dqh->ep_cap >> 30) & 0x3);
     printf("zlt %sabled,", (dqh->ep_cap & EPQHCAP_ZLT_DIS) ?
