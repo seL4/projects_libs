@@ -16,6 +16,13 @@
 #define UFI_OUTPUT  0
 #define UFI_INPUT   1
 
+#define UFI_LBA_SHF   16
+#define UFI_SENSE_LEN 18
+#define UFI_INQ_LEN   36
+#define UFI_MODE_SENSE_LEN 192
+#define UFI_MODE_PAGE_ALL 0x3F
+#define UFI_BLK_SIZE  512
+
 /* Command Descriptor Block */
 struct ufi_cdb {
 	uint8_t opcode;
@@ -59,10 +66,10 @@ static void ufi_request_sense(usb_dev_t udev)
 
 	/* Fill in the command */
 	cdb.opcode = REQUEST_SENSE;
-	cdb.lba = 18 << 16;
+	cdb.lba = UFI_SENSE_LEN << UFI_LBA_SHF;
 
 	data.type = PID_IN;
-	data.len = 18;
+	data.len = UFI_SENSE_LEN;
 	err = usb_alloc_xact(udev->dman, &data, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
@@ -87,10 +94,10 @@ static void ufi_inquiry(usb_dev_t udev)
 
 	/* Inquiry UFI disk */
 	cdb.opcode = INQUIRY;
-	cdb.lba = 36 << 16;
+	cdb.lba = UFI_INQ_LEN << UFI_LBA_SHF;
 
 	data.type = PID_IN;
-	data.len = 36;
+	data.len = UFI_INQ_LEN;
 	err = usb_alloc_xact(udev->dman, &data, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
@@ -166,11 +173,11 @@ static void ufi_mode_sense(usb_dev_t udev)
 	memset(&cdb, 0, sizeof(struct ufi_cdb));
 
 	cdb.opcode = MODE_SENSE;
-	cdb.lba = 0x3F;
-	cdb.length = 192 << 16;
+	cdb.lba = UFI_MODE_PAGE_ALL;
+	cdb.length = UFI_MODE_SENSE_LEN << UFI_LBA_SHF;
 
 	data.type = PID_IN;
-	data.len = 192;
+	data.len = UFI_MODE_SENSE_LEN;
 	err = usb_alloc_xact(udev->dman, &data, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
@@ -200,7 +207,7 @@ static void ufi_read10(usb_dev_t udev, uint32_t lba, uint16_t count)
 	cdb.length = __builtin_bswap16(count) << 8;
 
 	data.type = PID_IN;
-	data.len = 512 * count;
+	data.len = UFI_BLK_SIZE * count;
 
 	err = usb_alloc_xact(udev->dman, &data, 1);
 	if (err) {
@@ -231,7 +238,7 @@ static void ufi_read12(usb_dev_t udev, uint32_t lba, uint32_t count)
 	cdb.length = __builtin_bswap16(count);
 
 	data.type = PID_IN;
-	data.len = 512 * count;
+	data.len = UFI_BLK_SIZE * count;
 
 	err = usb_alloc_xact(udev->dman, &data, 1);
 	if (err) {
