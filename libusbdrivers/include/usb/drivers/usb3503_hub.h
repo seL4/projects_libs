@@ -13,11 +13,9 @@
 #ifndef USB3503_HUB_H
 #define USB3503_HUB_H
 
-
 /**
  * USB3503 IC from Microchip
  */
-#ifdef ARCH_ARM
 #include <platsupport/gpio.h>
 #include <platsupport/i2c.h>
 
@@ -43,5 +41,4 @@ void usb3503_disconnect(usb3503_t* hub);
 
 void usb3503_handle_irq(usb3503_t* hub);
 
-#endif
 #endif /* USB3503_HUB_H */

@@ -9,9 +9,9 @@
  *
  * @TAG(DATA61_BSD)
  */
-#ifdef ARCH_ARM
+
 #include <usb/drivers/usb3503_hub.h>
-#include "../services.h"
+#include "../../../services.h"
 
 #define REG_VIDL         0x00
 #define REG_VIDM         0x01
@@ -156,4 +156,3 @@ void usb3503_handle_irq(usb3503_t *hub)
 	printf("HUB IRQ status: 0x%02x/0x%02x\n", status, mask);
 }
 
-#endif
