@@ -300,7 +300,7 @@ int usb_cdc_read(usb_dev_t udev, void *buf, int len)
 	return cnt;
 }
 
-int usb_cdc_write(usb_dev_t udev, void *buf, int len)
+int usb_cdc_write(usb_dev_t udev, const void *buf, int len)
 {
 	int err;
 	int cnt;
@@ -408,7 +408,7 @@ usb_cdc_mgmt_msg(struct usb_cdc_device *cdc, uint8_t req_type,
 }
 
 /* Communication Device Class Requests */
-void cdc_send_encap_cmd(usb_dev_t udev, void *buf, int len)
+void cdc_send_encap_cmd(usb_dev_t udev, const void *buf, int len)
 {
 	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
 
@@ -452,7 +452,7 @@ void acm_clear_comm_feature(usb_dev_t udev, enum acm_comm_feature f)
 			CLEAR_COMM_FEATURE, f, NULL, 0);
 }
 
-void acm_set_line_coding(usb_dev_t udev, struct acm_line_coding *coding)
+void acm_set_line_coding(usb_dev_t udev, const struct acm_line_coding *coding)
 {
 	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
 

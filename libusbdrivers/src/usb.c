@@ -27,38 +27,47 @@
 
 const char *usb_class_get_description(enum usb_class usb_class)
 {
-	if (usb_class >= 0x00 && usb_class < 0x11) {
-		static const char *str[] = {
-			"Unspecified - See interface classes",
-			"Audio",
-			"Communication and CDC Control",
-			"Human interface device (HID)",
-			CLASS_RESERVED_STR,
-			"Physical Interface Device (PID)",
-			"Image",
-			"Printer",
-			"Mass storage",
-			"USB hub",
-			"CDC-Data",
-			"Smart Card" CLASS_RESERVED_STR,
-			"Content security",
-			"Video",
-			"Personal Healthcare Pulse monitor",
-			"Audio/Video (AV)"
-		};
-		return str[usb_class];
-	}
-	/* Some other sparse classes */
 	switch (usb_class) {
-	case 0xDC:
+		case USB_CLASS_UNSPECIFIED:
+		return "Unspecified - See interface classes";
+	case USB_CLASS_AUDIO:
+		return "Audio";
+	case USB_CLASS_COMM:
+		return "Communication and CDC Control";
+	case USB_CLASS_HID:
+		return "Human interface device (HID)";
+	case USB_CLASS_PID:
+		return "Physical Interface Device (PID)";
+	case USB_CLASS_IMAGE:
+		return "Image";
+	case USB_CLASS_PRINTER:
+		return "Printer";
+	case USB_CLASS_STORAGE:
+		return "Mass storage";
+	case USB_CLASS_HUB:
+		return "USB hub";
+	case USB_CLASS_CDCDATA:
+		return "CDC-Data";
+	case USB_CLASS_CARDREADER:
+		return "Smart Card";
+	case USB_CLASS_SECURITY:
+		return "Content security";
+	case USB_CLASS_VIDEO:
+		return "Video";
+	case USB_CLASS_HEALTH:
+		return "Personal Healthcare Pulse monitor";
+	case USB_CLASS_AV:
+		return "Audio/Video (AV)";
+	/* Some other sparse classes */
+	case USB_CLASS_DIAGNOSTIC:
 		return "Diagnostic Device";
-	case 0xE0:
+	case USB_CLASS_WIRELESS:
 		return "Wireless Controller";
-	case 0xEF:
+	case USB_CLASS_MISC:
 		return "Miscellaneous";
-	case 0xFE:
+	case USB_CLASS_APPSPEC:
 		return "Application specific";
-	case 0xFF:
+	case USB_CLASS_VEND:
 		return "Vendor specific";
 	default:
 		return CLASS_RESERVED_STR;
@@ -166,7 +175,7 @@ static usb_dev_t devlist_at(usb_t * host, int addr)
 			return d;
 		}
 	}
-	return 0;
+	return NULL;
 }
 
 /************************
