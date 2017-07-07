@@ -489,8 +489,11 @@ int usb_hub_driver_bind(usb_dev_t udev, usb_hub_t *hub)
 	h->nports = hdesc->bNbrPorts;
 	h->power_good_delay_ms = hdesc->bPwrOn2PwrGood * 2;
 	usb_destroy_xact(udev->dman, xact, 2);
-	h->port =
-	    (struct usb_hub_port *)usb_malloc(sizeof(*h->port) * h->nports);
+	h->port = (struct usb_hub_port *)usb_malloc(sizeof(*h->port) * h->nports);
+	if (!h->port) {
+		ZF_LOGF("Out of memory\n");
+		abort();
+	}
 	memset(h->port, 0, sizeof(*h->port) * h->nports);
 	ZF_LOGD(h, "Parsing config\n");
 	h->int_ep = -1;

@@ -45,6 +45,10 @@ void ehci_add_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 		 */
 		edev->shadow_flist = (struct QHn**)usb_malloc(
 				sizeof(struct QHn*) * edev->flist_size);
+		if (!edev->shadow_flist) {
+			ZF_LOGF("Out of memory\n");
+			abort();
+		}
 	}
 
 	/* Check if the queue head has already been scheduled */

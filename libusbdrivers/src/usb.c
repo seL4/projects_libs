@@ -564,6 +564,10 @@ parse_config(usb_dev_t udev, struct anon_desc *d, int tot_len,
 		case ENDPOINT:
 			edsc = (struct endpoint_desc *)usrd;
 			ep = usb_malloc(sizeof(struct endpoint));
+			if (!ep) {
+				ZF_LOGF("Out of memory\n");
+				abort();
+			}
 
 			/* Fill in the endpoint structure, USB standard(9.6.6) */
 			ep->type = edsc->bmAttributes & 0x3;

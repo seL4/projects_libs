@@ -314,6 +314,10 @@ int usb_cdc_write(usb_dev_t udev, void *buf, int len)
 	cnt = ROUND_UP(len, MAX_XACT_SIZE) / MAX_XACT_SIZE;
 
 	xact = usb_malloc(sizeof(struct xact) * cnt);
+	if (!xact) {
+		ZF_LOGF("Out of memory\n");
+		abort();
+	}
 
 	/* Fill in the length of each xact */
 	for (int i = 0; i < cnt; i++) {
