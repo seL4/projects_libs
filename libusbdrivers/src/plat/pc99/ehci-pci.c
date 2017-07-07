@@ -75,11 +75,14 @@ static uintptr_t ehci_pci_init(uint16_t vid, uint16_t did,
 		cap_regs = (volatile struct echi_host_cap*)MAP_DEVICE(io_ops,
 				dev->cfg.base_addr[0],
 				dev->cfg.base_addr_size[0]);
-		assert(cap_regs);
+		if (!cap_regs) {
+			ZF_LOGF("Invalid Registers\n");
+			abort();
+		}
 		_irq_line = dev->interrupt_line;
 	} else {
-		printf("EHCI: Host device not found!\n");
-		assert(0);
+		ZF_LOGF("EHCI: Host device not found!\n");
+		abort();
 	}
 
 	/* Check EHCI Extend Capabilities Pointer(Section 2.2.4) */
@@ -96,7 +99,7 @@ static uintptr_t ehci_pci_init(uint16_t vid, uint16_t did,
 		} while (val & USBLEGSUP_BIOS);
 
 		if ((val >> USBLEGSUP_NEXT_SHF) & USBLEGSUP_NEXT_MASK) {
-			printf("EHCI: Warning! More Capability Registers.\n");
+			ZF_LOGW("EHCI: Warning! More Capability Registers.\n");
 		}
 	}
 
@@ -114,8 +117,11 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, sync_ops_t *sync,
 	if (id < 0 || id > USB_NHOSTS) {
 		return -1;
 	}
-	assert(io_ops);
-	assert(hdev);
+	
+	if (!io_ops || !hdev) {
+		ZF_LOGF("Invalid arguments\n");
+		abort();
+	}
 
 	hdev->id = id;
 	hdev->dman = &io_ops->dma_manager;
@@ -131,7 +137,8 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, sync_ops_t *sync,
 			did = USB_HOST2_DID;
 			break;
 		default:
-			assert(0);
+			ZF_LOGE("Invalid host\n");
+			abort();
 			break;
 	}
 
@@ -166,7 +173,8 @@ usb_host_irqs(usb_host_t* host, int* nirqs)
 			_irq_line = USB_HOST2_IRQ;
 			break;
 		default:
-			assert(0);
+			ZF_LOGE("Invalid host\n");
+			abort();
 			break;
 	}
 #endif

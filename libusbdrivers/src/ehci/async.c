@@ -30,7 +30,7 @@ enum usb_xact_status qtd_get_status(volatile struct TD* qtd)
 		} else if (t & TDTOK_ERROR) {
 			return XACTSTAT_HOSTERROR;
 		}
-		printf("EHCI: Unknown QTD error code 0x%x\n", t);
+		ZF_LOGF("EHCI: Unknown QTD error code 0x%x\n", t);
 		return XACTSTAT_HOSTERROR;
 	} else {
 		return XACTSTAT_SUCCESS;
@@ -69,18 +69,27 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 	int buf_filled, cnt, total_bytes = 0;
 	int xact_stage = 0;
 
-	assert(xact);
-	assert(nxact > 0);
+	if (!xact || nxact <=0) {
+		ZF_LOGE("Invalid arguments\n");
+		abort();
+	}
 
 	prev_tdn = NULL;
 	for (int i = 0; i < nxact; i++) {
 		tdn = calloc(1, sizeof(struct TDn));
-		assert(tdn);
+		if (!tdn) {
+			ZF_LOGE("Out of memory");
+			return NULL;
+		}
 
 		/* Allocate TD overlay */
 		tdn->td = ps_dma_alloc_pinned(edev->dman, sizeof(*tdn->td), 32, 0,
 				PS_MEM_NORMAL, &tdn->ptd);
-		assert(tdn->td);
+		if (!tdn->td) {
+			ZF_LOGE("Out of DMA memory");
+			return NULL;
+		}
+
 		memset((void*)tdn->td, 0, sizeof(*tdn->td));
 
 		/* Fill in the TD */
@@ -114,7 +123,8 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 				xact_stage |= TDTOK_PID_OUT;
 				break;
 			default:
-				assert("Invalid PID!\n");
+				ZF_LOGF("Invalid PID!\n");
+				abort();
 				break;
 		}
 
@@ -135,7 +145,12 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 			tdn->td->buf[cnt] = (xact[i].paddr + 0x1000 * cnt) & ~0xFFF;
 			buf_filled += 0x1000;
 		}
-		assert(cnt <= 4); //We only have 5 page-sized buffers
+		
+		/* We only have 5 page-sized buffers */
+		if (cnt > 4) {
+			ZF_LOGF("Too many buffers\n");
+			abort();
+		}
 
 		/* Total data transferred */
 		total_bytes += xact[i].len;
@@ -162,7 +177,10 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 		/* Allocate TD overlay */
 		tdn->td = ps_dma_alloc_pinned(edev->dman, sizeof(*tdn->td),
 				32, 0, PS_MEM_NORMAL, &tdn->ptd);
-		assert(tdn->td);
+		if (!tdn->td) {
+			ZF_LOGE("Out of DMA memory\n");
+			abort();
+		}
 		memset((void*)tdn->td, 0, sizeof(*tdn->td));
 
 		/* Fill in the TD */
@@ -222,12 +240,18 @@ qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 	volatile struct QH  *qh;
 
 	qhn = calloc(1, sizeof(struct QHn));
-	assert(qhn);
+	if (!qhn) {
+		ZF_LOGE("Out of memory\n");
+		abort();
+	}
 
 	/* Allocate queue head */
 	qhn->qh = ps_dma_alloc_pinned(edev->dman, sizeof(*qh), 32, 0,
 			PS_MEM_NORMAL, &qhn->pqh);
-	assert(qhn->qh);
+	if (!qhn->qh) {
+		ZF_LOGE("Out of DMA memory\n");
+		abort();
+	}
 	memset((void*)qhn->qh, 0, sizeof(*qh));
 
 	/* Fill in the queue head */
@@ -246,7 +270,8 @@ qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 		qh->epc[0] = QHEPC0_LSPEED;
 		break;
 	default:
-		usb_assert(0);
+		ZF_LOGF("Invalid speed\n");
+		abort();
 	}
 
 	qh->epc[0] |= QHEPC0_MAXPKTLEN(ep->max_pkt) | QHEPC0_ADDR(address) |
@@ -299,8 +324,10 @@ qhn_update(struct QHn *qhn, uint8_t address, struct endpoint *ep)
 {
 	uint32_t epc0;
 
-	assert(qhn);
-	assert(ep);
+	if (!qhn || !ep) {
+		ZF_LOGF("Invalid arguments\n");
+		abort();
+	}
 
 	/*
 	 * We only care about the control endpoint, because all other
@@ -333,8 +360,10 @@ qtd_enqueue(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn)
 {
 	struct TDn *last_tdn;
 
-	assert(qhn);
-	assert(tdn);
+	if (!qhn || !tdn) {
+		ZF_LOGF("Invalid arguments\n");
+		abort();
+	}
 
 	/* If the queue is empty, point the TD overlay to the first TD */
 	if (!qhn->tdns) {
@@ -560,7 +589,7 @@ int ehci_wait_for_completion(struct TDn *tdn)
 				break;
 			}
 			if (cnt <= 0) {
-				printf("Timeout(%p, %p)\n", tdn->td,
+				ZF_LOGF("Timeout(%p, %p)\n", tdn->td,
 						(void*)tdn->ptd);
 				return -1;
 			}

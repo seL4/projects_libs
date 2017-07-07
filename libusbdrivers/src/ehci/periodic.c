@@ -29,7 +29,10 @@ void ehci_add_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 		edev->flist = ps_dma_alloc_pinned(edev->dman,
 				edev->flist_size * sizeof(uint32_t*), 0x1000, 0,
 				PS_MEM_NORMAL, &edev->pflist);
-		usb_assert(edev->flist);
+		if (!edev->flist) {
+			ZF_LOGF("Out of DMA memory\n");
+			abort();
+		}
 
 		/* Mark all frames as disabled */
 		for (int i = 0; i < edev->flist_size; i++) {
@@ -151,8 +154,11 @@ int ehci_schedule_periodic_root(struct ehci_host *edev, struct xact *xact,
                             int nxact, usb_cb_t cb, void *t)
 {
 	int port;
-	usb_assert(xact->vaddr);
-	usb_assert(cb);
+
+	if (!xact->vaddr || !cb) {
+		ZF_LOGF("Invalid arguments\n");
+		abort();
+	}
 	edev->irq_xact = *xact;
 	edev->irq_cb = cb;
 	edev->irq_token = t;

@@ -12,40 +12,11 @@
 
 #include <string.h>
 #include <stdio.h>
-#include <assert.h>
 
 #include <stdlib.h>
 #include <string.h>
 #include "../../services.h"
 #include "../usb_otg.h"
-#include <assert.h>
-
-//#define OTG_DEBUG_PAYLOAD
-#define OTG_DEBUG_IRQ
-#define OTG_DEBUG
-
-#ifdef OTG_DEBUG
-#define dprintf(...) printf(__VA_ARGS__)
-#else
-#define dprintf(...) do{}while(0)
-#endif
-
-#ifdef OTG_DEBUG_IRQ
-#define OTG_IRQDBG(...) OTG_DBG(__VA_ARGS__)
-#else
-#define OTG_IRQDBG(...) do{}while(0)
-#endif
-
-#define OTG_DBG(host, ...)                      \
-        do {                                    \
-            struct ehci_otg* h = host;          \
-            if(h){                              \
-                dprintf("OTG  %1d: ", h->devid);\
-            }else{                              \
-                dprintf("OTG   ?: ");           \
-            }                                   \
-            dprintf(__VA_ARGS__);               \
-        }while(0)
 
 /*
  * The implementation here comes from the imx6 reference manual
@@ -338,13 +309,11 @@ dump_dtd(volatile struct dTD* dtd)
 static void
 dump_buf(void* buf, int len)
 {
-#ifdef OTG_DEBUG_PAYLOAD
     uint8_t* d = buf;
     while (len--) {
         printf("%02x", *d++);
     }
     printf("\n");
-#endif
 }
 
 static void
@@ -431,18 +400,21 @@ otg_dtdn_new(usb_otg_t otg, void* buf, uintptr_t pbuf, int len) {
     volatile struct dTD* dtd;
     int cur_len;
     int i;
-    assert(buf || len == 0);
-    assert(otg);
+
+    if (!otg) {
+	    ZF_LOGF("Invalid arguments\n");
+    }
+
     /* Allocate a descriptor */
     dtdn = usb_malloc(sizeof(*dtdn));
     if (dtdn == NULL) {
-        assert(dtdn);
+	ZF_LOGE("OTG: Out of memory\n");
         return NULL;
     }
     dtd = ps_dma_alloc_pinned(otg->dman, sizeof(*dtdn->dtd), 32,
                               0, PS_MEM_NORMAL, &dtdn->pdtd);
     if (dtd == NULL) {
-        assert(dtd);
+	ZF_LOGE("OTG: Out of DMA memory\n");
         return NULL;
     }
     dtdn->dtd = dtd;
@@ -506,10 +478,12 @@ imx6_otg_prime(usb_otg_t otg, int epno, enum usb_xact_type dir,
     struct dTDn* dtdn;
     volatile struct dTD* dtd_prev;
     uint32_t epbit;
-    assert(otg);
-    assert(otg->pdata);
-    assert(epno >= 0);
-    assert(epno < otg->pdata->otg.nep);
+
+    if (!otg || epno < 0) {
+	    ZF_LOGF("OTG: Invalid arguments\n");
+	    abort();
+    }
+
     odev = &otg->pdata->otg;
     ep = &odev->ep[2 * epno];
     if (dir == PID_IN) {
@@ -518,7 +492,7 @@ imx6_otg_prime(usb_otg_t otg, int epno, enum usb_xact_type dir,
     /* Create the descriptor */
     dtdn = otg_dtdn_new(otg, buf, pbuf, len);
     if (dtdn == NULL) {
-        assert(dtdn);
+        ZF_LOGE("OTG: Failed to create descriptor\n");;
         return -1;
     }
     dtdn->cb = cb;
@@ -539,7 +513,11 @@ imx6_otg_prime(usb_otg_t otg, int epno, enum usb_xact_type dir,
     }
     /* imx6 64.4.6.5.3 */
     /* Check DCD driver to see if pipe is empty */
-    assert(dtd_prev->dTD_next == DTDNEXT_INVALID);
+    if (dtd_prev->dTD_next != DTDNEXT_INVALID) {
+	    ZF_LOGF("OTG: Empty pipe\n");
+	    abort();
+    }
+
     if (ep->dqh->overlay.dTD_next != DTDNEXT_INVALID) {
         /* Case 2: List is not empty */
         /* 1) Add dTD to end of linked list */
@@ -610,8 +588,12 @@ otg_handle_setup(usb_otg_t otg, struct otg_ep* ep)
 {
     struct ehci_otg* odev;
     struct usbreq req;
-    assert(otg);
-    assert(otg->pdata);
+
+    if (!otg || !otg->pdata) {
+	    ZF_LOGF("Invalid arguments\n");
+	    abort();
+    }
+
     odev = &otg->pdata->otg;
     flush_ep(otg, ep + 1);
     /* imx6 64.4.6.3.2.1 */
@@ -630,7 +612,7 @@ otg_handle_setup(usb_otg_t otg, struct otg_ep* ep)
     odev = &otg->pdata->otg;
     if (req.bRequest == SET_ADDRESS) {
         int addr = req.wValue;
-        OTG_DBG(odev, "New address %d\n", addr);
+        ZF_LOGD("OTG: New address %d\n", addr);
         odev->op_regs->otg_deviceaddr = OTG_DEVADDR(addr)
                                         | OTG_DEVADDR_ADV;
         otg_prime(otg, ep->ep, PID_IN, NULL, 0, 0, NULL, NULL);
@@ -644,8 +626,12 @@ otg_handle_complete(usb_otg_t otg, struct otg_ep* ep)
 {
     struct dTDn* dtdn;
     dtdn = ep->dtdn;
-    assert(dtdn);
-    assert(dtd_get_status(dtdn->dtd) != XACTSTAT_PENDING);
+
+    if (!dtdn) {
+	    ZF_LOGF("Invalid arguments\n");
+	    abort();
+    }
+
     while (dtdn) {
         enum usb_xact_status stat;
         struct dTDn* tmp;
@@ -679,10 +665,10 @@ otg_handle_int(usb_otg_t otg)
             struct otg_ep* ep = odev->ep + ((e & 0xf) * 2);
             odev->op_regs->otg_endptcomplete = BIT(e);
             if (e < 16) {
-                OTG_IRQDBG(odev, "EP %d RX complete\n", ep->ep);
+                ZF_LOGD("OTG: EP %d RX complete\n", ep->ep);
             } else {
                 ep++;
-                OTG_IRQDBG(odev, "EP %d TX complete\n", ep->ep);
+                ZF_LOGD("OTG: EP %d TX complete\n", ep->ep);
             }
             otg_handle_complete(otg, ep);
         }
@@ -691,7 +677,7 @@ otg_handle_int(usb_otg_t otg)
     v = odev->op_regs->otg_endptsetupstat;
     for (e = 0; e < 32; e++) {
         if (v & BIT(e)) {
-            OTG_IRQDBG(odev, "EP %d Received setup\n", e);
+            ZF_LOGD("OTG: EP %d Received setup\n", e);
             otg_handle_setup(otg, &odev->ep[e * 2]);
         }
     }
@@ -709,35 +695,35 @@ otg_plat_handle_irq(usb_otg_t otg)
     sts = odev->op_regs->usbsts;
     sts &= odev->op_regs->usbintr;
     if (sts & EHCISTS_USBINT) {
-        OTG_IRQDBG(odev, "INT - USB int\n");
+        ZF_LOGD("OTG: INT - USB int\n");
         odev->op_regs->usbsts = EHCISTS_USBINT;
         sts &= ~EHCISTS_USBINT;
         otg_handle_int(otg);
     }
     if (sts & EHCISTS_USBERRINT) {
-        OTG_IRQDBG(odev, "INT - USB error\n");
+        ZF_LOGD("OTG: INT - USB error\n");
         odev->op_regs->usbsts = EHCISTS_USBERRINT;
         sts &= ~EHCISTS_USBERRINT;
     }
     if (sts & EHCISTS_PORTC_DET) {
-        OTG_IRQDBG(odev, "Port change: connect\n");
+        ZF_LOGD("OTG: Port change: connect\n");
         odev->op_regs->usbsts = EHCISTS_PORTC_DET;
         sts &= ~EHCISTS_PORTC_DET;
     }
     if (sts & OTGSTS_SLEEP) {
-        OTG_IRQDBG(odev, "Port change: sleep\n");
+        ZF_LOGD("OTG: Port change: sleep\n");
         odev->op_regs->usbsts = OTGSTS_SLEEP;
         sts &= ~OTGSTS_SLEEP;
     }
     if (sts & OTGSTS_RESET) {
-        OTG_IRQDBG(odev, "Reset request\n");
+        ZF_LOGD("OTG: Reset request\n");
         odev->op_regs->usbsts = OTGSTS_RESET;
         sts &= ~OTGSTS_RESET;
         otg_handle_reset(otg);
     }
     if (sts) {
-        printf("Unhandled USB irq. Status: 0x%x\n", sts);
-        usb_assert(!"Unhandled irq");
+        ZF_LOGF("Unhandled USB irq. Status: 0x%x\n", sts);
+        abort();
     }
 }
 
@@ -749,10 +735,13 @@ ehci_otg_init(usb_otg_t odev, uintptr_t cap_regs)
     struct otg_ep* ep;
     int i;
     odev->pdata = usb_malloc(sizeof(*odev->pdata));
+    if (odev->pdata) {
+	    ZF_LOGE("Out of memory\n");
+	    return -1;
+    }
     odev->ep0_setup = &imx6_otg_ep0_setup;
     odev->prime = &imx6_otg_prime;
 
-    usb_assert(odev->pdata);
     otg = &odev->pdata->otg;
     otg->devid = odev->id;
     otg->cap_regs = (void*)cap_regs;
@@ -763,12 +752,12 @@ ehci_otg_init(usb_otg_t odev, uintptr_t cap_regs)
                                    sizeof(*otg->ep[0].dqh) * otg->nep * 2,
                                    2048, 0, PS_MEM_NORMAL, &otg->pdqh);
     if (dqh_list == NULL) {
-        usb_assert(0);
+        ZF_LOGE("Out of DMA memory\n");
         return -1;
     }
     otg->ep = usb_malloc(sizeof(*otg->ep) * otg->nep * 2);
     if (otg->ep == NULL) {
-        usb_assert(otg->ep);
+        ZF_LOGE("Out of memory\n");
         return -1;
     }
     for (i = 0, ep = otg->ep; i < otg->nep * 2; i++, ep++) {

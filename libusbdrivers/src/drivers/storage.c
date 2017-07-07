@@ -10,23 +10,12 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 
 #include "../services.h"
 #include "storage.h"
 #include "ufi.h"
 
 //#define MASS_STORAGE_DEBUG
-
-#ifdef MASS_STORAGE_DEBUG
-#define UBMS_DBG(...)            \
-        do {                     \
-            printf("UBMS: ");    \
-            printf(__VA_ARGS__); \
-        }while(0)
-#else
-#define UBMS_DBG(...) do{}while(0)
-#endif
 
 #define UBMS_CBW_SIGN 0x43425355 //Command block wrapper signature
 #define UBMS_CSW_SIGN 0x53425355 //Command status wrapper signature
@@ -95,7 +84,10 @@ __get_max_lun_req(int interface)
 static void __attribute__((unused))
 usb_storage_print_cbw(struct cbw *cbw)
 {
-	assert(cbw);
+	if (!cbw) {
+		ZF_LOGF("Invalid CBW\n");
+		abort();
+	}
 
 	printf("==== CBW ====\n");
 	printf("Signature: %x\n", cbw->signature);
@@ -159,8 +151,8 @@ usb_storage_set_configuration(usb_dev_t udev)
     /* Get memory for the request */
     err = usb_alloc_xact(udev->dman, &xact, 1);
     if (err) {
-        UBMS_DBG("Not enough DMA memory!\n");
-	assert(0);
+        ZF_LOGD("Not enough DMA memory!\n");
+	abort();
     }
 
     /* Fill in the request */
@@ -172,7 +164,7 @@ usb_storage_set_configuration(usb_dev_t udev)
     err = usbdev_schedule_xact(udev, udev->ep_ctrl, &xact, 1, NULL, NULL);
     usb_destroy_xact(udev->dman, &xact, 1);
     if (err < 0) {
-        UBMS_DBG("USB mass storage set configuration failed.\n");
+        ZF_LOGD("USB mass storage set configuration failed.\n");
     }
 }
 
@@ -189,8 +181,8 @@ usb_storage_reset(usb_dev_t udev)
     /* Get memory for the request */
     err = usb_alloc_xact(udev->dman, &xact, 1);
     if (err) {
-        UBMS_DBG("Not enough DMA memory!\n");
-	assert(0);
+        ZF_LOGD("Not enough DMA memory!\n");
+	abort();
     }
 
     /* Fill in the request */
@@ -202,7 +194,7 @@ usb_storage_reset(usb_dev_t udev)
     err = usbdev_schedule_xact(udev, udev->ep_ctrl, &xact, 1, NULL, NULL);
     usb_destroy_xact(udev->dman, &xact, 1);
     if (err < 0) {
-        UBMS_DBG("USB mass storage reset failed.\n");
+        ZF_LOGD("USB mass storage reset failed.\n");
     }
 }
 
@@ -221,7 +213,7 @@ usb_storage_get_max_lun(usb_dev_t udev)
     /* Get memory for the request */
     err = usb_alloc_xact(udev->dman, xact, sizeof(xact) / sizeof(struct xact));
     if (err) {
-        UBMS_DBG("Not enough DMA memory!\n");
+        ZF_LOGD("Not enough DMA memory!\n");
         return -1;
     }
 
@@ -239,7 +231,7 @@ usb_storage_get_max_lun(usb_dev_t udev)
     max_lun = *((uint8_t*)xact[1].vaddr);
     usb_destroy_xact(udev->dman, xact, 2);
     if (err < 0) {
-       UBMS_DBG("USB mass storage get LUN failed.\n");
+       ZF_LOGD("USB mass storage get LUN failed.\n");
     }
 
     return max_lun;
@@ -252,11 +244,14 @@ usb_storage_bind(usb_dev_t udev)
     struct usb_storage_device *ubms;
     int class;
 
-    assert(udev);
+    if (!udev) {
+	    ZF_LOGF("Invalid device\n");
+	    abort();
+    }
 
     ubms = usb_malloc(sizeof(struct usb_storage_device));
     if (!ubms) {
-        UBMS_DBG("Not enough memory!\n");
+        ZF_LOGD("Not enough memory!\n");
         return -1;
     }
 
@@ -268,7 +263,10 @@ usb_storage_bind(usb_dev_t udev)
      * The class info is stored in the interface descriptor.
      */
     err = usbdev_parse_config(udev, usb_storage_config_cb, ubms);
-    assert(!err);
+    if (err) {
+	    ZF_LOGF("Invalid descriptors\n");
+	    abort();
+    }
 
     /* Find endpoints */
     for (int i = 0; udev->ep[i] != NULL; i++) {
@@ -287,12 +285,12 @@ usb_storage_bind(usb_dev_t udev)
 
     class = usbdev_get_class(udev);
     if (class != USB_CLASS_STORAGE) {
-        UBMS_DBG("Not a USB mass storage(%d)\n", class);
+        ZF_LOGD("Not a USB mass storage(%d)\n", class);
 	usb_free(ubms);
         return -1;
     }
 
-    UBMS_DBG("USB storage found, subclass(%x, %x)\n", ubms->subclass, ubms->protocol);
+    ZF_LOGD("USB storage found, subclass(%x, %x)\n", ubms->subclass, ubms->protocol);
 
     usb_storage_set_configuration(udev);
 //    usb_storage_reset(udev);
@@ -319,7 +317,10 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
     xact.type = PID_OUT;
     xact.len = sizeof(struct cbw);
     err = usb_alloc_xact(udev->dman, &xact, 1);
-    assert(!err);
+    if (err) {
+	    ZF_LOGF("Out of DMA memory\n");
+	    abort();
+    }
 
     cbw = xact_get_vaddr(&xact);
     cbw->signature = UBMS_CBW_SIGN;
@@ -340,7 +341,8 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
 #endif
     err = usbdev_schedule_xact(udev, ep, &xact, 1, NULL, NULL);
     if (err < 0) {
-        assert(0);
+        ZF_LOGF("Transaction error\n");
+        abort();
     }
     tag = cbw->tag;
     usb_destroy_xact(udev->dman, &xact, 1);
@@ -353,7 +355,8 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
         }
         err = usbdev_schedule_xact(udev, ep, data, ndata, NULL, NULL);
         if (err < 0) {
-            assert(0);
+	    ZF_LOGF("Transaction error\n");
+	    abort();
         }
     }
     msdelay(200);
@@ -362,7 +365,10 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
     xact.len = sizeof(struct csw);
     xact.type = PID_IN;
     err = usb_alloc_xact(udev->dman, &xact, 1);
-    assert(!err);
+    if (err < 0) {
+        ZF_LOGF("Out of DMA memory\n");
+        abort();
+    }
 
     csw = xact_get_vaddr(&xact);
     csw->signature = UBMS_CSW_SIGN;
@@ -370,9 +376,9 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
 
     ep = udev->ep[ubms->ep_in];
     err = usbdev_schedule_xact(udev, ep, &xact, 1, NULL, NULL);
-    UBMS_DBG("CSW status(%u)\n", csw->status);
+    ZF_LOGD("CSW status(%u)\n", csw->status);
     if (err < 0) {
-        assert(0);
+        abort();
     }
 
     switch (csw->status) {
@@ -380,15 +386,13 @@ usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
             ret = 0;
             break;
         case CSW_STS_FAIL:
-//            assert(0);
             ret = 0;
             break;
         case CSW_STS_ERR:
-            assert(0);
             ret = -2;
             break;
         default:
-            UBMS_DBG("Unknown CSW status(%u)\n", csw->status);
+            ZF_LOGD("Unknown CSW status(%u)\n", csw->status);
             ret = -3;
             break;
     }

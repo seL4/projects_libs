@@ -16,7 +16,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 
 struct otg_usbtty {
     usb_otg_t otg;
@@ -104,7 +103,11 @@ freebuf_cb(usb_otg_t otg, void* token,
            enum usb_xact_status stat)
 {
     struct free_token* t;
-    assert(stat == XACTSTAT_SUCCESS);
+
+    if (stat != XACTSTAT_SUCCESS) {
+	    ZF_LOGF("Transaction failed\n");
+	    abort();
+    }
     t = (struct free_token*)token;
     ps_dma_free_pinned(t->dman, t->vaddr, t->size);
     free(t);
@@ -116,7 +119,10 @@ send_desc(otg_usbtty_t tty, enum DescriptorType type, int index,
 {
     struct anon_desc* d = NULL;
     /* Not handling index yet... */
-    assert(index == 0);
+    if (index != 0) {
+	    ZF_LOGF("Index not implemented\n");
+	    abort();
+    }
     /* Find the descriptor */
     switch (type) {
     case DEVICE:
@@ -165,7 +171,10 @@ send_desc(otg_usbtty_t tty, enum DescriptorType type, int index,
         int err;
 
         t = malloc(sizeof(*t));
-        assert(t);
+	if (!t) {
+		ZF_LOGF("Out of memory\n");
+		abort();
+	}
         t->dman = tty->dman;
 
         /* limit size to prevent babble */
@@ -176,7 +185,7 @@ send_desc(otg_usbtty_t tty, enum DescriptorType type, int index,
         /* Copy in */
         t->vaddr = ps_dma_alloc_pinned(tty->dman, t->size, 32, 0, PS_MEM_NORMAL, &pbuf);
         if (t->vaddr == NULL) {
-            assert(0);
+            abort();
             return;
         }
         memcpy(t->vaddr, d, t->size);
@@ -184,14 +193,14 @@ send_desc(otg_usbtty_t tty, enum DescriptorType type, int index,
         /* Send the packet */
         err = otg_prime(tty->otg, 0, PID_IN, t->vaddr, pbuf, t->size, freebuf_cb, t);
         if (err) {
-            assert(0);
+            abort();
             ps_dma_free_pinned(tty->dman, t->vaddr, t->size);
             return;
         }
         /* Status phase */
         err = otg_prime(tty->otg, 0, PID_OUT, NULL, 0, 0, freebuf_cb, t);
         if (err) {
-            assert(0);
+            abort();
             ps_dma_free_pinned(tty->dman, t->vaddr, t->size);
         }
     }
@@ -250,14 +259,14 @@ otg_usbtty_init(usb_otg_t otg, ps_dma_man_t* dman,
     otg_usbtty_t tty;
     int err;
 
-    assert(dman);
-    assert(usbtty);
-    assert(otg);
+    if (!dman || !usbtty || !otg) {
+        ZF_LOGF("Invalid arguments\n");
+        abort();
+    }
 
     /* Allocate memory */
     tty = usb_malloc(sizeof(*tty));
     if (tty == NULL) {
-        assert(0);
         return -1;
     }
     tty->dman = dman;
@@ -265,7 +274,6 @@ otg_usbtty_init(usb_otg_t otg, ps_dma_man_t* dman,
     /* Initialise the control endpoint */
     err = otg_ep0_setup(otg, usbtty_setup_cb, tty);
     if (err) {
-        assert(0);
         usb_free(tty);
         return -1;
     }

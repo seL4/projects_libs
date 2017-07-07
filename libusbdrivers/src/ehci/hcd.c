@@ -24,7 +24,12 @@ struct usb_hc_data {
 static inline struct ehci_host *_hcd_to_ehci(usb_host_t *hcd)
 {
 	struct usb_hc_data *hc_data = (struct usb_hc_data *)hcd->pdata;
-	assert(hc_data);
+
+	if (!hc_data) {
+		ZF_LOGF("Host controller data not found\n");
+		abort();
+	}
+
 	return &hc_data->edev;
 }
 
@@ -41,8 +46,10 @@ static void _root_irq(struct ehci_host *edev)
 		nports = edev->irq_xact.len * 8;
 	}
 	/* Set the INT data */
-	usb_assert(edev->irq_xact.vaddr);
-	usb_assert(edev->irq_cb);
+	if (!edev->irq_xact.vaddr || !edev->irq_cb) {
+		ZF_LOGF("Root hub IRQ uninitialized\n");
+		abort();
+	}
 	psc = _get_portsc(edev, 1);
 	portbm = xact_get_vaddr(&edev->irq_xact);
 	memset(portbm, 0, edev->irq_xact.len);
@@ -59,7 +66,8 @@ static void _root_irq(struct ehci_host *edev)
 	/* Forward the IRQ */
 	resched = edev->irq_cb(edev->irq_token, XACTSTAT_SUCCESS, 0);
 	if (resched) {
-		usb_assert(0);
+		ZF_LOGF("Root IRQ unhandled\n");
+		abort();
 	}
 }
 
@@ -91,7 +99,10 @@ int ehci_schedule_xact(usb_host_t *hdev, uint8_t addr, int8_t hub_addr,
 	struct ehci_host *edev;
 	int ret;
 
-	usb_assert(hdev);
+	if (!hdev) {
+		ZF_LOGF("Invalid USB host\n");
+		abort();
+	}
 	edev = _hcd_to_ehci(hdev);
 	if (hub_addr == -1) {
 		/* Send off to root handler... No need to create QHn */
@@ -182,12 +193,12 @@ void ehci_handle_irq(usb_host_t *hdev)
 
 	/* We cannot recover from fatal host error */
 	if (sts & EHCISTS_HOST_ERR) {
-		EHCI_IRQDBG(edev, "INT - host error\n");
-		usb_assert(0);
+		ZF_LOGD("INT - host error\n");
+		abort();
 	}
 
 	if (sts & EHCISTS_USBINT) {
-		EHCI_IRQDBG(edev, "INT - USB\n");
+		ZF_LOGD("INT - USB\n");
 		ehci_periodic_complete(edev);
 		ehci_async_complete(edev);
 	}
@@ -198,7 +209,7 @@ void ehci_handle_irq(usb_host_t *hdev)
 	 * it.
 	 */
 	if (sts & EHCISTS_USBERRINT) {
-		EHCI_IRQDBG(edev, "INT - USB error\n");
+		ZF_LOGD("INT - USB error\n");
 	}
 
 	/*
@@ -206,16 +217,16 @@ void ehci_handle_irq(usb_host_t *hdev)
 	 * don't like it always being set to 1, so simply clear it.
 	 */
 	if (sts & EHCISTS_FLIST_ROLL) {
-		EHCI_IRQDBG(edev, "INT - Frame list roll over\n");
+		ZF_LOGD("INT - Frame list roll over\n");
 	}
 
 	if (sts & EHCISTS_PORTC_DET) {
-		EHCI_IRQDBG(edev, "INT - root hub port change\n");
+		ZF_LOGD("INT - root hub port change\n");
 		_root_irq(edev);
 	}
 
 	if (sts & EHCISTS_ASYNC_ADV) {
-		EHCI_IRQDBG(edev, "INT - async list advance\n");
+		ZF_LOGD("INT - async list advance\n");
 		check_doorbell(edev);
 	}
 
@@ -227,7 +238,10 @@ int ehci_cancel_xact(usb_host_t *hdev, struct endpoint *ep)
 {
 	struct ehci_host *edev = _hcd_to_ehci(hdev);
 
-	usb_assert(ep);
+	if (!ep) {
+		ZF_LOGF("Invalid endpoint\n");
+		abort();
+	}
 
 	if (ep->hcpriv) {
 		if (ep->type == EP_BULK || ep->type == EP_CONTROL) {
@@ -267,8 +281,10 @@ ehci_host_init(usb_host_t *hdev, uintptr_t regs,
 
 	/* Check some params */
 	hdev->nports = EHCI_HCS_N_PORTS(edev->cap_regs->hcsparams);
-	assert(usb_hcd_count_ports(hdev) > 0);
-	assert(usb_hcd_count_ports(hdev) < 32);
+	if (hdev->nports <=0 || hdev->nports >= 32) {
+		ZF_LOGF("Invalid HCS register\n");
+		abort();
+	}
 	edev->bmreset_c = 0;
 
 	/* If the host controller has 64-bit capability, it is compulsory to use
@@ -290,7 +306,6 @@ ehci_host_init(usb_host_t *hdev, uintptr_t regs,
 	err = usb_hubem_driver_init(edev, hdev->nports, pwr_delay_ms,
 				    &_set_pf, &_clr_pf, &_get_pstat, &hubem);
 	if (err) {
-		usb_assert(0);
 		return -1;
 	}
 	edev->hubem = hubem;

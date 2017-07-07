@@ -13,42 +13,15 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
 
 #include "../services.h"
 #include "hid.h"
 #include "usbkbd.h"
 
-#define KBD_DEBUG
-//#define KBDIRQ_DEBUG
-
 #define KBD_ENABLE_IRQS
 
 #define KBD_REPEAT_RATE_MS   200
 #define KBD_REPEAT_DELAY_MS 1000
-
-#ifdef KBD_DEBUG
-#define KBD_DBG(...) _KBD_DBG(__VA_ARGS__)
-#else
-#define KBD_DBG(...) do{}while(0)
-#endif
-
-#ifdef KBDIRQ_DEBUG
-#define KBDIRQ_DBG(...) _KBD_DBG(__VA_ARGS__)
-#else
-#define KBDIRQ_DBG(...) do{}while(0)
-#endif
-
-#define _KBD_DBG(k, ...)                                \
-        do {                                            \
-            struct usb_kbd_device *_k = k;              \
-            if(_k){                                     \
-                printf("KBD %2d: ", _k->udev->addr);    \
-            }else{                                      \
-                printf("KBD  ?: ");                     \
-            }                                           \
-            printf(__VA_ARGS__);                        \
-        }while(0)
 
 /*
  * Ring buffer for key logging
@@ -174,7 +147,7 @@ static int kbd_update_ind(struct usb_kbd_device *kbd)
 
 static int kbd_update_repeat_rate(struct usb_kbd_device *kbd)
 {
-	KBDIRQ_DBG(kbd, "Changing rate to %dms\n", kbd->repeat_rate * 4);
+	ZF_LOGD("Changing rate to %dms\n", kbd->repeat_rate * 4);
 
 	return usb_hid_set_idle(kbd->hid, kbd->repeat_rate);
 }
@@ -191,12 +164,12 @@ kbd_irq_handler(void *token, enum usb_xact_status stat, int bytes_remaining)
 
 	/* Check the status */
 	if (stat != XACTSTAT_SUCCESS) {
-		KBD_DBG(kbd, "Received unsuccessful IRQ\n");
+		ZF_LOGD("Received unsuccessful IRQ\n");
 		return 1;
 	}
 	len = kbd->int_xact.len - bytes_remaining;
 	if (len < 4) {
-		KBD_DBG(kbd, "Short read on INT packet (%d)\n", len);
+		ZF_LOGD("Short read on INT packet (%d)\n", len);
 		return 1;
 	}
 #if defined(KBDIRQ_DEBUG)
@@ -322,7 +295,10 @@ int usb_kbd_driver_bind(usb_dev_t usb_dev, struct ps_chardevice *cdev)
 	int err;
 
 	kbd = (struct usb_kbd_device*)usb_malloc(sizeof(struct usb_kbd_device));
-	assert(kbd);
+	if (!kbd) {
+		ZF_LOGE("Out of memory\n");
+		abort();
+	}
 
 	usb_dev->dev_data = (struct udev_priv*)kbd;
 	kbd->udev = usb_dev;
@@ -332,20 +308,23 @@ int usb_kbd_driver_bind(usb_dev_t usb_dev, struct ps_chardevice *cdev)
 	kbd->hid = usb_hid_alloc(usb_dev);
 
 	if (kbd->hid->protocol != 1) {
-		KBD_DBG(kbd, "Not a keyboard: %d\n", kbd->hid->protocol);
-		assert(0);
+		ZF_LOGE("Not a keyboard: %d\n", kbd->hid->protocol);
+		abort();
 	}
 
 	/* Find endpoint */
 	kbd->ep_int = usb_dev->ep[kbd->hid->iface];
-	assert(kbd->ep_int != NULL && kbd->ep_int->type == EP_INTERRUPT);
+	if (kbd->ep_int == NULL || kbd->ep_int->type != EP_INTERRUPT) {
+		ZF_LOGF("Endpoint not found\n");
+		abort();
+	}
 
-	KBD_DBG(kbd, "Configuring keyboard\n");
+	ZF_LOGD("Configuring keyboard\n");
 
 	err = usb_hid_set_idle(kbd->hid, 0);
 	if (err < 0) {
-		KBD_DBG(kbd, "Keyboard initialisation error\n");
-		assert(0);
+		ZF_LOGD("Keyboard initialisation error\n");
+		abort();
 	}
 
 	cdev->vaddr = kbd;
@@ -364,18 +343,21 @@ int usb_kbd_driver_bind(usb_dev_t usb_dev, struct ps_chardevice *cdev)
 	kbd->int_xact.len = kbd->ep_int->max_pkt;
 
 	err = usb_alloc_xact(usb_dev->dman, &kbd->int_xact, 1);
-	assert(!err);
+	if (err) {
+		ZF_LOGF("Out of DMA memory\n");
+		abort();
+	}
 
 	kbd->new_keys = xact_get_vaddr(&kbd->int_xact);
 
 #if defined(KBD_ENABLE_IRQS)
-	KBD_DBG(kbd, "Scheduling IRQS\n");
+	ZF_LOGD("Scheduling IRQS\n");
 	usbdev_schedule_xact(usb_dev, kbd->ep_int, &kbd->int_xact, 1,
 			     &kbd_irq_handler, kbd);
 #else
 	(void)kbd_irq_handler;
 #endif
-	KBD_DBG(kbd, "Successfully initialised\n");
+	ZF_LOGD("Successfully initialised\n");
 
 	return 0;
 }

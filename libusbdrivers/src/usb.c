@@ -12,7 +12,6 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <assert.h>
 
 #include <usb/usb.h>
 #include <usb/usb_host.h>
@@ -21,25 +20,6 @@
 #include "services.h"
 #include <string.h>
 #include <utils/util.h>
-
-#define USB_DEBUG
-
-#ifdef USB_DEBUG
-#define dprintf(...) printf(__VA_ARGS__)
-#else
-#define dprintf(...) do{}while(0)
-#endif
-
-#define USB_DBG(d, ...)                                 \
-        do {                                            \
-            usb_dev_t dev = d;                          \
-            if(dev && dev->addr){                       \
-                dprintf("USB %2d: ", dev->addr);        \
-            }else{                                      \
-                dprintf("USB   : ");                    \
-            }                                           \
-            dprintf(__VA_ARGS__);                       \
-        }while(0)
 
 #define NUM_DEVICES 32
 
@@ -163,7 +143,9 @@ static void devlist_remove(usb_dev_t d)
 	usb_t *host = d->host;
 	usb_dev_t *dptr = &host->devlist;
 	while (*dptr != d) {
-		assert(*dptr != NULL || !"Device not in list");
+		if (*dptr != NULL) {
+			ZF_LOGW("USB: Device not in list\n");
+		}
 		dptr = &(*dptr)->next;
 	}
 	*dptr = d->next;
@@ -176,7 +158,9 @@ static void devlist_remove(usb_dev_t d)
 static usb_dev_t devlist_at(usb_t * host, int addr)
 {
 	usb_dev_t d;
-	assert(addr >= 0 && addr < NUM_DEVICES);
+	if (addr < 0 || addr > NUM_DEVICES) {
+		ZF_LOGW("USB: Device not found\n");
+	}
 	for (d = host->devlist; d != NULL; d = d->next) {
 		if (d->addr == addr) {
 			return d;
@@ -361,7 +345,10 @@ static void usb_print_descriptor(struct anon_desc *desc, int index)
 
 static void print_string_desc(struct string_desc *desc)
 {
-	assert(desc);
+	if (!desc) {
+		ZF_LOGF("USB: Invalid arguments\n");
+		abort();
+	}
 
 	for (int i = 0; i < desc->bLength - 2; i++) {
 		printf("%c", desc->bString[i]);
@@ -390,7 +377,7 @@ usb_get_string_desc(usb_dev_t udev, int index, struct string_desc *desc)
 	err = usb_alloc_xact(udev->dman, xact,
 			   sizeof(xact) / sizeof(struct xact));
 	if (err) {
-		USB_DBG(udev, "Not enough DMA memory!\n");
+		ZF_LOGE("USB %d: Not enough DMA memory!\n", udev->addr);
 		return;
 	}
 
@@ -405,7 +392,7 @@ usb_get_string_desc(usb_dev_t udev, int index, struct string_desc *desc)
 	err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
 
 	if (err < 0) {
-		USB_DBG(udev, "USB request failed.\n");
+		ZF_LOGD("USB %d: USB request failed.\n", udev->addr);
 		usb_destroy_xact(udev->dman, xact, 2);
 		return;
 	}
@@ -418,7 +405,7 @@ usb_get_string_desc(usb_dev_t udev, int index, struct string_desc *desc)
 	err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
 
 	if (err < 0) {
-		USB_DBG(udev, "USB request failed.\n");
+		ZF_LOGD("USB %d: USB request failed.\n", udev->addr);
 		usb_destroy_xact(udev->dman, xact, 2);
 		return;
 	}
@@ -487,14 +474,15 @@ static void usbdev_config_print(usb_dev_t udev)
 	xact[1].len = sizeof(struct device_desc);
 	ret = usb_alloc_xact(udev->dman, xact, 2);
 	if (ret) {
-		assert(0);
+		ZF_LOGF("USB: Out of DMA memory\n");
+		abort();
 	}
 	req = xact_get_vaddr(&xact[0]);
 	*req = __get_descriptor_req(DEVICE, 0, 0, xact[1].len);
 	ret = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
 	if (ret < 0) {
-		assert(ret >= 0);
-		return;
+		ZF_LOGF("USB: Transaction error\n");
+		abort();
 	}
 	desc = (struct anon_desc *)xact_get_vaddr(&xact[1]);
 	usb_print_descriptor(desc, -1);
@@ -551,7 +539,7 @@ parse_config(usb_dev_t udev, struct anon_desc *d, int tot_len,
 			}
 			usrd = usb_malloc(d->bLength);
 			if (usrd == NULL) {
-				assert(usrd);
+				ZF_LOGE("USB: Out of memory\n");
 				err = 1;
 				break;
 			}
@@ -622,11 +610,10 @@ usb_new_device_with_host(usb_dev_t hub, usb_t * host, int port,
 	int addr = 0;
 	int err;
 
-	USB_DBG(udev, "New USB device!\n");
+	ZF_LOGD("USB: New USB device!\n");
 	udev = (usb_dev_t) usb_malloc(sizeof(*udev));
 	if (!udev) {
-		USB_DBG(udev, "No heap memory for new USB device\n");
-		assert(0);
+		ZF_LOGE("USB: No heap memory for new USB device\n");
 		return -1;
 	}
 	udev->addr = 0;
@@ -668,10 +655,9 @@ usb_new_device_with_host(usb_dev_t hub, usb_t * host, int port,
 	 */
 	udev->ep_ctrl = (struct endpoint *)usb_malloc(sizeof(struct endpoint));
 	if (!udev->ep_ctrl) {
-		USB_DBG(udev, "No heap memory for control endpoint\n");
+		ZF_LOGE("USB: No heap memory for control endpoint\n");
 		usb_free(udev);
 		udev = NULL;
-		assert(0);
 		return -1;
 	}
 	udev->ep_ctrl->type = EP_CONTROL;
@@ -684,8 +670,7 @@ usb_new_device_with_host(usb_dev_t hub, usb_t * host, int port,
 	xact[1].len = sizeof(*d_desc);
 	err = usb_alloc_xact(udev->dman, xact, 2);
 	if (err) {
-		USB_DBG(udev, "No DMA memory for new USB device\n");
-		assert(0);
+		ZF_LOGE("USB: No DMA memory for new USB device\n");
 		usb_free(udev);
 		udev = NULL;
 		return -1;
@@ -699,8 +684,7 @@ usb_new_device_with_host(usb_dev_t hub, usb_t * host, int port,
 	 * b) product and vendor ID
 	 * c) device class
 	 */
-	USB_DBG(udev,
-		"Determining maximum packet size on the control endpoint\n");
+	ZF_LOGE("USB: Determining maximum packet size on the control endpoint\n");
 	/*
 	 * We need the value of bMaxPacketSize in order to request
 	 * the bMaxPacketSize. A work around to this circular
@@ -718,17 +702,16 @@ usb_new_device_with_host(usb_dev_t hub, usb_t * host, int port,
 		usb_destroy_xact(udev->dman, xact, 2);
 		usb_free(udev);
 		udev = NULL;
+		ZF_LOGE("USB: Transaction error");
 		return -1;
 	}
 
-	assert(err >= 0);
 	udev->ep_ctrl->max_pkt = d_desc->bMaxPacketSize0;
 
 	/* Find the next available address */
 	addr = devlist_insert(udev);
 	if (addr < 0) {
-		USB_DBG(dev, "Too many devices\n");
-		assert(0);
+		ZF_LOGE("USB: Too many devices\n");
 		usb_destroy_xact(udev->dman, xact,
 				 sizeof(xact) / sizeof(*xact));
 		usb_free(udev);
@@ -738,7 +721,7 @@ usb_new_device_with_host(usb_dev_t hub, usb_t * host, int port,
 
 	/* Set the address */
 	*req = __new_address_req(addr);
-	USB_DBG(udev, "Setting address to %d\n", addr);
+	ZF_LOGD("USB: Setting address to %d\n", addr);
 	err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 1, NULL, NULL);
 	if (err < 0) {
 		usb_destroy_xact(udev->dman, xact, 2);
@@ -752,7 +735,7 @@ usb_new_device_with_host(usb_dev_t hub, usb_t * host, int port,
 	udev->addr = addr;
 
 	/* All settled, start processing standard USB descriptors */
-	USB_DBG(udev, "Retrieving device descriptor\n");
+	ZF_LOGD("USB %d: Retrieving device descriptor\n", udev->addr);
 	xact[1].len = sizeof(*d_desc);
 	*req = __new_desc_req(DEVICE, sizeof(*d_desc));
 	err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
@@ -766,14 +749,14 @@ usb_new_device_with_host(usb_dev_t hub, usb_t * host, int port,
 	udev->prod_id = d_desc->idProduct;
 	udev->vend_id = d_desc->idVendor;
 	udev->class = d_desc->bDeviceClass;
-	USB_DBG(udev, "idVendor  0x%04x | ", udev->vend_id);
+	ZF_LOGD("USB %d: idVendor  0x%04x | ", udev->addr, udev->vend_id);
 	if (d_desc->iManufacturer) {
 		usb_get_string_desc(udev, d_desc->iManufacturer, &s_desc);
 		print_string_desc(&s_desc);
 	} else {
 		printf("\n");
 	}
-	USB_DBG(udev, "idProduct 0x%04x | ", udev->prod_id);
+	ZF_LOGD("USB %d: idProduct 0x%04x | ", udev->addr, udev->prod_id);
 	if (d_desc->iProduct) {
 		usb_get_string_desc(udev, d_desc->iProduct, &s_desc);
 		print_string_desc(&s_desc);
@@ -804,15 +787,21 @@ usb_init(enum usb_host_id id, ps_io_ops_t * ioops, sync_ops_t * sync,
 
 	err = usb_host_init(id, ioops, sync, &host->hdev);
 	if (err) {
-		assert(!err);
+		ZF_LOGE("USB: Platform error\n");
 		return -1;
 	}
 	err = usb_new_device_with_host(NULL, host, 1, 0, &udev);
-
-	assert(!err);
+	if (err) {
+		ZF_LOGE("USB: Host error\n");
+		return -1;
+	}
 
 	err = usb_hub_driver_bind(udev, &hub);
-	assert(!err);
+	if (err) {
+		ZF_LOGE("USB: Failed to bind a hub");
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -851,7 +840,7 @@ int usbdev_parse_config(usb_dev_t udev, usb_config_cb cb, void *t)
 	xact[1].type = PID_IN;
 	err = usb_alloc_xact(udev->dman, xact, 2);
 	if (err) {
-		assert(0);
+		ZF_LOGE("USB %d: Out of DMA memory", udev->addr);
 		return -1;
 	}
 	req = xact_get_vaddr(&xact[0]);
@@ -874,7 +863,7 @@ int usbdev_parse_config(usb_dev_t udev, usb_config_cb cb, void *t)
 	xact[1].type = PID_IN;
 	err = usb_alloc_xact(udev->dman, xact, 2);
 	if (err) {
-		assert(0);
+		ZF_LOGE("USB %d: Out of DMA memory", udev->addr);
 		return -1;
 	}
 	req = xact_get_vaddr(&xact[0]);
@@ -899,13 +888,16 @@ void usbdev_disconnect(usb_dev_t udev)
 	usb_hub_t hub;
 	int cnt = 0;
 
-	USB_DBG(udev, "Disconnecting\n");
-	assert(udev);
-	assert(udev->host);
+	if (!udev || !udev->host) {
+		ZF_LOGF("USB: Invalid arguments\n");
+		abort();
+	}
+	ZF_LOGD("USB %d: Disconnecting\n", udev->addr);
+
 	hdev = &udev->host->hdev;
 	if (udev->disconnect) {
-		printf("calling device disconnect 0x%x\n",
-		       (uint32_t) udev->disconnect);
+		ZF_LOGD("USB %d: calling device disconnect 0x%x\n",
+		       udev->addr, (uint32_t) udev->disconnect);
 		udev->disconnect(udev);
 	}
 
@@ -931,7 +923,8 @@ void usbdev_disconnect(usb_dev_t udev)
 		cnt++;
 	}
 
-	assert(!err);
+	ZF_LOGW("USB %d: Failed to cancel some of the transactions\n");
+
 	(void)hdev;
 	devlist_remove(udev);
 	/* destroy it */
@@ -944,10 +937,15 @@ void usbdev_disconnect(usb_dev_t udev)
 	usb_free(udev);
 }
 
-void usb_handle_irq(usb_t * host)
+void usb_handle_irq(usb_t *host)
 {
 	usb_host_t *hdev;
-	assert(host);
+
+	if (!host) {
+		ZF_LOGF("Invalid arguments\n");
+		abort();
+	}
+
 	hdev = &host->hdev;
 	hdev->handle_irq(hdev);
 }
@@ -959,9 +957,12 @@ usbdev_schedule_xact(usb_dev_t udev, struct endpoint *ep, struct xact *xact,
 	int err;
 	usb_host_t *hdev;
 	uint8_t hub_addr;
-	assert(udev);
-	assert(udev->host);
-	assert(udev->host->hdev.schedule_xact);
+
+	if (!udev) {
+		ZF_LOGF("Invalid arguments\n");
+		abort();
+	}
+
 	hdev = &udev->host->hdev;
 	if (udev->hub) {
 		hub_addr = udev->tt_addr;

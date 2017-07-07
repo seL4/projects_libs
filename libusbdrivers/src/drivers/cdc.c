@@ -10,24 +10,11 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 
 #include <sync/atomic.h>
 
 #include "../services.h"
 #include "cdc.h"
-
-#define USB_CDC_DEBUG
-
-#ifdef USB_CDC_DEBUG
-#define CDC_DBG(...)            \
-        do {                     \
-            printf("CDC: ");    \
-            printf(__VA_ARGS__); \
-        }while(0)
-#else
-#define CDC_DBG(...) do{}while(0)
-#endif
 
 /*
  * XXX: In theory the maximum xact size can be up to 20K, however, our DMA
@@ -133,22 +120,22 @@ usb_cdc_config_cb(void *token, int cfg, int iface, struct anon_desc *desc)
 		cdc->subclass = idesc->bInterfaceSubClass;
 		if (cdc->udev->class == INF_COMM && cdc->subclass < 0xd) {
 			cdc->comm = idesc->bInterfaceNumber;
-			CDC_DBG("Communication Interface\n");
+			ZF_LOGD("Communication Interface\n");
 			if (cdc->subclass < 0xd) {
-				CDC_DBG("  |-- %s\n", subclass_codes[cdc->subclass]);
+				ZF_LOGD("  |-- %s\n", subclass_codes[cdc->subclass]);
 			}
 		} else if (cdc->udev->class == INF_DATA) {
 			cdc->data = idesc->bInterfaceNumber;
-			CDC_DBG("Data Interface\n");
+			ZF_LOGD("Data Interface\n");
 		}
 		break;
 	case CS_INTERFACE:
 		fdesc = (struct func_desc *)desc;
 		if (fdesc->bDescriptorSubtype < 0x1d) {
-			CDC_DBG("  %s\n",
+			ZF_LOGD("  %s\n",
 					func_subtype_codes[fdesc->bDescriptorSubtype]);
 		} else {
-			CDC_DBG("  Function type reserved(%x)\n",
+			ZF_LOGD("  Function type reserved(%x)\n",
 					fdesc->bDescriptorSubtype);
 		}
 		break;
@@ -192,11 +179,14 @@ int usb_cdc_bind(usb_dev_t udev)
 	struct usbreq *req;
 	int class;
 
-	assert(udev);
+	if (!udev) {
+		ZF_LOGF("Invalid device\n");
+		abort();
+	}
 
 	cdc = usb_malloc(sizeof(struct usb_cdc_device));
 	if (!cdc) {
-		CDC_DBG("Not enough memory!\n");
+		ZF_LOGD("Not enough memory!\n");
 		return -1;
 	}
 
@@ -205,7 +195,10 @@ int usb_cdc_bind(usb_dev_t udev)
 
 	/* Parse the descriptors */
 	err = usbdev_parse_config(udev, usb_cdc_config_cb, cdc);
-	assert(!err);
+	if (err) {
+		ZF_LOGF("Invalid descriptors\n");
+		abort();
+	}
 
 	/* Find endpoints */
 	for (int i = 0; udev->ep[i] != NULL; i++) {
@@ -224,7 +217,7 @@ int usb_cdc_bind(usb_dev_t udev)
 
 	cdc->read_buf.buf = usb_malloc(CDC_READ_BUFFER_SIZE);
 	if (!cdc->read_buf.buf) {
-		CDC_DBG("Failed to allocate ring buffer!\n");
+		ZF_LOGD("Failed to allocate ring buffer!\n");
 		usb_free(cdc);
 		return -1;
 	}
@@ -234,25 +227,31 @@ int usb_cdc_bind(usb_dev_t udev)
 
 	class = usbdev_get_class(udev);
 	if (class != USB_CLASS_CDCDATA && class != USB_CLASS_COMM) {
-		CDC_DBG("Not a CDC device(%d)\n", class);
+		ZF_LOGD("Not a CDC device(%d)\n", class);
 		usb_free(cdc->read_buf.buf);
 		usb_free(cdc);
 		return -1;
 	}
 
-	CDC_DBG("USB CDC found, subclass(%x)\n", cdc->subclass);
+	ZF_LOGD("USB CDC found, subclass(%x)\n", cdc->subclass);
 
 	/* Allocate read request */
 	cdc->read_xact.type = PID_IN;
 	cdc->read_xact.len = CDC_READ_XACT_SIZE;
 	err = usb_alloc_xact(udev->dman, &cdc->read_xact, 1);
-	assert(!err);
+	if (err) {
+		ZF_LOGF("Out of DMA memory\n");
+		abort();
+	}
 	cdc->read_in_progress = 0;
 
 	/* Activate configuration */
 	xact.len = sizeof(struct usbreq);
 	err = usb_alloc_xact(udev->dman, &xact, 1);
-	assert(!err);
+	if (err) {
+		ZF_LOGF("Out of DMA memory\n");
+		abort();
+	}
 
 	/* Fill in the request */
 	xact.type = PID_SETUP;
@@ -261,7 +260,10 @@ int usb_cdc_bind(usb_dev_t udev)
 
 	/* Send the request to the host */
 	err = usbdev_schedule_xact(udev, udev->ep_ctrl, &xact, 1, NULL, NULL);
-	assert(!err);
+	if (err) {
+		ZF_LOGF("Transaction error\n");
+		abort();
+	}
 	usb_destroy_xact(udev->dman, &xact, 1);
 
 	return 0;
@@ -278,7 +280,10 @@ int usb_cdc_read(usb_dev_t udev, void *buf, int len)
 	if (!cdc->read_in_progress) {
 		err = usbdev_schedule_xact(udev, cdc->ep_in, &cdc->read_xact, 1,
 				usb_cdc_read_cb, udev);
-		assert(err >= 0);
+		if (err) {
+			ZF_LOGF("Transaction error\n");
+			abort();
+		}
 		sync_atomic_increment(&cdc->read_in_progress, __ATOMIC_RELAXED);
 	}
 
@@ -319,7 +324,10 @@ int usb_cdc_write(usb_dev_t udev, void *buf, int len)
 
 	/* DMA allocation */
 	err = usb_alloc_xact(udev->dman, xact, cnt);
-	assert(!err);
+	if (err) {
+		ZF_LOGF("Out of DMA memory\n");
+		abort();
+	}
 
 	/* Copy in */
 	offset = 0;
@@ -330,7 +338,10 @@ int usb_cdc_write(usb_dev_t udev, void *buf, int len)
 
 	/* Send to the host */
 	err = usbdev_schedule_xact(udev, cdc->ep_out, xact, cnt, NULL, NULL);
-	assert(!err);
+	if (err) {
+		ZF_LOGF("Transaction error\n");
+		abort();
+	}
 
 	/* Cleanup */
 	usb_destroy_xact(udev->dman, xact, cnt);
@@ -353,7 +364,10 @@ usb_cdc_mgmt_msg(struct usb_cdc_device *cdc, uint8_t req_type,
 	msg[0].len = sizeof(struct usbreq);
 	msg[1].len = len;
 	err = usb_alloc_xact(cdc->udev->dman, msg, 2);
-	assert(!err);
+	if (err) {
+		ZF_LOGF("Out of DMA memory\n");
+		abort();
+	}
 
 	/* Management element request */
 	msg[0].type = PID_SETUP;

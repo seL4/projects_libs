@@ -26,7 +26,7 @@ int usb_otg_init(int id, usb_otg_t * otg_ptr, ps_io_ops_t ioops)
 	/* Allocate host memory */
 	otg = usb_malloc(sizeof(*otg));
 	if (otg == NULL) {
-		assert(0);
+		ZF_LOGE("OTG: Out of memory\n");
 		return -1;
 	}
 	otg->dman = &ioops.dma_manager;
@@ -47,8 +47,10 @@ void otg_handle_irq(usb_otg_t otg)
 
 int otg_ep0_setup(usb_otg_t otg, otg_setup_cb cb, void *token)
 {
-	assert(otg);
-	assert(otg->ep0_setup);
+	if (!otg || !otg->ep0_setup) {
+		ZF_LOGF("OTG: Invalid arguments\n");
+		abort();
+	}
 	return otg->ep0_setup(otg, cb, token);
 }
 

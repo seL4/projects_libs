@@ -13,7 +13,6 @@
 #include <stdlib.h>
 #include <platsupport/io.h>
 #include <platsupport/delay.h>
-#include <assert.h>
 #include <utils/ansi.h>
 #include <utils/util.h>
 #include <utils/zf_log.h>
@@ -33,11 +32,6 @@ static inline void udelay(uint32_t us)
 }
 #endif
 #define msdelay(ms) udelay((ms) * 1000)
-
-#define usb_assert(test)         \
-        do{                      \
-            assert(test);        \
-        } while(0)
 
 #define usb_malloc(...) calloc(1, __VA_ARGS__)
 #define usb_free(...) free(__VA_ARGS__)
@@ -61,7 +55,10 @@ static inline void *ps_dma_alloc_pinned(ps_dma_man_t * dma_man, size_t size,
 					ps_mem_flags_t flags, uintptr_t * paddr)
 {
 	void *addr;
-	assert(dma_man);
+	if (!dma_man) {
+		ZF_LOGE("Invalid arguments\n");
+		abort();
+	}
 	addr = ps_dma_alloc(dma_man, size, align, cache, flags);
 	if (addr != NULL) {
 		*paddr = ps_dma_pin(dma_man, addr, size);
@@ -72,36 +69,47 @@ static inline void *ps_dma_alloc_pinned(ps_dma_man_t * dma_man, size_t size,
 static inline void
 ps_dma_free_pinned(ps_dma_man_t * dma_man, void *addr, size_t size)
 {
-	assert(dma_man);
+	if (!dma_man) {
+		ZF_LOGE("Invalid arguments\n");
+		abort();
+	}
 	ps_dma_unpin(dma_man, addr, size);
 	ps_dma_free(dma_man, addr, size);
 }
 
 static inline void *usb_sync_init(sync_ops_t * sync, int val)
 {
-	assert(sync);
-	assert(sync->sync_init);
+	if (!sync || !sync->sync_init) {
+		ZF_LOGE("Invalid arguments\n");
+		abort();
+	}
 	return sync->sync_init(val);
 }
 
 static inline void usb_sync_lock(sync_ops_t * sync, void *lock)
 {
-	assert(sync);
-	assert(sync->sync_lock);
+	if (!sync || !sync->sync_lock) {
+		ZF_LOGE("Invalid arguments\n");
+		abort();
+	}
 	sync->sync_lock(lock);
 }
 
 static inline void usb_sync_unlock(sync_ops_t * sync, void *lock)
 {
-	assert(sync);
-	assert(sync->sync_unlock);
+	if (!sync || !sync->sync_unlock) {
+		ZF_LOGE("Invalid arguments\n");
+		abort();
+	}
 	sync->sync_unlock(lock);
 }
 
 static inline void usb_sync_destroy(sync_ops_t * sync, void *lock)
 {
-	assert(sync);
-	assert(sync->sync_destroy);
+	if (!sync || !sync->sync_destroy) {
+		ZF_LOGE("Invalid arguments\n");
+		abort();
+	}
 	sync->sync_destroy(lock);
 }
 

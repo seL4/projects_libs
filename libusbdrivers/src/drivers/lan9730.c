@@ -29,26 +29,8 @@
 #define COL_TX  "\e[43;30m"
 #define COL_DEF "\e[0;0m"
 
+//#define ETH_TRAFFIC_DEBUG
 #define ETH_ENABLE_IRQS
-
-#define ETH_TRAFFIC_DEBUG
-#define ETH_DEBUG
-
-#ifdef ETH_DEBUG
-#define dprintf(...) printf(__VA_ARGS__)
-#else
-#define dprintf(...) do{}while(0)
-#endif
-
-#define ETH_DBG(eth, ...)                               \
-        do {                                            \
-            if(eth){                                    \
-                dprintf("ETH %2d: ", eth->udev->addr);  \
-            }else{                                      \
-                dprintf("ETH  ?: ");                    \
-            }                                           \
-            dprintf(__VA_ARGS__);                       \
-        }while(0)
 
 #define INT_MACRTO   BIT(19)
 #define INT_RXFIFO   BIT(18)
@@ -374,7 +356,10 @@ static int write_register(struct usb_eth *eth, int addr, uint32_t v)
 	msdelay(100);
 	err = usbdev_schedule_xact(eth->udev, eth->udev->ep_ctrl,
 				   eth->reg_write_xact, 2, NULL, NULL);
-	assert(!err);
+	if (err) {
+		ZF_LOGF("Transaction error\n");
+		abort();
+	}
 	return err;
 }
 
@@ -391,8 +376,11 @@ static int read_register(struct usb_eth *eth, int addr, uint32_t *v)
 	msdelay(100);
 	err = usbdev_schedule_xact(eth->udev, eth->udev->ep_ctrl,
 				   eth->reg_read_xact, 2, NULL, NULL);
+	if (err) {
+		ZF_LOGF("Transaction error\n");
+		abort();
+	}
 	*v = *d;
-	assert(!err);
 	return err;
 }
 
@@ -403,16 +391,25 @@ static int read_phy_register(struct usb_eth *eth, int addr, uint32_t *v)
 	/* Issue the request */
 	data = BIT(11) | (addr << 6) | BIT(0);
 	err = write_register(eth, REG_MII_ACCESS, data);;
-	assert(!err);
+	if (err) {
+		ZF_LOGF("Write PHY error\n");
+		abort();
+	}
 	/* Wait for completion */
 	do {
 		err = read_register(eth, REG_MII_ACCESS, &data);
-		assert(!err);
+		if (err) {
+			ZF_LOGF("Read PHY error\n");
+			abort();
+		}
 	} while (data & BIT(0));
 
 	/* Read the data */
 	err = read_register(eth, REG_MII_DATA, v);
-	assert(!err);
+	if (err) {
+		ZF_LOGF("Read PHY error\n");
+		abort();
+	}
 	return err;
 }
 
@@ -422,15 +419,24 @@ static int write_phy_register(struct usb_eth *eth, int addr, uint32_t v)
 	int err;
 	/* Setup the data */
 	err = write_register(eth, REG_MII_DATA, v);
-	assert(!err);
+	if (err) {
+		ZF_LOGF("Write PHY error\n");
+		abort();
+	}
 	/* Issue the request */
 	data = BIT(11) | (addr << 6) | BIT(1) | BIT(0);
 	err = write_register(eth, REG_MII_ACCESS, data);;
-	assert(!err);
+	if (err) {
+		ZF_LOGF("Write PHY error\n");
+		abort();
+	}
 	/* Wait for completion */
 	do {
 		err = read_register(eth, REG_MII_ACCESS, &data);
-		assert(!err);
+		if (err) {
+			ZF_LOGF("Read PHY error\n");
+			abort();
+		}
 	} while (data & BIT(0));
 	return 0;
 }
@@ -643,7 +649,10 @@ static int do_lan9730_input(struct netif *netif, struct xact *xact)
 
 	/* Construct the packet */
 	p = pbuf_alloc(PBUF_RAW, len, PBUF_POOL);
-	assert(p);
+	if (!p) {
+		ZF_LOGF("LWIP out of memory\n");
+		abort();
+	}
 	for (q = p; q != NULL; q = q->next) {
 		memcpy(q->payload, payload, q->len);
 		payload += q->len;
@@ -694,7 +703,7 @@ static int eth_process_status(struct netif *netif, uint32_t status)
 		status &= ~INT_RXFIFO;
 	}
 	if (status) {
-		ETH_DBG(eth, "Unknown USB-ETH IRQ status: 0x%x\n", status);
+		ZF_LOGD("Unknown USB-ETH IRQ status: 0x%x\n", status);
 	}
 	return err;
 }
@@ -708,25 +717,27 @@ eth_irq_handler(void *token, enum usb_xact_status stat, int bytes_remaining)
 	int err;
 	int len;
 
-	assert(token);
+	if (!token) {
+		ZF_LOGF("Invalid token\n");
+		abort();
+	}
 	eth = netif_get_eth_driver(netif);
 	len = eth->int_xact.len - bytes_remaining;
 
 	/* Check the status */
 	if (stat != XACTSTAT_SUCCESS) {
-		ETH_DBG(eth, "Received unsuccessful IRQ\n");
+		ZF_LOGD("Received unsuccessful IRQ\n");
 		return 1;
 	}
 	if (len != 4) {
-		ETH_DBG(eth, "Unexpected number of bytes for INT packet (%d)\n",
-			len);
+		ZF_LOGD("Unexpected number of bytes for INT packet (%d)\n", len);
 		return 1;
 	}
 
-	ETH_DBG(eth, "Handling IRQ\n");
+	ZF_LOGD("Handling IRQ\n");
 	err = eth_process_status(netif, *eth->intbm);
 	if (err) {
-		ETH_DBG(eth, "Spurious IRQ\n");
+		ZF_LOGD("Spurious IRQ\n");
 	}
 
 	usbdev_schedule_xact(eth->udev, eth->ep_int, &eth->int_xact, 1,
@@ -773,7 +784,10 @@ static err_t tx_packet(struct usb_eth *eth, struct pbuf *p)
 	}
 	/* send it */
 	err = usbdev_schedule_xact(eth->udev, eth->ep_out, xact, 2, NULL, NULL);
-	assert(!err);
+	if (err) {
+		ZF_LOGF("Transaction error\n");
+		abort();
+	}
 
 	return err;
 }
@@ -795,7 +809,10 @@ int lan9730_input(struct netif *netif)
 	}
 	/* Read in a frame */
 	err = usbdev_schedule_xact(eth->udev, eth->ep_in, &xact, 1, NULL, NULL);
-	assert(err >= 0);
+	if (err) {
+		ZF_LOGF("Transaction error\n");
+		abort();
+	}
 	if (err <= 0) {
 		/* Nothing there. Return */
 		err = 0;
@@ -886,22 +903,24 @@ struct netif *lan9730_driver_bind(usb_dev_t udev)
 	udev->dev_data = (struct udev_priv *)eth;
 
 	err = usbdev_parse_config(udev, NULL, NULL);
-	assert(!err);
+	if (err) {
+		ZF_LOGF("Invalid descriptors\n");
+	}
 
 	/* Activate configuration */
-	ETH_DBG(eth, "Configure ETH\n");
+	ZF_LOGD("Configure ETH\n");
 	xact.type = PID_SETUP;
 	xact.len = sizeof(*req);
 	err = usb_alloc_xact(eth->udev->dman, &xact, 1);
 	if (err) {
-		assert(!err);
+		ZF_LOGE("Out of DMA memory\n");;
 		return NULL;
 	}
 	req = xact_get_vaddr(&xact);
 	*req = __set_configuration_req(1);
 	err = usbdev_schedule_xact(udev, udev->ep_ctrl, &xact, 1, NULL, NULL);
 	if (err < 0) {
-		assert(err >= 0);
+		ZF_LOGE("Transaction error\n");
 		return NULL;
 	}
 	usb_destroy_xact(udev->dman, &xact, 1);
@@ -945,10 +964,13 @@ struct netif *lan9730_driver_bind(usb_dev_t udev)
 	eth->int_xact.type = PID_IN;
 	eth->int_xact.len = eth->ep_int->max_pkt;
 	err = usb_alloc_xact(udev->dman, &eth->int_xact, 1);
-	assert(!err);
+	if (err) {
+		ZF_LOGF("Out of DMA memory\n");
+		abort();
+	}
 	eth->intbm = xact_get_vaddr(&eth->int_xact);
 	memset(eth->intbm, 0, eth->int_xact.len);
-	ETH_DBG(eth, "Registering for INT (%d ms)\n", eth->ep_int->interval);
+	ZF_LOGD("Registering for INT (%d ms)\n", eth->ep_int->interval);
 	usbdev_schedule_xact(udev, eth->ep_int, &eth->int_xact, 1,
 			     &eth_irq_handler, netif);
 #else
@@ -978,7 +1000,10 @@ int lan9730_poll_status(struct netif *netif)
 	xact[0].type = PID_IN;
 	xact[0].len = 4;
 	err = usb_alloc_xact(eth->udev->dman, xact, 1);
-	assert(!err);
+	if (err) {
+		ZF_LOGF("Out of DMA memory\n");
+		abort();
+	}
 	status = (uint32_t *) xact_get_vaddr(&xact[0]);
 
 	err = usbdev_schedule_xact(eth->udev, eth->ep_int, xact, 1, NULL, NULL);

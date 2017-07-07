@@ -20,7 +20,6 @@
 #include "../usb_otg.h"
 #include <stdio.h>
 #include <stddef.h>
-#include <assert.h>
 #include <usb/drivers/usb3503_hub.h>
 
 
@@ -154,7 +153,8 @@ board_pwren(int port, int state)
         hub_pwren(state);
         break;
     default:
-        assert(!"Invalid port for power change");
+        ZF_LOGF("Invalid port for power change\n");
+        abort();
     }
 }
 
@@ -163,18 +163,30 @@ usb_plat_gpio_init(ps_io_ops_t* io_ops)
 {
     int err;
     err = gpio_sys_init(io_ops, &gpio_sys);
-    assert(!err);
+    if (err) {
+        ZF_LOGF("GPIO error\n");
+        abort();
+    }
     err = i2c_bb_init(&gpio_sys, GPIOID(GPA2, 1), GPIOID(GPA2, 0), &i2c_bb, &i2c_bus);
-    assert(!err);
+    if (err) {
+        ZF_LOGF("I2C error\n");
+        abort();
+    }
 
     /* USB hub */
     err = usb3503_init(&i2c_bus, &gpio_sys, NRESET_GPIO, HUBCONNECT_GPIO,
                        NINT_GPIO, &usb3503_hub);
-    assert(!err);
+    if (err) {
+        ZF_LOGF("Hub3503 error\n");
+        abort();
+    }
 
     /* PMIC for ethernet power change */
     err = pmic_init(&i2c_bus, PMIC_BUSADDR, &pmic);
-    assert(!err);
+    if (err) {
+        ZF_LOGF("PMIC error\n");
+        abort();
+    }
 
     /* Turn off the eth chip */
     eth_pwren(0);
@@ -189,8 +201,11 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, sync_ops_t *sync,
     if (id < 0 || id > USB_NHOSTS) {
         return -1;
     }
-    assert(io_ops);
-    assert(hdev);
+
+    if (!io_ops || !hdev) {
+        ZF_LOGF("Invalid arguments\n");
+        abort();
+    }
 
     hdev->id = id;
     hdev->dman = &io_ops->dma_manager;
@@ -211,7 +226,7 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, sync_ops_t *sync,
 
     /* Initialise the phy */
     if (usb_init_phy(io_ops)) {
-        assert(0);
+        ZF_LOGE("PHY transceiver error");
         return -1;
     }
 

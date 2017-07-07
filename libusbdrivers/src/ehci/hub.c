@@ -17,8 +17,11 @@
 volatile uint32_t *_get_portsc(struct ehci_host *h, int port)
 {
 	volatile uint32_t *reg;
-	assert(port > 0);
-	assert(port <= EHCI_HCS_N_PORTS(h->cap_regs->hcsparams));
+
+	if (port <= 0 || port > EHCI_HCS_N_PORTS(h->cap_regs->hcsparams)) {
+		ZF_LOGF("Invalid port\n");
+		abort();
+	}
 	reg = &h->op_regs->portsc[port - 1];
 	return reg;
 }
@@ -41,7 +44,10 @@ int _set_pf(void *token, int port, enum port_feature feature)
 		break;
 	case PORT_RESET:
 		/* HCHALTED bit in USBSTS should be a zero */
-		assert((edev->op_regs->usbsts & EHCISTS_HCHALTED) == 0);
+		if ((edev->op_regs->usbsts & EHCISTS_HCHALTED) != 0) {
+			ZF_LOGF("Failed to rest the host port\n");
+			abort();
+		}
 		edev->bmreset_c = BIT(port);
 		v &= ~EHCI_PORT_ENABLE;
 		v |= EHCI_PORT_RESET;
@@ -57,12 +63,15 @@ int _set_pf(void *token, int port, enum port_feature feature)
 		return 0;
 	case PORT_SUSPEND:
 		/* Must port owner 0 */
-		assert(!(*ps_reg & EHCI_PORT_OWNER));
+		if (*ps_reg & EHCI_PORT_OWNER) {
+			ZF_LOGF("Failed to suspend the port\n");
+			abort();
+		}
 		/* Perform the Suspend */
 		v |= EHCI_PORT_SUSPEND;
 		break;
 	default:
-		printf("EHCI: Unknown feature %d for set feature request\n",
+		ZF_LOGD("EHCI: Unknown feature %d for set feature request\n",
 		       feature);
 		return -1;
 	}
@@ -103,15 +112,21 @@ int _clr_pf(void *token, int port, enum port_feature feature)
 		break;
 	case PORT_SUSPEND:
 		/* Must be enabled */
-		assert(v & EHCI_PORT_ENABLE);
+		if (!(v & EHCI_PORT_ENABLE)) {
+			ZF_LOGF("Port must be enabled\n");
+			abort();
+		}
 		/* Must be in suspend state */
-		assert(v & EHCI_PORT_SUSPEND);
+		if (!(v & EHCI_PORT_SUSPEND)) {
+			ZF_LOGF("Port must be suspend\n");
+			abort();
+		}
 		/* Perform the Suspend */
 		v |= EHCI_PORT_FORCE_RESUME;
 		break;
 
 	default:
-		printf("EHCI: Unknown feature %d for clear feature request\n",
+		ZF_LOGD("EHCI: Unknown feature %d for clear feature request\n",
 		       feature);
 		return -1;
 	}

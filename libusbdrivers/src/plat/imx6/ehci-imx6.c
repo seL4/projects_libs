@@ -17,7 +17,6 @@
 #include "../../services.h"
 #include <stdio.h>
 #include <stddef.h>
-#include <assert.h>
 
 #define USB_PHY1_PADDR     0x20C9000
 #define USB_PHY2_PADDR     0x20CA000
@@ -265,8 +264,10 @@ phy_enable(int devid, ps_io_ops_t* o)
             _usb_phy1_regs = GET_RESOURCE(o, USB_PHY1);
         }
         phy_regs = _usb_phy1_regs;
-        assert(clk);
-        assert(phy_regs);
+        if (!clk || !phy_regs) {
+            ZF_LOGF("Clock error\n");
+            abort();
+        }
         break;
     case 1:
         clk = clk_get_clock(&o->clock_sys, CLK_USB2);
@@ -274,8 +275,10 @@ phy_enable(int devid, ps_io_ops_t* o)
             _usb_phy2_regs = GET_RESOURCE(o, USB_PHY2);
         }
         phy_regs = _usb_phy2_regs;
-        assert(clk);
-        assert(phy_regs);
+        if (!clk || !phy_regs) {
+            ZF_LOGF("Clock error\n");
+            abort();
+        }
         break;
     default:
         phy_regs = NULL;
@@ -286,7 +289,7 @@ phy_enable(int devid, ps_io_ops_t* o)
 
     if (phy_regs) {
         if (clk == NULL) {
-            LOG_ERROR("Failed to initialise USB PHY clock\n");
+            ZF_LOGD("Failed to initialise USB PHY clock\n");
         }
         /* Enable clocks */
         phy_regs->ctrl.clr = PHYCTRL_CLKGATE;
@@ -310,14 +313,16 @@ imx6_usb_generic_init(int id, ps_io_ops_t* ioops)
 {
     struct usb_host_regs * hc_regs = NULL;
     volatile uint32_t* hc_ctrl;
-    assert(id >= 0);
-    assert(id < USB_NHOSTS);
+
+    if (id < 0 || id > USB_NHOSTS) {
+        ZF_LOGF("Invalid host id\n");
+        abort();
+    }
     /* Check device mappings */
     if (_usb_regs == NULL) {
         _usb_regs = GET_RESOURCE(ioops, USB);
     }
     if (_usb_regs == NULL) {
-        assert(0);
         return -1;
     }
     hc_regs = (struct usb_host_regs*)_usb_regs + id;
@@ -336,15 +341,18 @@ imx6_usb_generic_init(int id, ps_io_ops_t* ioops)
 
 int
 usb_host_init(enum usb_host_id id, ps_io_ops_t* ioops, sync_ops_t *sync,
-		usb_host_t* hdev)
+               usb_host_t* hdev)
 {
     struct usb_host_regs * hc_regs = NULL;
     int err;
     if (id < 0 || id > USB_NHOSTS) {
         return -1;
     }
-    assert(ioops);
-    assert(hdev);
+
+    if (!ioops || !hdev) {
+        ZF_LOGF("Invalid arguments\n");
+        abort();
+    }
 
     hdev->id = id;
     hdev->dman = &ioops->dma_manager;
@@ -352,7 +360,6 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* ioops, sync_ops_t *sync,
 
     err = imx6_usb_generic_init(hdev->id, ioops);
     if (err) {
-        assert(0);
         return -1;
     }
     /* Pass control to EHCI initialisation */
@@ -384,17 +391,23 @@ usb_plat_otg_init(usb_otg_t odev, ps_io_ops_t* ioops)
 {
     struct usb_otg_regs* otg_regs;
     int err;
-    assert(odev->dman);
-    assert(odev->id == 0);
+
+    if (!odev->dman || !odev->id) {
+        ZF_LOGF("Invalid arguments\n");
+        abort();
+    }
     err = imx6_usb_generic_init(odev->id, ioops);
     if (err) {
-        assert(0);
         return -1;
     }
     otg_regs = (struct usb_otg_regs*)_usb_regs + odev->id;
     otg_regs->usbmode = USBMODE_DEV;
     err = ehci_otg_init(odev, (uintptr_t)&otg_regs->caplength);
-    assert(otg_regs->usbmode == USBMODE_DEV);
+    if (otg_regs->usbmode != USBMODE_DEV) {
+        ZF_LOGF("Set the hardware to device mode\n");
+        abort();
+    }
+
     return err;
 }
 

@@ -16,37 +16,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <assert.h>
 
 #include <usb/usb_host.h>
 #include <usb/drivers/usbhub.h>
-
-//#define EHCI_DEBUG_IRQ
-#define EHCI_DEBUG
-//#define EHCI_TRAFFIC_DEBUG
-
-#ifdef EHCI_DEBUG
-#define dprintf(...) printf(__VA_ARGS__)
-#else
-#define dprintf(...) do{}while(0)
-#endif
-
-#ifdef EHCI_DEBUG_IRQ
-#define EHCI_IRQDBG(...) EHCI_DBG(__VA_ARGS__)
-#else
-#define EHCI_IRQDBG(...) do{}while(0)
-#endif
-
-#define EHCI_DBG(host, ...)                     \
-        do {                                    \
-            struct ehci_host* h = host;         \
-            if(h){                              \
-                dprintf("EHCI %1d: ", h->devid);\
-            }else{                              \
-                dprintf("EHCI  ?: ");           \
-            }                                   \
-            dprintf(__VA_ARGS__);               \
-        }while(0)
 
 /*******************
  **** Registers ****
