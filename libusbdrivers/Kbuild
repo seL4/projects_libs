@@ -11,7 +11,7 @@
 #
 
 libs-$(CONFIG_LIB_USB) += libusbdrivers
-libusbdrivers: libsel4 $(libc) libplatsupport common libsel4sync
+libusbdrivers: libsel4 $(libc) libplatsupport common
 
 ifeq ($(CONFIG_LIB_LWIP),y)
 libusbdrivers: liblwip
