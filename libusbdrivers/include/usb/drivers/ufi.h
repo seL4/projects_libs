@@ -13,11 +13,8 @@
 
 #include <usb/usb.h>
 
-int usb_storage_bind(usb_dev_t usb_dev);
+int ufi_init_disk(usb_dev_t usb_dev)
+uint32_t ufi_read_capacity(usb_dev_t usb_dev);
 
-int usb_storage_init_disk(usb_dev_t usb_dev);
-uint32_t usb_storage_get_capacity(usb_dev_t usb_dev);
-int usb_storage_write(usb_dev_t usb_dev, void *buf, int size);
-int usb_storage_read(usb_dev_t usb_dev, void *buf, int size);
 #endif /* _USB_STORAGE_H_ */
 
