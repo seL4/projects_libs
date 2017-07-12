@@ -9,7 +9,6 @@
  *
  * @TAG(DATA61_BSD)
  */
-
 #include "usbhub.h"
 
 #include <stdio.h>

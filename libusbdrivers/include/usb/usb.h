@@ -9,7 +9,6 @@
  *
  * @TAG(DATA61_BSD)
  */
-
 #ifndef _USB_USB_H_
 #define _USB_USB_H_
 

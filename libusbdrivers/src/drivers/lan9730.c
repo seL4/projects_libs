@@ -9,7 +9,6 @@
  *
  * @TAG(DATA61_BSD)
  */
-
 #include <autoconf.h>
 #ifdef CONFIG_LIB_LWIP
 

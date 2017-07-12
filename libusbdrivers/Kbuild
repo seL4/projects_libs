@@ -9,7 +9,6 @@
 #
 # @TAG(DATA61_BSD)
 #
-
 libs-$(CONFIG_LIB_USB) += libusbdrivers
 libusbdrivers: libsel4 $(libc) libplatsupport common
 

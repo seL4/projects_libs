@@ -9,7 +9,6 @@
  *
  * @TAG(DATA61_BSD)
  */
-
 #ifndef _OTG_USBTTY_H_
 #define _OTG_USBTTY_H_
 

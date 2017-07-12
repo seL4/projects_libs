@@ -9,7 +9,6 @@
  *
  * @TAG(DATA61_BSD)
  */
-
 #ifndef _EHCI_EHCI_H_
 #define _EHCI_EHCI_H_
 

@@ -9,7 +9,6 @@
  *
  * @TAG(DATA61_BSD)
  */
-
 #include <stdlib.h>
 #include <platsupport/io.h>
 #include <platsupport/delay.h>

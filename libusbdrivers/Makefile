@@ -9,7 +9,6 @@
 #
 # @TAG(DATA61_BSD)
 #
-
 # Targets
 TARGETS := libusbdrivers.a
 

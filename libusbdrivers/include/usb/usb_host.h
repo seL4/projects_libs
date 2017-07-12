@@ -9,7 +9,6 @@
  *
  * @TAG(DATA61_BSD)
  */
-
 /*
  * These functions need to be implemented by platform
  * specific code.

@@ -9,7 +9,6 @@
  *
  * @TAG(DATA61_BSD)
  */
-
 #include <platsupport/clock.h>
 #include <usb/usb_host.h>
 #include "../usb_otg.h"

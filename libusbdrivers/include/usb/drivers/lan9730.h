@@ -9,7 +9,6 @@
  *
  * @TAG(DATA61_BSD)
  */
-
 #include <usb/usb.h>
 #include <autoconf.h>
 

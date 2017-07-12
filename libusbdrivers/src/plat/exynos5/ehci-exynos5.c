@@ -9,7 +9,6 @@
  *
  * @TAG(DATA61_BSD)
  */
-
 #include <platsupport/clock.h>
 #include <platsupport/gpio.h>
 #include <platsupport/mach/pmic.h>

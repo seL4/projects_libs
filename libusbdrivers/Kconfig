@@ -9,7 +9,6 @@
 #
 # @TAG(DATA61_BSD)
 #
-
 config LIB_USB
     bool "Build USB interface library"
     depends on HAVE_LIBC

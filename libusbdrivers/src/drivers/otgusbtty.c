@@ -9,7 +9,6 @@
  *
  * @TAG(DATA61_BSD)
  */
-
 #include "otgusbtty.h"
 #include <usb/usb.h>
 #include "../services.h"

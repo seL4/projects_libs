@@ -9,7 +9,6 @@
  *
  * @TAG(DATA61_BSD)
  */
-
 #include <usb/drivers/usb3503_hub.h>
 #include "../../../services.h"
 

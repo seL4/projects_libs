@@ -9,7 +9,6 @@
  *
  * @TAG(DATA61_BSD)
  */
-
 #ifndef _PLAT_USB_H_
 #define _PLAT_USB_H_
 

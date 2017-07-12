@@ -9,7 +9,6 @@
  *
  * @TAG(DATA61_BSD)
  */
-
 #ifndef _USB_DRIVERS_USBHUB_H_
 #define _USB_DRIVERS_USBHUB_H_
 

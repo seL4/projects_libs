@@ -9,7 +9,6 @@
  *
  * @TAG(DATA61_BSD)
  */
-
 #ifndef USB3503_HUB_H
 #define USB3503_HUB_H
 
