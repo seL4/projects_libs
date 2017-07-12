@@ -14,6 +14,7 @@
 
 
 #include <platsupport/io.h>
+#include <platsupport/sync.h>
 #include <usb/usb_host.h>
 
 // Maximum number of devices a host can manage
@@ -300,7 +301,7 @@ __set_interface_req(int index) {
  *                          associated with @ref{id}.
  * @return                  0 on success.
  */
-int usb_init(enum usb_host_id id, ps_io_ops_t* ioops, sync_ops_t *sync, usb_t* host);
+int usb_init(enum usb_host_id id, ps_io_ops_t* ioops, ps_sync_ops_t *sync, usb_t* host);
 
 /** Probe for a new device on the BUS.
  * This function is typically called by a HUB device when it

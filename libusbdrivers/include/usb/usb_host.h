@@ -18,6 +18,7 @@
 #define __USB_USB_HOST_H_
 
 #include <platsupport/io.h>
+#include <platsupport/sync.h>
 #include <usb/plat/usb.h>
 
 enum usb_speed {
@@ -116,14 +117,6 @@ static inline uintptr_t xact_get_paddr(struct xact* xact)
  */
 typedef int (*usb_cb_t)(void* token, enum usb_xact_status stat, int rbytes);
 
-
-typedef struct sync_ops {
-	void *(*sync_init)(int val);
-	int (*sync_lock)(void *lock);
-	int (*sync_unlock)(void *lock);
-	int (*sync_destroy)(void *lock);
-} sync_ops_t;
-
 struct usb_host;
 typedef struct usb_host usb_host_t;
 
@@ -137,7 +130,7 @@ struct usb_host {
     ps_dma_man_t* dman;
 
     /// Synchronization operations
-    sync_ops_t* sync;
+    ps_sync_ops_t* sync;
 
     /// Submit a transaction for transfer.
     int (*schedule_xact)(usb_host_t* hdev, uint8_t addr, int8_t hub_addr, uint8_t hub_port,
@@ -212,7 +205,7 @@ usb_hcd_count_ports(usb_host_t* hdev)
  *                    and the device ID.
  * @return            0 on success
  */
-int usb_host_init(enum usb_host_id id, ps_io_ops_t* ioops, sync_ops_t *sync, usb_host_t* hdev);
+int usb_host_init(enum usb_host_id id, ps_io_ops_t* ioops, ps_sync_ops_t *sync, usb_host_t* hdev);
 
 /** Return a list of IRQ numbers handled by the provided host
  * @param[in]  host   A handle to the USB host device in question

@@ -787,7 +787,7 @@ usb_new_device_with_host(usb_dev_t hub, usb_t * host, int port,
  ****************************/
 
 int
-usb_init(enum usb_host_id id, ps_io_ops_t * ioops, sync_ops_t * sync,
+usb_init(enum usb_host_id id, ps_io_ops_t * ioops, ps_sync_ops_t * sync,
 	 usb_t * host)
 {
 	usb_hub_t hub;

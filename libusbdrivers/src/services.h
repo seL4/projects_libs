@@ -76,42 +76,6 @@ ps_dma_free_pinned(ps_dma_man_t * dma_man, void *addr, size_t size)
 	ps_dma_free(dma_man, addr, size);
 }
 
-static inline void *usb_sync_init(sync_ops_t * sync, int val)
-{
-	if (!sync || !sync->sync_init) {
-		ZF_LOGE("Invalid arguments\n");
-		abort();
-	}
-	return sync->sync_init(val);
-}
-
-static inline void usb_sync_lock(sync_ops_t * sync, void *lock)
-{
-	if (!sync || !sync->sync_lock) {
-		ZF_LOGE("Invalid arguments\n");
-		abort();
-	}
-	sync->sync_lock(lock);
-}
-
-static inline void usb_sync_unlock(sync_ops_t * sync, void *lock)
-{
-	if (!sync || !sync->sync_unlock) {
-		ZF_LOGE("Invalid arguments\n");
-		abort();
-	}
-	sync->sync_unlock(lock);
-}
-
-static inline void usb_sync_destroy(sync_ops_t * sync, void *lock)
-{
-	if (!sync || !sync->sync_destroy) {
-		ZF_LOGE("Invalid arguments\n");
-		abort();
-	}
-	sync->sync_destroy(lock);
-}
-
 /* Circular Buffer */
 struct circ_buf {
 	char *buf;

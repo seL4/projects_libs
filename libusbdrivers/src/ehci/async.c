@@ -371,7 +371,7 @@ qtd_enqueue(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn)
 		qhn->qh->td_overlay.next = tdn->ptd;
 		qhn->tdns = tdn;
 	} else {
-		usb_sync_lock(edev->sync, qhn->lock);
+		ps_sync_lock(edev->sync, qhn->lock);
 
 		/* Find the last TD */
 		last_tdn = qhn->tdns;
@@ -388,7 +388,7 @@ qtd_enqueue(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn)
 		last_tdn->next = tdn;
 		last_tdn->td->next = tdn->ptd & ~TDLP_INVALID;
 
-		usb_sync_unlock(edev->sync, qhn->lock);
+		ps_sync_unlock(edev->sync, qhn->lock);
 	}
 
 	/* Enable all TDs */
@@ -435,7 +435,7 @@ void ehci_async_complete(struct ehci_host *edev)
 	}
 
 	do {
-		usb_sync_lock(edev->sync, qhn->lock);
+		ps_sync_lock(edev->sync, qhn->lock);
 
 		tdn = qhn->tdns;
 		sum = 0;
@@ -477,7 +477,7 @@ void ehci_async_complete(struct ehci_host *edev)
 			tdn = tdn->next;
 		}
 
-		usb_sync_unlock(edev->sync, qhn->lock);
+		ps_sync_unlock(edev->sync, qhn->lock);
 		qhn = qhn->next;
 	} while (qhn != edev->alist_tail);
 }

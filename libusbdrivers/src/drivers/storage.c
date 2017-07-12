@@ -14,7 +14,6 @@
 
 #include "../services.h"
 #include "storage.h"
-#include "ufi.h"
 
 //#define MASS_STORAGE_DEBUG
 
