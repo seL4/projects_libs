@@ -21,7 +21,7 @@
 #define USB_NDEVICES 32
 
 // Maximum number of endpoints per device
-#define USB_MAX_EPS 16
+#define USB_MAX_EPS  32
 
 // Maximum size of a string descriptor
 #define MAX_STRING_SIZE 255
@@ -89,11 +89,12 @@ struct usb_dev {
     int (*disconnect)(struct usb_dev* udev);
     struct udev_priv    *dev_data;
     /*
-     * A device can have up to 16 endpoints(only 4 for low speed devices),
-     * control endpoint is separate and is shared by all interfaces.
+     * A device can have up to 32 data endpoints(16 IN, 16 OUT and only 4 for
+     * low speed devices). The control endpoint is separate and is shared by all
+     * interfaces.
      */
     struct endpoint *ep_ctrl;         // Control endpoint of the device
-    struct endpoint *ep[USB_MAX_EPS]; // The endpoints of the device
+    struct endpoint *ep[USB_MAX_EPS]; // Data endpoints of the device
 
     /* For device lists */
     struct usb_dev      *next;

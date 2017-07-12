@@ -108,7 +108,11 @@ pl2303_startup_magic(usb_dev_t udev)
 	xact[1].type = PID_IN;
 	req = xact_get_vaddr(&xact[0]);
 
-	/* Perform magic */
+	/*
+	 * Send Prolific private initial data.
+	 *
+	 * It is found by sniffing the official windows driver.
+	 */
 	req->bRequest = PL2303_VENDOR_REQ;
 
 #define magic_request(typ, idx, val) \
