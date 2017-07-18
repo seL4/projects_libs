@@ -339,7 +339,7 @@ imx6_usb_generic_init(int id, ps_io_ops_t* ioops)
 
 
 int
-usb_host_init(enum usb_host_id id, ps_io_ops_t* ioops, ps_sync_ops_t *sync,
+usb_host_init(enum usb_host_id id, ps_io_ops_t* ioops, ps_mutex_ops_t *sync,
                usb_host_t* hdev)
 {
     struct usb_host_regs * hc_regs = NULL;

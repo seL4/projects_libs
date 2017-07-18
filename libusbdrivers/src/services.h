@@ -22,6 +22,7 @@ void otg_irq(void);
 #ifdef ARCH_ARM
 #define udelay(ms)  ps_udelay(ms)
 #else
+//#define udelay(ms)  ps_udelay(ms)
 static inline void udelay(uint32_t us)
 {
 	volatile uint32_t i;
@@ -76,35 +77,3 @@ ps_dma_free_pinned(ps_dma_man_t * dma_man, void *addr, size_t size)
 	ps_dma_free(dma_man, addr, size);
 }
 
-/* Circular Buffer */
-struct circ_buf {
-	char *buf;
-	int head;
-	int tail;
-	int size;
-};
-
-static inline int circ_buf_is_full(struct circ_buf *cb)
-{
-	return (cb->tail + 1) % cb->size == cb->head;
-}
-
-static inline int circ_buf_is_empty(struct circ_buf *cb)
-{
-	return cb->tail == cb->head;
-}
-
-static inline void circ_buf_put(struct circ_buf *cb, unsigned char c)
-{
-	cb->buf[cb->tail] = c;
-	cb->tail = (cb->tail + 1) % cb->size;
-}
-
-static inline unsigned char circ_buf_get(struct circ_buf *cb)
-{
-	unsigned char c;
-
-	c = cb->buf[cb->head];
-	cb->head = (cb->head + 1) % cb->size;
-	return c;
-}

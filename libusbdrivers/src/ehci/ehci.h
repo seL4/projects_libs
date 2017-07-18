@@ -247,7 +247,7 @@ struct ehci_host {
 	volatile struct ehci_host_op *op_regs;
 	/* Support */
 	ps_dma_man_t *dman;
-	ps_sync_ops_t *sync;
+	ps_mutex_ops_t *sync;
 	void *state;
 };
 

@@ -12,8 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <sync/atomic.h>
-
+#include <utils/circular_buffer.h>
 #include "../services.h"
 #include "cdc.h"
 
@@ -92,7 +91,7 @@ struct usb_cdc_device {
 	struct endpoint *ep_in;	 //BULK in endpoint
 	struct endpoint *ep_out; //BULK out endpoint
 	struct xact read_xact;   //Current read request
-	struct circ_buf read_buf;  //Read buffer
+	circ_buf_t read_buf;  //Read buffer
 	int read_in_progress;
 };
 
@@ -216,20 +215,26 @@ int usb_cdc_bind(usb_dev_t udev)
 		}
 	}
 
-	cdc->read_buf.buf = usb_malloc(CDC_READ_BUFFER_SIZE);
-	if (!cdc->read_buf.buf) {
-		ZF_LOGD("Failed to allocate ring buffer!\n");
+	char *buf = usb_malloc(CDC_READ_BUFFER_SIZE);
+	if (!buf) {
+		ZF_LOGD("Failed to allocate circular buffer!\n");
 		usb_free(cdc);
 		return -1;
 	}
-	cdc->read_buf.size = CDC_READ_BUFFER_SIZE;
-	cdc->read_buf.head = 0;
-	cdc->read_buf.tail = 0;
+
+	err = circ_buf_new(buf, CDC_READ_BUFFER_SIZE, &cdc->read_buf);
+	if (err) {
+		ZF_LOGD("Failed to allocate circular buffer!\n");
+		usb_free(buf);
+		usb_free(cdc);
+		return -1;
+	}
 
 	class = usbdev_get_class(udev);
 	if (class != USB_CLASS_CDCDATA && class != USB_CLASS_COMM) {
 		ZF_LOGD("Not a CDC device(%d)\n", class);
-		usb_free(cdc->read_buf.buf);
+		circ_buf_free(&cdc->read_buf);
+		usb_free(buf);
 		usb_free(cdc);
 		return -1;
 	}

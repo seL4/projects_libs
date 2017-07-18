@@ -119,7 +119,10 @@ int ehci_schedule_xact(usb_host_t *hdev, uint8_t addr, int8_t hub_addr,
 	qhn = (struct QHn *)ep->hcpriv;
 	if (!qhn) {
 		qhn = qhn_alloc(edev, addr, hub_addr, hub_port, speed, ep);
-		qhn->lock = ps_sync_init(edev->sync, 1);
+		qhn->lock = ps_mutex_new(edev->sync);
+		if (!qhn->lock) {
+			ZF_LOGE("Failed to allocate mutex\n");
+		}
 		ep->hcpriv = qhn;
 
 		if (ep->type == EP_CONTROL || ep->type == EP_BULK) {

@@ -109,7 +109,7 @@ static uintptr_t ehci_pci_init(uint16_t vid, uint16_t did,
 }
 
 int
-usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, sync_ops_t *sync,
+usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, ps_mutex_ops_t *sync,
 		usb_host_t* hdev)
 {
 	int err;
