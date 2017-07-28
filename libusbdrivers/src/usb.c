@@ -19,6 +19,7 @@
 #include "services.h"
 #include <string.h>
 #include <utils/util.h>
+#include <utils/sglib.h>
 
 #define NUM_DEVICES 32
 
@@ -130,8 +131,7 @@ static int devlist_insert(usb_dev_t d)
 		}
 	}
 	/* Add the device to the list */
-	d->next = host->devlist;
-	host->devlist = d;
+	SGLIB_LIST_ADD(struct usb_dev, host->devlist, d, next);
 	host->addrbm |= (1 << i);
 
 	/* Update the next address for next insertion */
@@ -149,14 +149,9 @@ static int devlist_insert(usb_dev_t d)
 static void devlist_remove(usb_dev_t d)
 {
 	usb_t *host = d->host;
-	usb_dev_t *dptr = &host->devlist;
-	while (*dptr != d) {
-		if (*dptr != NULL) {
-			ZF_LOGW("USB: Device not in list\n");
-		}
-		dptr = &(*dptr)->next;
-	}
-	*dptr = d->next;
+
+	SGLIB_LIST_DELETE(struct usb_dev, host->devlist, d, next);
+
 	d->next = NULL;
 	host->addrbm &= ~(1 << d->addr);
 	d->addr = -1;
@@ -169,11 +164,13 @@ static usb_dev_t devlist_at(usb_t * host, int addr)
 	if (addr < 0 || addr > NUM_DEVICES) {
 		ZF_LOGW("USB: Device not found\n");
 	}
+
 	for (d = host->devlist; d != NULL; d = d->next) {
 		if (d->addr == addr) {
 			return d;
 		}
 	}
+
 	return NULL;
 }
 
@@ -696,7 +693,7 @@ usb_new_device_with_host(usb_dev_t hub, usb_t * host, int port,
 	 * b) product and vendor ID
 	 * c) device class
 	 */
-	ZF_LOGE("USB: Determining maximum packet size on the control endpoint\n");
+	ZF_LOGD("USB: Determining maximum packet size on the control endpoint\n");
 	/*
 	 * We need the value of bMaxPacketSize in order to request
 	 * the bMaxPacketSize. A work around to this circular
@@ -761,14 +758,14 @@ usb_new_device_with_host(usb_dev_t hub, usb_t * host, int port,
 	udev->prod_id = d_desc->idProduct;
 	udev->vend_id = d_desc->idVendor;
 	udev->class = d_desc->bDeviceClass;
-	ZF_LOGD("USB %d: idVendor  0x%04x | ", udev->addr, udev->vend_id);
+	printf("USB %d: idVendor  0x%04x | ", udev->addr, udev->vend_id);
 	if (d_desc->iManufacturer) {
 		usb_get_string_desc(udev, d_desc->iManufacturer, &s_desc);
 		print_string_desc(&s_desc);
 	} else {
 		printf("\n");
 	}
-	ZF_LOGD("USB %d: idProduct 0x%04x | ", udev->addr, udev->prod_id);
+	printf("USB %d: idProduct 0x%04x | ", udev->addr, udev->prod_id);
 	if (d_desc->iProduct) {
 		usb_get_string_desc(udev, d_desc->iProduct, &s_desc);
 		print_string_desc(&s_desc);

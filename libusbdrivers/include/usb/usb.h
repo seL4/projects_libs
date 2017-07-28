@@ -14,7 +14,7 @@
 
 
 #include <platsupport/io.h>
-#include <platsupport/sync.h>
+#include <platsupport/sync/sync.h>
 #include <usb/usb_host.h>
 
 // Maximum number of devices a host can manage

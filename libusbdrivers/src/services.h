@@ -22,14 +22,7 @@ void otg_irq(void);
 #ifdef ARCH_ARM
 #define udelay(ms)  ps_udelay(ms)
 #else
-//#define udelay(ms)  ps_udelay(ms)
-static inline void udelay(uint32_t us)
-{
-	volatile uint32_t i;
-	for (; us > 0; us--) {
-		for (i = 0; i < 1000; i++) ;
-	}
-}
+#define udelay(ms)  ps_udelay(ms)
 #endif
 #define msdelay(ms) udelay((ms) * 1000)
 

@@ -174,11 +174,11 @@ static void _handle_port_change(usb_hub_t h, int port)
 	}
 
 	if (!port) {
-		ZF_LOGD(h, "Error: check hub status!\n");
+		ZF_LOGD("Error: check hub status!\n");
 		return;
 	}
 
-	ZF_LOGD(h, "Handle status change of port %d\n", port);
+	ZF_LOGD("Handle status change of port %d\n", port);
 
 	/* Get port status change */
 	xact[0].type = PID_SETUP;
@@ -206,7 +206,7 @@ static void _handle_port_change(usb_hub_t h, int port)
 	change = sts->wPortChange;
 	status = sts->wPortStatus;
 
-	ZF_LOGD(h, "Status change (0x%x:0x%x) on port %d.\n",
+	ZF_LOGD("Status change (0x%x:0x%x) on port %d.\n",
 		change, status, port);
 
 	/* Attach and detach detect event */
@@ -221,7 +221,7 @@ static void _handle_port_change(usb_hub_t h, int port)
 		}
 
 		if (status & BIT(PORT_CONNECTION)) {
-			ZF_LOGD(h, "Port %d connected\n", port);
+			ZF_LOGD("Port %d connected\n", port);
 			/* Wait for the device to stabilize, USB spec 9.1.2 */
 			msdelay(100);
 
@@ -296,7 +296,7 @@ static void _handle_port_change(usb_hub_t h, int port)
 				usb_hub_driver_bind(new_dev, &new_hub);
 			}
 		} else {
-			ZF_LOGD(h, "Port %d disconnected\n", port);
+			ZF_LOGD("Port %d disconnected\n", port);
 			*req = __set_port_feature_req(port, PORT_SUSPEND);
 			ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
 						   xact, 1, NULL, NULL);
@@ -313,7 +313,7 @@ static void _handle_port_change(usb_hub_t h, int port)
 
 	/* Port enable */
 	if (change & BIT(PORT_ENABLE)) {
-		ZF_LOGD(h, "Port %d enabled\n", port);
+		ZF_LOGD("Port %d enabled\n", port);
 		/* Clear the port connection status */
 		*req = __clear_port_feature_req(port, C_PORT_CONNECTION);
 		ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
@@ -326,7 +326,7 @@ static void _handle_port_change(usb_hub_t h, int port)
 
 	/* Port suspend */
 	if (change & BIT(PORT_SUSPEND)) {
-		ZF_LOGD(h, "Port %d suspended\n", port);
+		ZF_LOGD("Port %d suspended\n", port);
 		/* Clear suspend status */
 		*req = __clear_port_feature_req(port, C_PORT_SUSPEND);
 		ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
@@ -339,7 +339,7 @@ static void _handle_port_change(usb_hub_t h, int port)
 
 	/* Port over-current */
 	if (change & BIT(PORT_OVER_CURRENT)) {
-		ZF_LOGD(h, "Port %d over-current\n", port);
+		ZF_LOGD("Port %d over-current\n", port);
 		/* Clear over-current status */
 		*req = __clear_port_feature_req(port, C_PORT_OVER_CURRENT);
 		ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
@@ -352,7 +352,7 @@ static void _handle_port_change(usb_hub_t h, int port)
 
 	/* Port reset */
 	if (change & BIT(PORT_RESET)) {
-		ZF_LOGD(h, "Port %d reset\n", port);
+		ZF_LOGD("Port %d reset\n", port);
 		/* Clear reset status */
 		*req = __clear_port_feature_req(port, C_PORT_RESET);
 		ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
@@ -377,11 +377,11 @@ hub_irq_handler(void *token, enum usb_xact_status stat, int bytes_remaining)
 
 	/* Check the status */
 	if (stat != XACTSTAT_SUCCESS) {
-		ZF_LOGD(h, "Received unsuccessful IRQ\n");
+		ZF_LOGD("Received unsuccessful IRQ\n");
 		return 1;
 	}
 
-	ZF_LOGD(h, "Handling IRQ\n");
+	ZF_LOGD("Handling IRQ\n");
 
 	intbm = h->intbm;
 	if (intbm != xact_get_vaddr(&h->int_xact)) {
@@ -404,7 +404,7 @@ hub_irq_handler(void *token, enum usb_xact_status stat, int bytes_remaining)
 		intbm[i] = 0;
 	}
 	if (!handled) {
-		ZF_LOGD(h, "Spurious IRQ\n");
+		ZF_LOGD("Spurious IRQ\n");
 	}
 
 	usbdev_schedule_xact(h->udev, h->udev->ep[0],
@@ -465,7 +465,7 @@ int usb_hub_driver_bind(usb_dev_t udev, usb_hub_t *hub)
 	udev->dev_data = (struct udev_priv *)h;
 
 	/* Get hub descriptor for nports and power delay */
-	ZF_LOGD(h, "Get hub descriptor\n");
+	ZF_LOGD("Get hub descriptor\n");
 	xact[0].type = PID_SETUP;
 	xact[0].len = sizeof(*req);
 	xact[1].type = PID_IN;
@@ -494,7 +494,7 @@ int usb_hub_driver_bind(usb_dev_t udev, usb_hub_t *hub)
 		abort();
 	}
 	memset(h->port, 0, sizeof(*h->port) * h->nports);
-	ZF_LOGD(h, "Parsing config\n");
+	ZF_LOGD("Parsing config\n");
 	h->int_ep = -1;
 	err = usbdev_parse_config(h->udev, &hub_config_cb, h);
 	if (err || h->int_ep == -1) {
@@ -502,7 +502,7 @@ int usb_hub_driver_bind(usb_dev_t udev, usb_hub_t *hub)
 		h = NULL;
 		return -1;
 	}
-	ZF_LOGD(h, "Configure HUB\n");
+	ZF_LOGD("Configure HUB\n");
 	xact[0].type = PID_SETUP;
 	xact[0].len = sizeof(*req);
 
@@ -530,7 +530,7 @@ int usb_hub_driver_bind(usb_dev_t udev, usb_hub_t *hub)
 	usb_alloc_xact(h->udev->dman, xact, 1);
 	req = xact_get_vaddr(&xact[0]);
 	for (i = 1; i <= h->nports; i++) {
-		ZF_LOGD(h, "Power on port %d\n", i);
+		ZF_LOGD("Power on port %d\n", i);
 		*req = __set_port_feature_req(i, PORT_POWER);
 		err = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
 					   xact, 1, NULL, NULL);
@@ -561,7 +561,7 @@ int usb_hub_driver_bind(usb_dev_t udev, usb_hub_t *hub)
 		abort();
 	}
 	h->intbm = xact_get_vaddr(&h->int_xact);
-	ZF_LOGD(h, "Registering for INT\n");
+	ZF_LOGD("Registering for INT\n");
 	/* FIXME: Search for the right ep */
 	usbdev_schedule_xact(udev, udev->ep[0],
 			     &h->int_xact, 1, &hub_irq_handler, h);

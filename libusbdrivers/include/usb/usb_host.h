@@ -18,7 +18,7 @@
 #define __USB_USB_HOST_H_
 
 #include <platsupport/io.h>
-#include <platsupport/sync.h>
+#include <platsupport/sync/sync.h>
 #include <usb/plat/usb.h>
 
 enum usb_speed {

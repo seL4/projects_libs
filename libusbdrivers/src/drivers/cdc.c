@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include <utils/circular_buffer.h>
+#include <platsupport/sync/atomic.h>
 #include "../services.h"
 #include "cdc.h"
 
@@ -419,7 +420,7 @@ void cdc_send_encap_cmd(usb_dev_t udev, const void *buf, int len)
 	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
 
 	usb_cdc_mgmt_msg(cdc, USB_DIR_OUT | USB_TYPE_CLS | USB_RCPT_INTERFACE,
-			SEND_ENCAPSULATED_COMMAND, 0, buf, len);
+			SEND_ENCAPSULATED_COMMAND, 0, (void*)buf, len);
 }
 
 void cdc_get_encap_resp(usb_dev_t udev, void *buf, int len)
@@ -463,7 +464,8 @@ void acm_set_line_coding(usb_dev_t udev, const struct acm_line_coding *coding)
 	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
 
 	usb_cdc_mgmt_msg(cdc, USB_DIR_OUT | USB_TYPE_CLS | USB_RCPT_INTERFACE,
-			SET_LINE_CODING, 0, coding, sizeof(*coding));
+			SET_LINE_CODING, 0, (struct acm_line_coding*)coding,
+			sizeof(*coding));
 }
 
 void acm_get_line_coding(usb_dev_t udev, struct acm_line_coding *coding)
