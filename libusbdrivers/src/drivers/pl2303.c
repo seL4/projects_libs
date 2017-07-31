@@ -9,6 +9,11 @@
  *
  * @TAG(DATA61_BSD)
  */
+
+/**
+ * @brief Prolific PL2303 USB to Serial adaptor
+ * @see http://www.prolific.com.tw/US/ShowProduct.aspx?p_id=232&pcid=41
+ */
 #include <stdio.h>
 #include <string.h>
 

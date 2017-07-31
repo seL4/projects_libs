@@ -9,6 +9,11 @@
  *
  * @TAG(DATA61_BSD)
  */
+
+/**
+ * @brief USB hub driver
+ * @see USB 2.0 spec, Chapter 11
+ */
 #include "usbhub.h"
 
 #include <stdio.h>

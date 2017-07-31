@@ -9,6 +9,11 @@
  *
  * @TAG(DATA61_BSD)
  */
+
+/**
+ * @brief USB Mass Storage Class driver
+ * @see USB Mass Storage Class Bulk-Only Transport spec
+ */
 #include <stdio.h>
 #include <string.h>
 

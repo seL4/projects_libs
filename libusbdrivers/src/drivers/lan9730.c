@@ -9,6 +9,11 @@
  *
  * @TAG(DATA61_BSD)
  */
+
+/**
+ * @brief Microchip LAN9730 USB to 10/100 Ethernet adaptor
+ * @see https://www.microchip.com/wwwproducts/en/LAN9730
+ */
 #include <autoconf.h>
 #ifdef CONFIG_LIB_LWIP
 

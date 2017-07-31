@@ -9,6 +9,10 @@
  *
  * @TAG(DATA61_BSD)
  */
+
+/**
+ * @brief EHCI asynchronous schedule implementation.
+ */
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>

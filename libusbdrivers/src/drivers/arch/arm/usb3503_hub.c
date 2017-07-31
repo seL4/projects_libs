@@ -9,6 +9,12 @@
  *
  * @TAG(DATA61_BSD)
  */
+
+/**
+ * @brief Microchip USB3503 USB 2.0 hub controller
+ * @see http://www.microchip.com/wwwproducts/en/USB3503
+ */
+
 #include <usb/drivers/usb3503_hub.h>
 #include "../../../services.h"
 

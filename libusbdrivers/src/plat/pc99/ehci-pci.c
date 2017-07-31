@@ -51,8 +51,8 @@
 #define USB_HOST2_DID    0x1E2D
 
 /*
- * TODO: Should get these numbers from IOAPIC tables. Remove them once the
- * kernel exposes IOAPIC to the user land.
+ * TODO: Should get these numbers from IOAPIC tables. Remove them once we have a
+ * proper parser for the IOAPIC tables.
  */
 #define USB_HOST1_IRQ    23
 #define USB_HOST2_IRQ    16

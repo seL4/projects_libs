@@ -9,6 +9,11 @@
  *
  * @TAG(DATA61_BSD)
  */
+
+/**
+ * @brief USB HID subclass driver
+ * @see USB HID subclass specification
+ */
 #include <stdio.h>
 #include <string.h>
 

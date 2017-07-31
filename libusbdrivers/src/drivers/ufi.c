@@ -9,6 +9,11 @@
  *
  * @TAG(DATA61_BSD)
  */
+
+/**
+ * @brief UFI Command implementation for USB Mass Storage Class
+ * @see USB Mass Storage Class UFI Command Spec
+ */
 #include <platsupport/delay.h>
 #include <string.h>
 #include <usb/drivers/ufi.h>

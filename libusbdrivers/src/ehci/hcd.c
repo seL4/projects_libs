@@ -9,6 +9,10 @@
  *
  * @TAG(DATA61_BSD)
  */
+
+/**
+ * @brief EHCI host controller driver
+ */
 #include <math.h>
 
 #include "../services.h"

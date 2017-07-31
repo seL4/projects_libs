@@ -9,6 +9,11 @@
  *
  * @TAG(DATA61_BSD)
  */
+
+/**
+ * @brief USB CDC ACM driver
+ * @see USB CDC specification and CDC PSTN subclass specification
+ */
 #include <stdio.h>
 #include <string.h>
 

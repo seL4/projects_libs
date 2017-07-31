@@ -9,6 +9,10 @@
  *
  * @TAG(DATA61_BSD)
  */
+/**
+ * @brief USB Keyboard Driver
+ * @see USB HID spec, Appendix B
+ */
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
