@@ -13,6 +13,6 @@
 TARGETS := libjansson.a
 
 HDRFILES := ${SOURCE_DIR}/jansson-2.7/src/jansson.h ${SOURCE_DIR}/include/jansson_config.h
-CFILES := $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/jansson-2.7/src/*.c))
+CFILES := $(sort $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/jansson-2.7/src/*.c)))
 
 include ${SEL4_COMMON}/common.mk
