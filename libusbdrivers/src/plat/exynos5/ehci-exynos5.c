@@ -153,7 +153,6 @@ board_pwren(int port, int state)
         break;
     default:
         ZF_LOGF("Invalid port for power change\n");
-        abort();
     }
 }
 
@@ -164,12 +163,10 @@ usb_plat_gpio_init(ps_io_ops_t* io_ops)
     err = gpio_sys_init(io_ops, &gpio_sys);
     if (err) {
         ZF_LOGF("GPIO error\n");
-        abort();
     }
     err = i2c_bb_init(&gpio_sys, GPIOID(GPA2, 1), GPIOID(GPA2, 0), &i2c_bb, &i2c_bus);
     if (err) {
         ZF_LOGF("I2C error\n");
-        abort();
     }
 
     /* USB hub */
@@ -177,14 +174,12 @@ usb_plat_gpio_init(ps_io_ops_t* io_ops)
                        NINT_GPIO, &usb3503_hub);
     if (err) {
         ZF_LOGF("Hub3503 error\n");
-        abort();
     }
 
     /* PMIC for ethernet power change */
     err = pmic_init(&i2c_bus, PMIC_BUSADDR, &pmic);
     if (err) {
         ZF_LOGF("PMIC error\n");
-        abort();
     }
 
     /* Turn off the eth chip */
@@ -203,7 +198,6 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, sync_ops_t *sync,
 
     if (!io_ops || !hdev) {
         ZF_LOGF("Invalid arguments\n");
-        abort();
     }
 
     hdev->id = id;

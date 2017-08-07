@@ -363,7 +363,6 @@ static int write_register(struct usb_eth *eth, int addr, uint32_t v)
 				   eth->reg_write_xact, 2, NULL, NULL);
 	if (err) {
 		ZF_LOGF("Transaction error\n");
-		abort();
 	}
 	return err;
 }
@@ -384,7 +383,6 @@ static int read_register(struct usb_eth *eth, int addr, uint32_t *v)
 				   eth->reg_read_xact, 2, NULL, NULL);
 	if (err) {
 		ZF_LOGF("Transaction error\n");
-		abort();
 	}
 	*v = *d;
 	return err;
@@ -399,14 +397,12 @@ static int read_phy_register(struct usb_eth *eth, int addr, uint32_t *v)
 	err = write_register(eth, REG_MII_ACCESS, data);;
 	if (err) {
 		ZF_LOGF("Write PHY error\n");
-		abort();
 	}
 	/* Wait for completion */
 	do {
 		err = read_register(eth, REG_MII_ACCESS, &data);
 		if (err) {
 			ZF_LOGF("Read PHY error\n");
-			abort();
 		}
 	} while (data & BIT(0));
 
@@ -414,7 +410,6 @@ static int read_phy_register(struct usb_eth *eth, int addr, uint32_t *v)
 	err = read_register(eth, REG_MII_DATA, v);
 	if (err) {
 		ZF_LOGF("Read PHY error\n");
-		abort();
 	}
 	return err;
 }
@@ -427,21 +422,18 @@ static int write_phy_register(struct usb_eth *eth, int addr, uint32_t v)
 	err = write_register(eth, REG_MII_DATA, v);
 	if (err) {
 		ZF_LOGF("Write PHY error\n");
-		abort();
 	}
 	/* Issue the request */
 	data = BIT(11) | (addr << 6) | BIT(1) | BIT(0);
 	err = write_register(eth, REG_MII_ACCESS, data);;
 	if (err) {
 		ZF_LOGF("Write PHY error\n");
-		abort();
 	}
 	/* Wait for completion */
 	do {
 		err = read_register(eth, REG_MII_ACCESS, &data);
 		if (err) {
 			ZF_LOGF("Read PHY error\n");
-			abort();
 		}
 	} while (data & BIT(0));
 	return 0;
@@ -657,7 +649,6 @@ static int do_lan9730_input(struct netif *netif, struct xact *xact)
 	p = pbuf_alloc(PBUF_RAW, len, PBUF_POOL);
 	if (!p) {
 		ZF_LOGF("LWIP out of memory\n");
-		abort();
 	}
 	for (q = p; q != NULL; q = q->next) {
 		memcpy(q->payload, payload, q->len);
@@ -725,7 +716,6 @@ eth_irq_handler(void *token, enum usb_xact_status stat, int bytes_remaining)
 
 	if (!token) {
 		ZF_LOGF("Invalid token\n");
-		abort();
 	}
 	eth = netif_get_eth_driver(netif);
 	len = eth->int_xact.len - bytes_remaining;
@@ -792,7 +782,6 @@ static err_t tx_packet(struct usb_eth *eth, struct pbuf *p)
 	err = usbdev_schedule_xact(eth->udev, eth->ep_out, xact, 2, NULL, NULL);
 	if (err) {
 		ZF_LOGF("Transaction error\n");
-		abort();
 	}
 
 	return err;
@@ -817,7 +806,6 @@ int lan9730_input(struct netif *netif)
 	err = usbdev_schedule_xact(eth->udev, eth->ep_in, &xact, 1, NULL, NULL);
 	if (err) {
 		ZF_LOGF("Transaction error\n");
-		abort();
 	}
 	if (err <= 0) {
 		/* Nothing there. Return */
@@ -972,7 +960,6 @@ struct netif *lan9730_driver_bind(usb_dev_t *udev)
 	err = usb_alloc_xact(udev->dman, &eth->int_xact, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 	eth->intbm = xact_get_vaddr(&eth->int_xact);
 	memset(eth->intbm, 0, eth->int_xact.len);
@@ -1008,7 +995,6 @@ int lan9730_poll_status(struct netif *netif)
 	err = usb_alloc_xact(eth->udev->dman, xact, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 	status = (uint32_t *) xact_get_vaddr(&xact[0]);
 

@@ -91,7 +91,6 @@ usb_storage_print_cbw(struct cbw *cbw)
 {
 	if (!cbw) {
 		ZF_LOGF("Invalid CBW\n");
-		abort();
 	}
 
 	printf("==== CBW ====\n");
@@ -156,8 +155,7 @@ usb_storage_set_configuration(struct usb_dev *udev)
     /* Get memory for the request */
     err = usb_alloc_xact(udev->dman, &xact, 1);
     if (err) {
-        ZF_LOGD("Not enough DMA memory!\n");
-	abort();
+        ZF_LOGF("Not enough DMA memory!\n");
     }
 
     /* Fill in the request */
@@ -186,8 +184,7 @@ usb_storage_reset(struct usb_dev *udev)
     /* Get memory for the request */
     err = usb_alloc_xact(udev->dman, &xact, 1);
     if (err) {
-        ZF_LOGD("Not enough DMA memory!\n");
-	abort();
+        ZF_LOGF("Not enough DMA memory!\n");
     }
 
     /* Fill in the request */
@@ -251,7 +248,6 @@ usb_storage_bind(struct usb_dev *udev)
 
     if (!udev) {
 	    ZF_LOGF("Invalid device\n");
-	    abort();
     }
 
     ubms = usb_malloc(sizeof(struct usb_storage_device));
@@ -270,7 +266,6 @@ usb_storage_bind(struct usb_dev *udev)
     err = usbdev_parse_config(udev, usb_storage_config_cb, ubms);
     if (err) {
 	    ZF_LOGF("Invalid descriptors\n");
-	    abort();
     }
 
     /* Find endpoints */
@@ -324,7 +319,6 @@ usb_storage_xfer(struct usb_dev *udev, void *cb, size_t cb_len,
     err = usb_alloc_xact(udev->dman, &xact, 1);
     if (err) {
 	    ZF_LOGF("Out of DMA memory\n");
-	    abort();
     }
 
     cbw = xact_get_vaddr(&xact);
@@ -347,7 +341,6 @@ usb_storage_xfer(struct usb_dev *udev, void *cb, size_t cb_len,
     err = usbdev_schedule_xact(udev, ep, &xact, 1, NULL, NULL);
     if (err < 0) {
         ZF_LOGF("Transaction error\n");
-        abort();
     }
     tag = cbw->tag;
     usb_destroy_xact(udev->dman, &xact, 1);
@@ -361,7 +354,6 @@ usb_storage_xfer(struct usb_dev *udev, void *cb, size_t cb_len,
         err = usbdev_schedule_xact(udev, ep, data, ndata, NULL, NULL);
         if (err < 0) {
 	    ZF_LOGF("Transaction error\n");
-	    abort();
         }
     }
     msdelay(200);
@@ -372,7 +364,6 @@ usb_storage_xfer(struct usb_dev *udev, void *cb, size_t cb_len,
     err = usb_alloc_xact(udev->dman, &xact, 1);
     if (err < 0) {
         ZF_LOGF("Out of DMA memory\n");
-        abort();
     }
 
     csw = xact_get_vaddr(&xact);
@@ -383,7 +374,7 @@ usb_storage_xfer(struct usb_dev *udev, void *cb, size_t cb_len,
     err = usbdev_schedule_xact(udev, ep, &xact, 1, NULL, NULL);
     ZF_LOGD("CSW status(%u)\n", csw->status);
     if (err < 0) {
-        abort();
+        ZF_LOGF("Transaction error\n");
     }
 
     switch (csw->status) {

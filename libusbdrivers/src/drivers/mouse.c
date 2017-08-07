@@ -77,7 +77,6 @@ int usb_mouse_driver_bind(struct usb_dev *usb_dev, struct ps_chardevice *cdev)
 	mouse = (struct usb_mouse_device*)usb_malloc(sizeof(struct usb_mouse_device));
 	if (!mouse) {
 		ZF_LOGF("Out of memory\n");
-		abort();
 	}
 
 	usb_dev->dev_data = (struct udev_priv*)mouse;
@@ -87,7 +86,6 @@ int usb_mouse_driver_bind(struct usb_dev *usb_dev, struct ps_chardevice *cdev)
 
 	if (mouse->hid->protocol != 2) {
 		ZF_LOGF("Not a mouse: %d\n", mouse->hid->protocol);
-		abort();
 	}
 
 	cdev->vaddr = mouse;
@@ -97,7 +95,6 @@ int usb_mouse_driver_bind(struct usb_dev *usb_dev, struct ps_chardevice *cdev)
 	mouse->ep_int = usb_dev->ep[mouse->hid->iface];
 	if (mouse->ep_int == NULL || mouse->ep_int->type != EP_INTERRUPT) {
 		ZF_LOGF("Endpoint not found\n");
-		abort();
 	}
 
 	ZF_LOGD("Configuring mouse\n");
@@ -105,7 +102,6 @@ int usb_mouse_driver_bind(struct usb_dev *usb_dev, struct ps_chardevice *cdev)
 	err = usb_hid_set_idle(mouse->hid, 0);
 	if (err < 0) {
 		ZF_LOGF("Mouse initialisation error\n");
-		abort();;
 	}
 
 	/* Initialise IRQs */
@@ -120,7 +116,6 @@ int usb_mouse_driver_bind(struct usb_dev *usb_dev, struct ps_chardevice *cdev)
 	err = usb_alloc_xact(usb_dev->dman, &mouse->int_xact, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	usbdev_schedule_xact(usb_dev, mouse->ep_int, &mouse->int_xact, 1,

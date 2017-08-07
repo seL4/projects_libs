@@ -105,7 +105,6 @@ freebuf_cb(usb_otg_t otg, void* token,
 
     if (stat != XACTSTAT_SUCCESS) {
 	    ZF_LOGF("Transaction failed\n");
-	    abort();
     }
     t = (struct free_token*)token;
     ps_dma_free_pinned(t->dman, t->vaddr, t->size);
@@ -120,7 +119,6 @@ send_desc(otg_usbtty_t tty, enum DescriptorType type, int index,
     /* Not handling index yet... */
     if (index != 0) {
 	    ZF_LOGF("Index not implemented\n");
-	    abort();
     }
     /* Find the descriptor */
     switch (type) {
@@ -172,7 +170,6 @@ send_desc(otg_usbtty_t tty, enum DescriptorType type, int index,
         t = malloc(sizeof(*t));
 	if (!t) {
 		ZF_LOGF("Out of memory\n");
-		abort();
 	}
         t->dman = tty->dman;
 
@@ -184,23 +181,21 @@ send_desc(otg_usbtty_t tty, enum DescriptorType type, int index,
         /* Copy in */
         t->vaddr = ps_dma_alloc_pinned(tty->dman, t->size, 32, 0, PS_MEM_NORMAL, &pbuf);
         if (t->vaddr == NULL) {
-            abort();
-            return;
+            ZF_LOGF("Out of DMA memory\n");
         }
         memcpy(t->vaddr, d, t->size);
 
         /* Send the packet */
         err = otg_prime(tty->otg, 0, PID_IN, t->vaddr, pbuf, t->size, freebuf_cb, t);
         if (err) {
-            abort();
             ps_dma_free_pinned(tty->dman, t->vaddr, t->size);
-            return;
+            ZF_LOGF("OTG device error\n");
         }
         /* Status phase */
         err = otg_prime(tty->otg, 0, PID_OUT, NULL, 0, 0, freebuf_cb, t);
         if (err) {
-            abort();
             ps_dma_free_pinned(tty->dman, t->vaddr, t->size);
+            ZF_LOGF("OTG device error\n");
         }
     }
 }
@@ -260,7 +255,6 @@ otg_usbtty_init(usb_otg_t otg, ps_dma_man_t* dman,
 
     if (!dman || !usbtty || !otg) {
         ZF_LOGF("Invalid arguments\n");
-        abort();
     }
 
     /* Allocate memory */

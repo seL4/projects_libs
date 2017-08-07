@@ -265,7 +265,6 @@ phy_enable(int devid, ps_io_ops_t* o)
         phy_regs = _usb_phy1_regs;
         if (!clk || !phy_regs) {
             ZF_LOGF("Clock error\n");
-            abort();
         }
         break;
     case 1:
@@ -276,7 +275,6 @@ phy_enable(int devid, ps_io_ops_t* o)
         phy_regs = _usb_phy2_regs;
         if (!clk || !phy_regs) {
             ZF_LOGF("Clock error\n");
-            abort();
         }
         break;
     default:
@@ -315,7 +313,6 @@ imx6_usb_generic_init(int id, ps_io_ops_t* ioops)
 
     if (id < 0 || id > USB_NHOSTS) {
         ZF_LOGF("Invalid host id\n");
-        abort();
     }
     /* Check device mappings */
     if (_usb_regs == NULL) {
@@ -350,7 +347,6 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* ioops, ps_mutex_ops_t *sync,
 
     if (!ioops || !hdev) {
         ZF_LOGF("Invalid arguments\n");
-        abort();
     }
 
     hdev->id = id;
@@ -393,7 +389,6 @@ usb_plat_otg_init(usb_otg_t odev, ps_io_ops_t* ioops)
 
     if (!odev->dman || !odev->id) {
         ZF_LOGF("Invalid arguments\n");
-        abort();
     }
     err = imx6_usb_generic_init(odev->id, ioops);
     if (err) {
@@ -404,7 +399,6 @@ usb_plat_otg_init(usb_otg_t odev, ps_io_ops_t* ioops)
     err = ehci_otg_init(odev, (uintptr_t)&otg_regs->caplength);
     if (otg_regs->usbmode != USBMODE_DEV) {
         ZF_LOGF("Set the hardware to device mode\n");
-        abort();
     }
 
     return err;

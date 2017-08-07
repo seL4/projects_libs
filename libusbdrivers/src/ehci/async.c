@@ -75,8 +75,7 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 	int xact_stage = 0;
 
 	if (!xact || nxact <=0) {
-		ZF_LOGE("Invalid arguments\n");
-		abort();
+		ZF_LOGF("Invalid arguments\n");
 	}
 
 	prev_tdn = NULL;
@@ -129,7 +128,6 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 				break;
 			default:
 				ZF_LOGF("Invalid PID!\n");
-				abort();
 				break;
 		}
 
@@ -154,7 +152,6 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 		/* We only have 5 page-sized buffers */
 		if (cnt > 4) {
 			ZF_LOGF("Too many buffers\n");
-			abort();
 		}
 
 		/* Total data transferred */
@@ -183,8 +180,7 @@ qtd_alloc(struct ehci_host *edev, enum usb_speed speed, struct endpoint *ep,
 		tdn->td = ps_dma_alloc_pinned(edev->dman, sizeof(*tdn->td),
 				32, 0, PS_MEM_NORMAL, &tdn->ptd);
 		if (!tdn->td) {
-			ZF_LOGE("Out of DMA memory\n");
-			abort();
+			ZF_LOGF("Out of DMA memory\n");
 		}
 		memset((void*)tdn->td, 0, sizeof(*tdn->td));
 
@@ -246,16 +242,14 @@ qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 
 	qhn = calloc(1, sizeof(struct QHn));
 	if (!qhn) {
-		ZF_LOGE("Out of memory\n");
-		abort();
+		ZF_LOGF("Out of memory\n");
 	}
 
 	/* Allocate queue head */
 	qhn->qh = ps_dma_alloc_pinned(edev->dman, sizeof(*qh), 32, 0,
 			PS_MEM_NORMAL, &qhn->pqh);
 	if (!qhn->qh) {
-		ZF_LOGE("Out of DMA memory\n");
-		abort();
+		ZF_LOGF("Out of DMA memory\n");
 	}
 	memset((void*)qhn->qh, 0, sizeof(*qh));
 
@@ -276,7 +270,6 @@ qhn_alloc(struct ehci_host *edev, uint8_t address, uint8_t hub_addr,
 		break;
 	default:
 		ZF_LOGF("Invalid speed\n");
-		abort();
 	}
 
 	qh->epc[0] |= QHEPC0_MAXPKTLEN(ep->max_pkt) | QHEPC0_ADDR(address) |
@@ -331,7 +324,6 @@ qhn_update(struct QHn *qhn, uint8_t address, struct endpoint *ep)
 
 	if (!qhn || !ep) {
 		ZF_LOGF("Invalid arguments\n");
-		abort();
 	}
 
 	/*
@@ -367,7 +359,6 @@ qtd_enqueue(struct ehci_host *edev, struct QHn *qhn, struct TDn *tdn)
 
 	if (!qhn || !tdn) {
 		ZF_LOGF("Invalid arguments\n");
-		abort();
 	}
 
 	/* If the queue is empty, point the TD overlay to the first TD */

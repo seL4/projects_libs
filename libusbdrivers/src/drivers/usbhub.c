@@ -194,7 +194,6 @@ static void _handle_port_change(usb_hub_t h, int port)
 	ret = usb_alloc_xact(h->udev->dman, xact, 2);
 	if (ret) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 	req = xact_get_vaddr(&xact[0]);
 	sts = xact_get_vaddr(&xact[1]);
@@ -204,7 +203,6 @@ static void _handle_port_change(usb_hub_t h, int port)
 				   xact, 2, NULL, NULL);
 	if (ret < 0) {
 		ZF_LOGF("Transaction error\n");
-		abort();
 	}
 
 	/* Cache the port status, because we need to clear it right away. */
@@ -222,7 +220,6 @@ static void _handle_port_change(usb_hub_t h, int port)
 					   xact, 1, NULL, NULL);
 		if (ret < 0) {
 			ZF_LOGF("Transaction error\n");
-			abort();
 		}
 
 		if (status & BIT(PORT_CONNECTION)) {
@@ -236,7 +233,6 @@ static void _handle_port_change(usb_hub_t h, int port)
 						   xact, 1, NULL, NULL);
 			if (ret < 0) {
 				ZF_LOGF("Transaction error\n");
-				abort();
 			}
 
 			/*
@@ -254,7 +250,6 @@ static void _handle_port_change(usb_hub_t h, int port)
 							 2, NULL, NULL);
 				if (ret < 0) {
 					ZF_LOGF("Transaction error\n");
-					abort();
 				}
 
 				status = sts->wPortStatus;
@@ -266,7 +261,6 @@ static void _handle_port_change(usb_hub_t h, int port)
 						   xact, 1, NULL, NULL);
 			if (ret < 0) {
 				ZF_LOGF("Transaction error\n");
-				abort();
 			}
 
 			/* Create the new device */
@@ -291,7 +285,6 @@ static void _handle_port_change(usb_hub_t h, int port)
 							 1, NULL, NULL);
 				if (ret < 0) {
 					ZF_LOGF("Transaction error\n");
-					abort();
 				}
 				if (new_dev) {
 					usbdev_disconnect(new_dev);
@@ -307,7 +300,6 @@ static void _handle_port_change(usb_hub_t h, int port)
 						   xact, 1, NULL, NULL);
 			if (ret < 0) {
 				ZF_LOGF("Transaction error\n");
-				abort();
 			}
 			if (h->port[port - 1].udev) {
 				usbdev_disconnect(h->port[port - 1].udev);
@@ -325,7 +317,6 @@ static void _handle_port_change(usb_hub_t h, int port)
 					   xact, 1, NULL, NULL);
 		if (ret < 0) {
 			ZF_LOGF("Transaction error\n");
-			abort();
 		}
 	}
 
@@ -338,7 +329,6 @@ static void _handle_port_change(usb_hub_t h, int port)
 					   xact, 1, NULL, NULL);
 		if (ret < 0) {
 			ZF_LOGF("Transaction error\n");
-			abort();
 		}
 	}
 
@@ -351,7 +341,6 @@ static void _handle_port_change(usb_hub_t h, int port)
 					   xact, 1, NULL, NULL);
 		if (ret < 0) {
 			ZF_LOGF("Transaction error\n");
-			abort();
 		}
 	}
 
@@ -364,7 +353,6 @@ static void _handle_port_change(usb_hub_t h, int port)
 					   xact, 1, NULL, NULL);
 		if (ret < 0) {
 			ZF_LOGF("Transaction error\n");
-			abort();
 		}
 	}
 
@@ -391,7 +379,6 @@ hub_irq_handler(void *token, enum usb_xact_status stat, int bytes_remaining)
 	intbm = h->intbm;
 	if (intbm != xact_get_vaddr(&h->int_xact)) {
 		ZF_LOGF("Invalid bitmap\n");
-		abort();
 	}
 	for (i = 0; i < len; i++) {
 		/* Check if any bits have changed */
@@ -478,7 +465,6 @@ int usb_hub_driver_bind(usb_dev_t *udev, usb_hub_t *hub)
 	err = usb_alloc_xact(udev->dman, xact, 2);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 	req = xact_get_vaddr(&xact[0]);
 	*req = __get_hub_descriptor_req();
@@ -496,7 +482,6 @@ int usb_hub_driver_bind(usb_dev_t *udev, usb_hub_t *hub)
 	h->port = (struct usb_hub_port *)usb_malloc(sizeof(*h->port) * h->nports);
 	if (!h->port) {
 		ZF_LOGF("Out of memory\n");
-		abort();
 	}
 	memset(h->port, 0, sizeof(*h->port) * h->nports);
 	ZF_LOGD("Parsing config\n");
@@ -541,7 +526,6 @@ int usb_hub_driver_bind(usb_dev_t *udev, usb_hub_t *hub)
 					   xact, 1, NULL, NULL);
 		if (err < 0) {
 			ZF_LOGF("Transaction error\n");
-			abort();
 		}
 	}
 	msdelay(h->power_good_delay_ms);
@@ -563,7 +547,6 @@ int usb_hub_driver_bind(usb_dev_t *udev, usb_hub_t *hub)
 	err = usb_alloc_xact(udev->dman, &h->int_xact, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 	h->intbm = xact_get_vaddr(&h->int_xact);
 	ZF_LOGD("Registering for INT\n");
@@ -695,7 +678,6 @@ hubem_get_descriptor(usb_hubem_t dev, struct usbreq *req, void *buf, int len)
 		pos += cp_len;
 		if (pos != act_len) {
 			ZF_LOGF("Invalid descriptor\n");
-			abort();
 		}
 		return act_len;}
 	case INTERFACE:{
@@ -758,7 +740,6 @@ hubem_get_status(usb_hubem_t dev, struct usbreq *req, void *buf, int len)
 		int act_len = MIN(len, sizeof(*psts));
 		if (len < sizeof(*psts)) {
 			ZF_LOGF("Invalid port status\n");
-			abort();
 		}
 		if (dev->get_pstat(dev->token, port, psts)) {
 			ZF_LOGD
@@ -794,7 +775,6 @@ hubem_process_xact(usb_hubem_t dev, struct xact *xact, int nxact,
 		req = xact_get_vaddr(&xact[i]);
 		if (xact[i].len < sizeof(*req)) {
 			ZF_LOGF("Buffer too small\n");
-			abort();
 		}
 
 		if (i + 1 < nxact && xact[i + 1].type != PID_SETUP) {

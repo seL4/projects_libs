@@ -83,7 +83,6 @@ pl2303_interrupt_cb(void* token, enum usb_xact_status stat, int rbytes)
 			pl2303_interrupt_cb, udev);
 	if (err) {
 		ZF_LOGF("Transaction error\n");
-		abort();
 	}
 
 	return err;
@@ -98,7 +97,6 @@ pl2303_startup_magic(struct usb_dev *udev)
 
 	if (!udev) {
 		ZF_LOGF("Invalid device\n");
-		abort();
 	}
 
 	xact[0].len = sizeof(struct usbreq);
@@ -106,7 +104,6 @@ pl2303_startup_magic(struct usb_dev *udev)
 	err = usb_alloc_xact(udev->dman, xact, 2);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	/* Fill in the request */
@@ -153,7 +150,6 @@ int usb_pl2303_bind(usb_dev_t *udev)
 
 	if (!udev) {
 		ZF_LOGF("Invalid device\n");
-		abort();
 	}
 
 	dev = usb_malloc(sizeof(struct pl2303_device));
@@ -169,7 +165,6 @@ int usb_pl2303_bind(usb_dev_t *udev)
 	err = usbdev_parse_config(udev, pl2303_config_cb, dev);
 	if (err) {
 		ZF_LOGF("Invalid descriptors\n");
-		abort();
 	}
 
 	/* Find endpoints */
@@ -200,7 +195,6 @@ int usb_pl2303_bind(usb_dev_t *udev)
 	err = usb_alloc_xact(udev->dman, &xact, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	/* Fill in the request */
@@ -212,7 +206,6 @@ int usb_pl2303_bind(usb_dev_t *udev)
 	err = usbdev_schedule_xact(udev, udev->ep_ctrl, &xact, 1, NULL, NULL);
 	if (err) {
 		ZF_LOGF("Transaction error\n");
-		abort();
 	}
 	usb_destroy_xact(udev->dman, &xact, 1);
 
@@ -224,7 +217,6 @@ int usb_pl2303_bind(usb_dev_t *udev)
 	err = usb_alloc_xact(udev->dman, &dev->int_xact, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	/* Schedule a interrupt request */
@@ -232,7 +224,6 @@ int usb_pl2303_bind(usb_dev_t *udev)
 			pl2303_interrupt_cb, udev);
 	if (err) {
 		ZF_LOGF("Transaction error\n");
-		abort();
 	}
 
 	return 0;
@@ -251,7 +242,6 @@ int usb_pl2303_configure(usb_dev_t *udev, uint32_t bps, uint8_t char_size,
 	err = usb_alloc_xact(udev->dman, xact, 2);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	xact[0].type = PID_SETUP;
@@ -300,7 +290,6 @@ int usb_pl2303_configure(usb_dev_t *udev, uint32_t bps, uint8_t char_size,
 	err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
 	if (err) {
 		ZF_LOGF("Transaction error\n");
-		abort();
 	}
 
 	/* Activate device */
@@ -313,7 +302,6 @@ int usb_pl2303_configure(usb_dev_t *udev, uint32_t bps, uint8_t char_size,
 	err = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 1, NULL, NULL);
 	if (err) {
 		ZF_LOGF("Transaction error\n");
-		abort();
 	}
 
 	usb_destroy_xact(udev->dman, xact, 2);
@@ -335,7 +323,6 @@ int usb_pl2303_write(usb_dev_t *udev, void *buf, int len)
 	err = usb_alloc_xact(udev->dman, &xact, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	memcpy(xact_get_vaddr(&xact), buf, len);
@@ -343,7 +330,6 @@ int usb_pl2303_write(usb_dev_t *udev, void *buf, int len)
 	err = usbdev_schedule_xact(udev, dev->ep_out, &xact, 1, NULL, NULL);
 	if (err) {
 		ZF_LOGF("Transaction error\n");
-		abort();
 	}
 
 	usb_destroy_xact(udev->dman, &xact, 1);
@@ -365,13 +351,11 @@ int usb_pl2303_read(usb_dev_t *udev, void *buf, int len)
 	err = usb_alloc_xact(udev->dman, &xact, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	err = usbdev_schedule_xact(udev, dev->ep_in, &xact, 1, NULL, NULL);
 	if (err) {
 		ZF_LOGF("Transaction error\n");
-		abort();
 	}
 
 	memcpy(buf, xact_get_vaddr(&xact), len);

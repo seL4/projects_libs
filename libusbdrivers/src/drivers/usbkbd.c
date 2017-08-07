@@ -299,8 +299,7 @@ int usb_kbd_driver_bind(usb_dev_t *usb_dev, struct ps_chardevice *cdev)
 
 	kbd = (struct usb_kbd_device*)usb_malloc(sizeof(struct usb_kbd_device));
 	if (!kbd) {
-		ZF_LOGE("Out of memory\n");
-		abort();
+		ZF_LOGF("Out of memory\n");
 	}
 
 	usb_dev->dev_data = (struct udev_priv*)kbd;
@@ -311,23 +310,20 @@ int usb_kbd_driver_bind(usb_dev_t *usb_dev, struct ps_chardevice *cdev)
 	kbd->hid = usb_hid_alloc(usb_dev);
 
 	if (kbd->hid->protocol != 1) {
-		ZF_LOGE("Not a keyboard: %d\n", kbd->hid->protocol);
-		abort();
+		ZF_LOGF("Not a keyboard: %d\n", kbd->hid->protocol);
 	}
 
 	/* Find endpoint */
 	kbd->ep_int = usb_dev->ep[kbd->hid->iface];
 	if (kbd->ep_int == NULL || kbd->ep_int->type != EP_INTERRUPT) {
 		ZF_LOGF("Endpoint not found\n");
-		abort();
 	}
 
 	ZF_LOGD("Configuring keyboard\n");
 
 	err = usb_hid_set_idle(kbd->hid, 0);
 	if (err < 0) {
-		ZF_LOGD("Keyboard initialisation error\n");
-		abort();
+		ZF_LOGF("Keyboard initialisation error\n");
 	}
 
 	cdev->vaddr = kbd;
@@ -348,7 +344,6 @@ int usb_kbd_driver_bind(usb_dev_t *usb_dev, struct ps_chardevice *cdev)
 	err = usb_alloc_xact(usb_dev->dman, &kbd->int_xact, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	kbd->new_keys = xact_get_vaddr(&kbd->int_xact);

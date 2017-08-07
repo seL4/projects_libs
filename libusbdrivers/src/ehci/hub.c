@@ -21,7 +21,6 @@ volatile uint32_t *_get_portsc(struct ehci_host *h, int port)
 
 	if (port <= 0 || port > EHCI_HCS_N_PORTS(h->cap_regs->hcsparams)) {
 		ZF_LOGF("Invalid port\n");
-		abort();
 	}
 	reg = &h->op_regs->portsc[port - 1];
 	return reg;
@@ -47,7 +46,6 @@ int _set_pf(void *token, int port, enum port_feature feature)
 		/* HCHALTED bit in USBSTS should be a zero */
 		if ((edev->op_regs->usbsts & EHCISTS_HCHALTED) != 0) {
 			ZF_LOGF("Failed to rest the host port\n");
-			abort();
 		}
 		edev->bmreset_c = BIT(port);
 		v &= ~EHCI_PORT_ENABLE;
@@ -66,7 +64,6 @@ int _set_pf(void *token, int port, enum port_feature feature)
 		/* Must port owner 0 */
 		if (*ps_reg & EHCI_PORT_OWNER) {
 			ZF_LOGF("Failed to suspend the port\n");
-			abort();
 		}
 		/* Perform the Suspend */
 		v |= EHCI_PORT_SUSPEND;
@@ -115,12 +112,10 @@ int _clr_pf(void *token, int port, enum port_feature feature)
 		/* Must be enabled */
 		if (!(v & EHCI_PORT_ENABLE)) {
 			ZF_LOGF("Port must be enabled\n");
-			abort();
 		}
 		/* Must be in suspend state */
 		if (!(v & EHCI_PORT_SUSPEND)) {
 			ZF_LOGF("Port must be suspend\n");
-			abort();
 		}
 		/* Perform the Suspend */
 		v |= EHCI_PORT_FORCE_RESUME;

@@ -49,8 +49,7 @@ static inline void *ps_dma_alloc_pinned(ps_dma_man_t * dma_man, size_t size,
 {
 	void *addr;
 	if (!dma_man) {
-		ZF_LOGE("Invalid arguments\n");
-		abort();
+		ZF_LOGF("Invalid arguments\n");
 	}
 	addr = ps_dma_alloc(dma_man, size, align, cache, flags);
 	if (addr != NULL) {
@@ -63,8 +62,7 @@ static inline void
 ps_dma_free_pinned(ps_dma_man_t * dma_man, void *addr, size_t size)
 {
 	if (!dma_man) {
-		ZF_LOGE("Invalid arguments\n");
-		abort();
+		ZF_LOGF("Invalid arguments\n");
 	}
 	ps_dma_unpin(dma_man, addr, size);
 	ps_dma_free(dma_man, addr, size);

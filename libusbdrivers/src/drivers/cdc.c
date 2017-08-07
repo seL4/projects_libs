@@ -187,7 +187,6 @@ int usb_cdc_bind(usb_dev_t *udev)
 
 	if (!udev) {
 		ZF_LOGF("Invalid device\n");
-		abort();
 	}
 
 	cdc = usb_malloc(sizeof(struct usb_cdc_device));
@@ -203,7 +202,6 @@ int usb_cdc_bind(usb_dev_t *udev)
 	err = usbdev_parse_config(udev, usb_cdc_config_cb, cdc);
 	if (err) {
 		ZF_LOGF("Invalid descriptors\n");
-		abort();
 	}
 
 	/* Find endpoints */
@@ -253,7 +251,6 @@ int usb_cdc_bind(usb_dev_t *udev)
 	err = usb_alloc_xact(udev->dman, &cdc->read_xact, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 	cdc->read_in_progress = 0;
 
@@ -262,7 +259,6 @@ int usb_cdc_bind(usb_dev_t *udev)
 	err = usb_alloc_xact(udev->dman, &xact, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	/* Fill in the request */
@@ -274,7 +270,6 @@ int usb_cdc_bind(usb_dev_t *udev)
 	err = usbdev_schedule_xact(udev, udev->ep_ctrl, &xact, 1, NULL, NULL);
 	if (err) {
 		ZF_LOGF("Transaction error\n");
-		abort();
 	}
 	usb_destroy_xact(udev->dman, &xact, 1);
 
@@ -294,7 +289,6 @@ int usb_cdc_read(usb_dev_t *udev, void *buf, int len)
 				usb_cdc_read_cb, udev);
 		if (err) {
 			ZF_LOGF("Transaction error\n");
-			abort();
 		}
 		sync_atomic_increment(&cdc->read_in_progress, __ATOMIC_RELAXED);
 	}
@@ -328,7 +322,6 @@ int usb_cdc_write(usb_dev_t *udev, const void *buf, int len)
 	xact = usb_malloc(sizeof(struct xact) * cnt);
 	if (!xact) {
 		ZF_LOGF("Out of memory\n");
-		abort();
 	}
 
 	/* Fill in the length of each xact */
@@ -342,7 +335,6 @@ int usb_cdc_write(usb_dev_t *udev, const void *buf, int len)
 	err = usb_alloc_xact(udev->dman, xact, cnt);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	/* Copy in */
@@ -356,7 +348,6 @@ int usb_cdc_write(usb_dev_t *udev, const void *buf, int len)
 	err = usbdev_schedule_xact(udev, cdc->ep_out, xact, cnt, NULL, NULL);
 	if (err) {
 		ZF_LOGF("Transaction error\n");
-		abort();
 	}
 
 	/* Cleanup */
@@ -382,7 +373,6 @@ usb_cdc_mgmt_msg(struct usb_cdc_device *cdc, uint8_t req_type,
 	err = usb_alloc_xact(cdc->udev->dman, msg, 2);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	/* Management element request */

@@ -352,7 +352,6 @@ static void print_string_desc(struct string_desc *desc)
 {
 	if (!desc) {
 		ZF_LOGF("USB: Invalid arguments\n");
-		abort();
 	}
 
 	for (int i = 0; i < desc->bLength - 2; i++) {
@@ -480,14 +479,12 @@ static void usbdev_config_print(struct usb_dev *udev)
 	ret = usb_alloc_xact(udev->dman, xact, 2);
 	if (ret) {
 		ZF_LOGF("USB: Out of DMA memory\n");
-		abort();
 	}
 	req = xact_get_vaddr(&xact[0]);
 	*req = __get_descriptor_req(DEVICE, 0, 0, xact[1].len);
 	ret = usbdev_schedule_xact(udev, udev->ep_ctrl, xact, 2, NULL, NULL);
 	if (ret < 0) {
 		ZF_LOGF("USB: Transaction error\n");
-		abort();
 	}
 	desc = (struct anon_desc *)xact_get_vaddr(&xact[1]);
 	usb_print_descriptor(desc, -1);
@@ -571,7 +568,6 @@ parse_config(struct usb_dev *udev, struct anon_desc *d, int tot_len,
 			ep = usb_malloc(sizeof(struct endpoint));
 			if (!ep) {
 				ZF_LOGF("Out of memory\n");
-				abort();
 			}
 
 			/* Fill in the endpoint structure, USB standard(9.6.6) */
@@ -899,7 +895,6 @@ void usbdev_disconnect(usb_dev_t *udev)
 
 	if (!udev || !udev->host) {
 		ZF_LOGF("USB: Invalid arguments\n");
-		abort();
 	}
 	ZF_LOGD("USB %d: Disconnecting\n", udev->addr);
 
@@ -952,7 +947,6 @@ void usb_handle_irq(usb_t *host)
 
 	if (!host) {
 		ZF_LOGF("Invalid arguments\n");
-		abort();
 	}
 
 	hdev = &host->hdev;
@@ -969,7 +963,6 @@ usbdev_schedule_xact(usb_dev_t *udev, struct endpoint *ep, struct xact *xact,
 
 	if (!udev) {
 		ZF_LOGF("Invalid arguments\n");
-		abort();
 	}
 
 	hdev = &udev->host->hdev;

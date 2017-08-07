@@ -79,12 +79,10 @@ static uintptr_t ehci_pci_init(uint16_t vid, uint16_t did,
 				dev->cfg.base_addr_size[0]);
 		if (!cap_regs) {
 			ZF_LOGF("Invalid Registers\n");
-			abort();
 		}
 		_irq_line = dev->interrupt_line;
 	} else {
 		ZF_LOGF("EHCI: Host device not found!\n");
-		abort();
 	}
 
 	/* Check EHCI Extend Capabilities Pointer(Section 2.2.4) */
@@ -122,7 +120,6 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, ps_mutex_ops_t *sync,
 	
 	if (!io_ops || !hdev) {
 		ZF_LOGF("Invalid arguments\n");
-		abort();
 	}
 
 	hdev->id = id;
@@ -139,8 +136,7 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, ps_mutex_ops_t *sync,
 			did = USB_HOST2_DID;
 			break;
 		default:
-			ZF_LOGE("Invalid host\n");
-			abort();
+			ZF_LOGF("Invalid host\n");
 			break;
 	}
 
@@ -175,8 +171,7 @@ usb_host_irqs(usb_host_t* host, int* nirqs)
 			_irq_line = USB_HOST2_IRQ;
 			break;
 		default:
-			ZF_LOGE("Invalid host\n");
-			abort();
+			ZF_LOGF("Invalid host\n");
 			break;
 	}
 #endif

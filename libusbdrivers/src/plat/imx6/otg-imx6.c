@@ -480,7 +480,6 @@ imx6_otg_prime(usb_otg_t otg, int epno, enum usb_xact_type dir,
 
     if (!otg || epno < 0) {
 	    ZF_LOGF("OTG: Invalid arguments\n");
-	    abort();
     }
 
     odev = &otg->pdata->otg;
@@ -514,7 +513,6 @@ imx6_otg_prime(usb_otg_t otg, int epno, enum usb_xact_type dir,
     /* Check DCD driver to see if pipe is empty */
     if (dtd_prev->dTD_next != DTDNEXT_INVALID) {
 	    ZF_LOGF("OTG: Empty pipe\n");
-	    abort();
     }
 
     if (ep->dqh->overlay.dTD_next != DTDNEXT_INVALID) {
@@ -590,7 +588,6 @@ otg_handle_setup(usb_otg_t otg, struct otg_ep* ep)
 
     if (!otg || !otg->pdata) {
 	    ZF_LOGF("Invalid arguments\n");
-	    abort();
     }
 
     odev = &otg->pdata->otg;
@@ -628,7 +625,6 @@ otg_handle_complete(usb_otg_t otg, struct otg_ep* ep)
 
     if (!dtdn) {
 	    ZF_LOGF("Invalid arguments\n");
-	    abort();
     }
 
     while (dtdn) {
@@ -722,7 +718,6 @@ otg_plat_handle_irq(usb_otg_t otg)
     }
     if (sts) {
         ZF_LOGF("Unhandled USB irq. Status: 0x%x\n", sts);
-        abort();
     }
 }
 

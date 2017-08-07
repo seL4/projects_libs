@@ -48,7 +48,6 @@ int otg_ep0_setup(usb_otg_t otg, otg_setup_cb cb, void *token)
 {
 	if (!otg || !otg->ep0_setup) {
 		ZF_LOGF("OTG: Invalid arguments\n");
-		abort();
 	}
 	return otg->ep0_setup(otg, cb, token);
 }

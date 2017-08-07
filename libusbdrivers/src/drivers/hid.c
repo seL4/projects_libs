@@ -137,7 +137,6 @@ struct usb_hid_device *usb_hid_alloc(struct usb_dev *udev)
 
 	if (!udev) {
 		ZF_LOGF("Invalid device\n");
-		abort();
 	}
 
 	hid = usb_malloc(sizeof(struct usb_hid_device));
@@ -153,7 +152,6 @@ struct usb_hid_device *usb_hid_alloc(struct usb_dev *udev)
 	err = usbdev_parse_config(udev, usb_hid_config_cb, hid);
 	if (err) {
 		ZF_LOGF("Invalid descriptors\n");
-		abort();
 	}
 
 	class = usbdev_get_class(udev);
@@ -168,7 +166,6 @@ struct usb_hid_device *usb_hid_alloc(struct usb_dev *udev)
 	err = usb_alloc_xact(udev->dman, &xact, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	/* Fill in the request */
@@ -180,7 +177,6 @@ struct usb_hid_device *usb_hid_alloc(struct usb_dev *udev)
 	err = usbdev_schedule_xact(udev, udev->ep_ctrl, &xact, 1, NULL, NULL);
 	if (err) {
 		ZF_LOGF("Transaction error\n");
-		abort();
 	}
 
 	usb_destroy_xact(udev->dman, &xact, 1);
@@ -205,7 +201,6 @@ int usb_hid_set_idle(struct usb_hid_device *hid, int idle_ms)
 	err = usb_alloc_xact(hid->udev->dman, &xact, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	req = xact_get_vaddr(&xact);
@@ -214,7 +209,6 @@ int usb_hid_set_idle(struct usb_hid_device *hid, int idle_ms)
 	err = usbdev_schedule_xact(hid->udev, hid->udev->ep_ctrl, &xact, 1, NULL, NULL);
 	if (err) {
 		ZF_LOGF("Transaction error\n");
-		abort();
 	}
 
 	usb_destroy_xact(hid->udev->dman, &xact, 1);
@@ -247,7 +241,6 @@ int usb_hid_set_report(struct usb_hid_device *hid, enum hid_report_type type,
 	err = usb_alloc_xact(hid->udev->dman, xact, 2);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	req = xact_get_vaddr(&xact[0]);
@@ -258,7 +251,6 @@ int usb_hid_set_report(struct usb_hid_device *hid, enum hid_report_type type,
 	err = usbdev_schedule_xact(hid->udev, hid->udev->ep_ctrl, xact, 2, NULL, NULL);
 	if (err) {
 		ZF_LOGF("Transaction error\n");
-		abort();
 	}
 
 	usb_destroy_xact(hid->udev->dman, xact, 2);

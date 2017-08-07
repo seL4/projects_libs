@@ -32,7 +32,6 @@ static inline struct ehci_host *_hcd_to_ehci(usb_host_t *hcd)
 
 	if (!hc_data) {
 		ZF_LOGF("Host controller data not found\n");
-		abort();
 	}
 
 	return &hc_data->edev;
@@ -53,7 +52,6 @@ static void _root_irq(struct ehci_host *edev)
 	/* Set the INT data */
 	if (!edev->irq_xact.vaddr || !edev->irq_cb) {
 		ZF_LOGF("Root hub IRQ uninitialized\n");
-		abort();
 	}
 	psc = _get_portsc(edev, 1);
 	portbm = xact_get_vaddr(&edev->irq_xact);
@@ -72,7 +70,6 @@ static void _root_irq(struct ehci_host *edev)
 	resched = edev->irq_cb(edev->irq_token, XACTSTAT_SUCCESS, 0);
 	if (resched) {
 		ZF_LOGF("Root IRQ unhandled\n");
-		abort();
 	}
 }
 
@@ -106,7 +103,6 @@ int ehci_schedule_xact(usb_host_t *hdev, uint8_t addr, int8_t hub_addr,
 
 	if (!hdev) {
 		ZF_LOGF("Invalid USB host\n");
-		abort();
 	}
 	edev = _hcd_to_ehci(hdev);
 	if (hub_addr == -1) {
@@ -201,8 +197,7 @@ void ehci_handle_irq(usb_host_t *hdev)
 
 	/* We cannot recover from fatal host error */
 	if (sts & EHCISTS_HOST_ERR) {
-		ZF_LOGD("INT - host error\n");
-		abort();
+		ZF_LOGF("INT - host error\n");
 	}
 
 	if (sts & EHCISTS_USBINT) {
@@ -248,7 +243,6 @@ int ehci_cancel_xact(usb_host_t *hdev, struct endpoint *ep)
 
 	if (!ep) {
 		ZF_LOGF("Invalid endpoint\n");
-		abort();
 	}
 
 	if (ep->hcpriv) {
@@ -291,7 +285,6 @@ ehci_host_init(usb_host_t *hdev, uintptr_t regs,
 	hdev->nports = EHCI_HCS_N_PORTS(edev->cap_regs->hcsparams);
 	if (hdev->nports <=0 || hdev->nports >= 32) {
 		ZF_LOGF("Invalid HCS register\n");
-		abort();
 	}
 	edev->bmreset_c = 0;
 

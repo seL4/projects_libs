@@ -32,7 +32,6 @@ void ehci_add_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 				PS_MEM_NORMAL, &edev->pflist);
 		if (!edev->flist) {
 			ZF_LOGF("Out of DMA memory\n");
-			abort();
 		}
 
 		/* Mark all frames as disabled */
@@ -48,7 +47,6 @@ void ehci_add_qhn_periodic(struct ehci_host *edev, struct QHn *qhn)
 				sizeof(struct QHn*) * edev->flist_size);
 		if (!edev->shadow_flist) {
 			ZF_LOGF("Out of memory\n");
-			abort();
 		}
 	}
 
@@ -162,7 +160,6 @@ int ehci_schedule_periodic_root(struct ehci_host *edev, struct xact *xact,
 
 	if (!xact->vaddr || !cb) {
 		ZF_LOGF("Invalid arguments\n");
-		abort();
 	}
 	edev->irq_xact = *xact;
 	edev->irq_cb = cb;

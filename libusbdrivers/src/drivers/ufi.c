@@ -67,7 +67,6 @@ struct ufi_cdb {
 static void ufi_format_unit()
 {
 	ZF_LOGF("Not implemented\n");
-	abort();
 }
 
 static void ufi_test_unit_ready(usb_dev_t *udev)
@@ -84,7 +83,6 @@ static void ufi_test_unit_ready(usb_dev_t *udev)
 			NULL, 0, UFI_OUTPUT);
 	if (err) {
 		ZF_LOGF("Transfer error\n");
-		abort();
 	}
 }
 
@@ -105,13 +103,11 @@ static void ufi_request_sense(usb_dev_t *udev)
 	err = usb_alloc_xact(udev->dman, &data, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 	err = usb_storage_xfer(udev, &cdb, sizeof(struct ufi_cdb),
 			&data, 1, UFI_INPUT);
 	if (err) {
 		ZF_LOGF("Transfer error\n");
-		abort();
 	}
 	usb_destroy_xact(udev->dman, &data, 1);
 }
@@ -133,14 +129,12 @@ static void ufi_inquiry(usb_dev_t *udev)
 	err = usb_alloc_xact(udev->dman, &data, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	err = usb_storage_xfer(udev, &cdb, sizeof(struct ufi_cdb),
 			&data, 1, UFI_INPUT);
 	if (err) {
 		ZF_LOGF("Transfer error\n");
-		abort();
 	}
 
 	usb_destroy_xact(udev->dman, &data, 1);
@@ -160,7 +154,6 @@ static void ufi_prevent_allow_medium_removal(usb_dev_t *udev, int enable)
 			NULL, 0, UFI_OUTPUT);
 	if (err) {
 		ZF_LOGF("Transfer error\n");
-		abort();
 	}
 }
 
@@ -180,14 +173,12 @@ uint32_t ufi_read_capacity(usb_dev_t *udev)
 	err = usb_alloc_xact(udev->dman, &data, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	err = usb_storage_xfer(udev, &cdb, sizeof(struct ufi_cdb),
 				&data, 1, UFI_INPUT);
 	if (err) {
 		ZF_LOGF("Transfer error\n");
-		abort();
 	}
 
 	ret = *(uint32_t*)data.vaddr;
@@ -213,14 +204,12 @@ static void ufi_mode_sense(usb_dev_t *udev)
 	err = usb_alloc_xact(udev->dman, &data, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	err = usb_storage_xfer(udev, &cdb, sizeof(struct ufi_cdb),
 				&data, 1, UFI_INPUT);
 	if (err) {
 		ZF_LOGF("Transfer error\n");
-		abort();
 	}
 
 	usb_destroy_xact(udev->dman, &data, 1);
@@ -244,14 +233,12 @@ static void ufi_read10(usb_dev_t *udev, uint32_t lba, uint16_t count)
 	err = usb_alloc_xact(udev->dman, &data, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	err = usb_storage_xfer(udev, &cdb, sizeof(struct ufi_cdb),
 				&data, 1, UFI_INPUT);
 	if (err) {
 		ZF_LOGF("Transfer error\n");
-		abort();
 	}
 
 	usb_destroy_xact(udev->dman, &data, 1);
@@ -275,14 +262,12 @@ static void ufi_read12(usb_dev_t *udev, uint32_t lba, uint32_t count)
 	err = usb_alloc_xact(udev->dman, &data, 1);
 	if (err) {
 		ZF_LOGF("Out of DMA memory\n");
-		abort();
 	}
 
 	err = usb_storage_xfer(udev, &cdb, sizeof(struct ufi_cdb),
 				&data, 1, UFI_INPUT);
 	if (err) {
 		ZF_LOGF("Transfer error\n");
-		abort();
 	}
 
 	usb_destroy_xact(udev->dman, &data, 1);
