@@ -27,7 +27,7 @@
 #define MAX_STRING_SIZE 255
 
 struct usb_dev;
-typedef struct usb_dev* usb_dev_t;
+typedef struct usb_dev usb_dev_t;
 
 struct usb {
     usb_host_t hdev;
@@ -36,7 +36,7 @@ struct usb {
     /// Next address: delays address recycling
     int next_addr;
     /// List of devices connected to this host
-    usb_dev_t devlist;
+    usb_dev_t *devlist;
 };
 typedef struct usb usb_t;
 
@@ -73,7 +73,7 @@ enum usb_class {
 struct usb_dev {
     /* Filled on creation */
     usb_t *host;
-    usb_dev_t hub;
+    usb_dev_t *hub;
     uint8_t  port;
     uint8_t tt_addr;
     uint8_t tt_port;
@@ -318,8 +318,8 @@ int usb_init(enum usb_host_id id, ps_io_ops_t* ioops, ps_mutex_ops_t *sync, usb_
  *                  the new device.
  * @return          0 on success.
  */
-int usb_new_device(usb_dev_t hub, int port,
-                   enum usb_speed speed, usb_dev_t* d);
+int usb_new_device(usb_dev_t *hub, int port,
+                   enum usb_speed speed, usb_dev_t **d);
 
 /** A call back for the configuration parser. This function is
  * called for each descriptor.
@@ -342,7 +342,7 @@ typedef int (*usb_config_cb)(void* token, int cfg, int iface,
  * be aligned correctly and must be copied to aligned memory
  * before use.
  */
-int usbdev_parse_config(usb_dev_t udev, usb_config_cb cb,
+int usbdev_parse_config(usb_dev_t *udev, usb_config_cb cb,
                         void* token);
 
 /** Disconnect a USB device. Usually a call to this function
@@ -350,13 +350,13 @@ int usbdev_parse_config(usb_dev_t udev, usb_config_cb cb,
  * from the bus.
  * @param[in] dev  A reference to the device to disconnect
  */
-void usbdev_disconnect(usb_dev_t dev);
+void usbdev_disconnect(usb_dev_t *dev);
 
 /** Return the class reported by a USB device
  * @param[in] The USB device in question
  * @return    The class ID
  */
-enum usb_class usbdev_get_class(usb_dev_t dev);
+enum usb_class usbdev_get_class(usb_dev_t *dev);
 
 /**
  * Returns a string representation of the provided USB class code.
@@ -384,7 +384,7 @@ const char* usb_class_get_description(enum usb_class usb_class);
  *                    function.
  * @return            0 on success.
  */
-int usbdev_schedule_xact(usb_dev_t udev, struct endpoint *ep, struct xact* xact,
+int usbdev_schedule_xact(usb_dev_t *udev, struct endpoint *ep, struct xact* xact,
                          int nxact, usb_cb_t cb, void* token);
 
 
@@ -400,18 +400,18 @@ void usb_lsusb(usb_t* host, int v);
  * @return         A handle to the device or NULL if there is no device at
  *                 that address.
  */
-usb_dev_t usb_get_device(usb_t* host, int addr);
+usb_dev_t *usb_get_device(usb_t *host, int addr);
 
 /** Probes and prints the descriptors for the given device
  * @param[in] dev  The usb device to probe
  */
-void usb_probe_device(usb_dev_t dev);
+void usb_probe_device(usb_dev_t *dev);
 
 /** Pass control to the devices IRQ handler
  * @param[in] host    The USB host that triggered
  *                    the interrupt event.
  */
-void usb_handle_irq(usb_t* host);
+void usb_handle_irq(usb_t *host);
 
 /** Allocate transaction buffers for requests
  * @param[in]     dman   A dma allocator instance

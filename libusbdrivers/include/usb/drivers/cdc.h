@@ -40,23 +40,23 @@ struct acm_line_coding {
 	uint8_t  bDataBits;
 } __attribute__((packed));
 
-int usb_cdc_bind(usb_dev_t usb_dev);
+int usb_cdc_bind(usb_dev_t *usb_dev);
 
 /* Communication Device Class Requests */
-void cdc_send_encap_cmd(usb_dev_t udev, const void *buf, int len);
-void cdc_get_encap_resp(usb_dev_t udev, void *buf, int len);
+void cdc_send_encap_cmd(usb_dev_t *udev, const void *buf, int len);
+void cdc_get_encap_resp(usb_dev_t *udev, void *buf, int len);
 
-void acm_set_comm_feature(usb_dev_t udev, enum acm_comm_feature f, uint16_t state);
-uint16_t acm_get_comm_feature(usb_dev_t udev, enum acm_comm_feature f);
-void acm_clear_comm_feature(usb_dev_t udev, enum acm_comm_feature f);
-void acm_set_line_coding(usb_dev_t udev, const struct acm_line_coding *coding);
-void acm_get_line_coding(usb_dev_t udev, struct acm_line_coding *coding);
-void acm_set_ctrl_line_state(usb_dev_t udev, uint8_t ctrl);
-void acm_send_break(usb_dev_t udev, uint16_t us);
+void acm_set_comm_feature(usb_dev_t *udev, enum acm_comm_feature f, uint16_t state);
+uint16_t acm_get_comm_feature(usb_dev_t *udev, enum acm_comm_feature f);
+void acm_clear_comm_feature(usb_dev_t *udev, enum acm_comm_feature f);
+void acm_set_line_coding(usb_dev_t *udev, const struct acm_line_coding *coding);
+void acm_get_line_coding(usb_dev_t *udev, struct acm_line_coding *coding);
+void acm_set_ctrl_line_state(usb_dev_t *udev, uint8_t ctrl);
+void acm_send_break(usb_dev_t *udev, uint16_t us);
 
 /* Data interface functions */
-int usb_cdc_read(usb_dev_t udev, void *buf, int len);
-int usb_cdc_write(usb_dev_t udev, const void *buf, int len);
+int usb_cdc_read(usb_dev_t *udev, void *buf, int len);
+int usb_cdc_write(usb_dev_t *udev, const void *buf, int len);
 
 #endif /* _USB_CDC_H_ */
 

@@ -22,6 +22,6 @@ struct mouse_event {
 	uint8_t y;
 } __attribute__((packed));
 
-int usb_mouse_driver_bind(usb_dev_t usb_dev, struct ps_chardevice *cdev);
+int usb_mouse_driver_bind(usb_dev_t *usb_dev, struct ps_chardevice *cdev);
 
 #endif /* _USB_DRIVERS_MOUSE_H_ */

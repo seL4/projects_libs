@@ -21,7 +21,7 @@
  * supported.
  */
 struct usb_hid_device {
-	usb_dev_t udev;	      //The handle to the underlying USB device
+	struct usb_dev *udev; //The handle to the underlying USB device
 	uint8_t subclass;     //Subclass code(0 -- no subclass, 1 -- boot interface)
 	uint8_t protocol;     //protocol code(1 -- keyboard, 2 -- mouse)
 	uint8_t config;       //Active configuration
@@ -49,7 +49,7 @@ enum hid_protocol {
 	HID_PORT_REPORT = 0x1
 };
 
-struct usb_hid_device *usb_hid_alloc(usb_dev_t usb_dev);
+struct usb_hid_device *usb_hid_alloc(struct usb_dev *usb_dev);
 void usb_hid_free(struct usb_hid_device *hid);
 
 int usb_hid_set_idle(struct usb_hid_device *hid, int idle_ms);

@@ -15,7 +15,7 @@
 #define LAN9730_PID  0x9730
 #define LAN9730_VID  0x0424
 
-static inline int is_eth(usb_dev_t dev)
+static inline int is_eth(usb_dev_t *dev)
 {
     return dev->prod_id == LAN9730_PID && dev->vend_id == LAN9730_VID;
 }
@@ -23,7 +23,7 @@ static inline int is_eth(usb_dev_t dev)
 
 #ifdef CONFIG_LIB_LWIP
 #include <lwip/netif.h>
-struct netif* lan9730_driver_bind(usb_dev_t udev);
+struct netif* lan9730_driver_bind(usb_dev_t *udev);
 
 int lan9730_input(struct netif *netif);
 

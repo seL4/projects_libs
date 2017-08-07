@@ -271,7 +271,7 @@ static void _handle_port_change(usb_hub_t h, int port)
 
 			/* Create the new device */
 			enum usb_speed speed;
-			usb_dev_t new_dev = NULL;
+			struct usb_dev *new_dev = NULL;
 			usb_hub_t new_hub = NULL;
 
 			if (status & BIT(PORT_HIGH_SPEED)) {
@@ -446,7 +446,7 @@ static int hub_config_cb(void *token, int cfg, int iface, struct anon_desc *d)
 	}
 }
 
-int usb_hub_driver_bind(usb_dev_t udev, usb_hub_t *hub)
+int usb_hub_driver_bind(usb_dev_t *udev, usb_hub_t *hub)
 {
 	usb_hub_t h;
 	struct usbreq *req;

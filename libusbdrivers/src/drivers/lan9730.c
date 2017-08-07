@@ -258,7 +258,7 @@
 #define ETHRXCFG_RXFLUSH BIT(0)
 
 struct usb_eth {
-	usb_dev_t udev;
+	struct usb_dev *udev;
 /// Endpoints
 	struct endpoint *ep_in;
 	struct endpoint *ep_out;
@@ -881,7 +881,7 @@ err_t lan9730_init(struct netif *netif)
 	return ERR_OK;
 }
 
-struct netif *lan9730_driver_bind(usb_dev_t udev)
+struct netif *lan9730_driver_bind(usb_dev_t *udev)
 {
 	struct netif *netif;
 	struct usb_eth *eth;

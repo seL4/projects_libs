@@ -15,12 +15,12 @@
 #include <platsupport/serial.h>
 #include <usb/usb.h>
 
-int usb_pl2303_bind(usb_dev_t usb_dev);
+int usb_pl2303_bind(usb_dev_t *usb_dev);
 
-int usb_pl2303_configure(usb_dev_t udev, uint32_t bps, uint8_t char_size,
+int usb_pl2303_configure(usb_dev_t *udev, uint32_t bps, uint8_t char_size,
 		enum serial_parity parity, uint8_t stop);
-int usb_pl2303_write(usb_dev_t udev, void *buf, int len);
-int usb_pl2303_write(usb_dev_t udev, void *buf, int len);
+int usb_pl2303_write(usb_dev_t *udev, void *buf, int len);
+int usb_pl2303_write(usb_dev_t *udev, void *buf, int len);
 
 #endif /* _USB_PL2303_H_ */
 

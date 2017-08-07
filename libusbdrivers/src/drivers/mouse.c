@@ -23,7 +23,7 @@
 #include "hid.h"
 
 struct usb_mouse_device {
-	usb_dev_t udev;
+	struct usb_dev *udev;
 	struct usb_hid_device *hid;
 	struct endpoint *ep_int;
 	struct xact int_xact;
@@ -69,7 +69,7 @@ static int mouse_irq_handler(void* token, enum usb_xact_status stat, int bytes_r
 	return 0;
 }
 
-int usb_mouse_driver_bind(usb_dev_t usb_dev, struct ps_chardevice *cdev)
+int usb_mouse_driver_bind(struct usb_dev *usb_dev, struct ps_chardevice *cdev)
 {
 	struct usb_mouse_device *mouse;
 	int err;

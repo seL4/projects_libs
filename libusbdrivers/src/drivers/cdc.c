@@ -88,16 +88,16 @@ enum usb_cdc_inf_class {
 
 /* USB Communication Device */
 struct usb_cdc_device {
-	usb_dev_t udev;	  //The handle to the underlying USB device
-	uint8_t subclass; //Subclass code
-	uint8_t config;   //Active configuration
-	uint8_t comm;     //Communication interface index
-	uint8_t data;     //Data interface index
+	struct usb_dev *udev;	 //The handle to the underlying USB device
+	uint8_t subclass;        //Subclass code
+	uint8_t config;          //Active configuration
+	uint8_t comm;            //Communication interface index
+	uint8_t data;            //Data interface index
 	struct endpoint *ep_int; //Interrupt endpoint
 	struct endpoint *ep_in;	 //BULK in endpoint
 	struct endpoint *ep_out; //BULK out endpoint
 	struct xact read_xact;   //Current read request
-	circ_buf_t read_buf;  //Read buffer
+	circ_buf_t read_buf;     //Read buffer
 	int read_in_progress;
 };
 
@@ -154,11 +154,11 @@ usb_cdc_config_cb(void *token, int cfg, int iface, struct anon_desc *desc)
 
 static int usb_cdc_read_cb(void *token, enum usb_xact_status stat, int rbytes)
 {
-	usb_dev_t udev;
+	struct usb_dev *udev;
 	struct usb_cdc_device *cdc;
 	char *buf;
 
-	udev = (usb_dev_t)token;
+	udev = (struct usb_dev*)token;
 	cdc = (struct usb_cdc_device*)udev->dev_data;
 
 	if (stat == XACTSTAT_SUCCESS) {
@@ -177,7 +177,7 @@ static int usb_cdc_read_cb(void *token, enum usb_xact_status stat, int rbytes)
 	return 0;
 }
 
-int usb_cdc_bind(usb_dev_t udev)
+int usb_cdc_bind(usb_dev_t *udev)
 {
 	int err;
 	struct usb_cdc_device *cdc;
@@ -281,7 +281,7 @@ int usb_cdc_bind(usb_dev_t udev)
 	return 0;
 }
 
-int usb_cdc_read(usb_dev_t udev, void *buf, int len)
+int usb_cdc_read(usb_dev_t *udev, void *buf, int len)
 {
 	int err;
 	int cnt = 0;
@@ -312,7 +312,7 @@ int usb_cdc_read(usb_dev_t udev, void *buf, int len)
 	return cnt;
 }
 
-int usb_cdc_write(usb_dev_t udev, const void *buf, int len)
+int usb_cdc_write(usb_dev_t *udev, const void *buf, int len)
 {
 	int err;
 	int cnt;
@@ -420,7 +420,7 @@ usb_cdc_mgmt_msg(struct usb_cdc_device *cdc, uint8_t req_type,
 }
 
 /* Communication Device Class Requests */
-void cdc_send_encap_cmd(usb_dev_t udev, const void *buf, int len)
+void cdc_send_encap_cmd(usb_dev_t *udev, const void *buf, int len)
 {
 	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
 
@@ -428,7 +428,7 @@ void cdc_send_encap_cmd(usb_dev_t udev, const void *buf, int len)
 			SEND_ENCAPSULATED_COMMAND, 0, (void*)buf, len);
 }
 
-void cdc_get_encap_resp(usb_dev_t udev, void *buf, int len)
+void cdc_get_encap_resp(usb_dev_t *udev, void *buf, int len)
 {
 	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
 
@@ -437,7 +437,7 @@ void cdc_get_encap_resp(usb_dev_t udev, void *buf, int len)
 }
 
 /* PSTN - Abstract Control Model Requests */
-void acm_set_comm_feature(usb_dev_t udev, enum acm_comm_feature f,
+void acm_set_comm_feature(usb_dev_t *udev, enum acm_comm_feature f,
 		uint16_t state)
 {
 	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
@@ -446,7 +446,7 @@ void acm_set_comm_feature(usb_dev_t udev, enum acm_comm_feature f,
 			SET_COMM_FEATURE, f, &state, 2);
 }
 
-uint16_t acm_get_comm_feature(usb_dev_t udev, enum acm_comm_feature f)
+uint16_t acm_get_comm_feature(usb_dev_t *udev, enum acm_comm_feature f)
 {
 	uint16_t state;
 	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
@@ -456,7 +456,7 @@ uint16_t acm_get_comm_feature(usb_dev_t udev, enum acm_comm_feature f)
 	return state;
 }
 
-void acm_clear_comm_feature(usb_dev_t udev, enum acm_comm_feature f)
+void acm_clear_comm_feature(usb_dev_t *udev, enum acm_comm_feature f)
 {
 	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
 
@@ -464,7 +464,7 @@ void acm_clear_comm_feature(usb_dev_t udev, enum acm_comm_feature f)
 			CLEAR_COMM_FEATURE, f, NULL, 0);
 }
 
-void acm_set_line_coding(usb_dev_t udev, const struct acm_line_coding *coding)
+void acm_set_line_coding(usb_dev_t *udev, const struct acm_line_coding *coding)
 {
 	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
 
@@ -473,7 +473,7 @@ void acm_set_line_coding(usb_dev_t udev, const struct acm_line_coding *coding)
 			sizeof(*coding));
 }
 
-void acm_get_line_coding(usb_dev_t udev, struct acm_line_coding *coding)
+void acm_get_line_coding(usb_dev_t *udev, struct acm_line_coding *coding)
 {
 	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
 
@@ -481,7 +481,7 @@ void acm_get_line_coding(usb_dev_t udev, struct acm_line_coding *coding)
 			GET_LINE_CODING, 0, coding, sizeof(*coding));
 }
 
-void acm_set_ctrl_line_state(usb_dev_t udev, uint8_t ctrl)
+void acm_set_ctrl_line_state(usb_dev_t *udev, uint8_t ctrl)
 {
 	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
 
@@ -489,7 +489,7 @@ void acm_set_ctrl_line_state(usb_dev_t udev, uint8_t ctrl)
 			SET_CONTROL_LINE_STATE, ctrl, NULL, 0);
 }
 
-void acm_send_break(usb_dev_t udev, uint16_t us)
+void acm_send_break(usb_dev_t *udev, uint16_t us)
 {
 	struct usb_cdc_device *cdc = (struct usb_cdc_device*)udev->dev_data;
 

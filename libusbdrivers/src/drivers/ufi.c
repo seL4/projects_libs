@@ -70,7 +70,7 @@ static void ufi_format_unit()
 	abort();
 }
 
-static void ufi_test_unit_ready(usb_dev_t udev)
+static void ufi_test_unit_ready(usb_dev_t *udev)
 {
 	int err;
 	struct ufi_cdb cdb;
@@ -88,7 +88,7 @@ static void ufi_test_unit_ready(usb_dev_t udev)
 	}
 }
 
-static void ufi_request_sense(usb_dev_t udev)
+static void ufi_request_sense(usb_dev_t *udev)
 {
 	int err;
 	struct ufi_cdb cdb;
@@ -116,7 +116,7 @@ static void ufi_request_sense(usb_dev_t udev)
 	usb_destroy_xact(udev->dman, &data, 1);
 }
 
-static void ufi_inquiry(usb_dev_t udev)
+static void ufi_inquiry(usb_dev_t *udev)
 {
 	int err;
 	struct ufi_cdb cdb;
@@ -146,7 +146,7 @@ static void ufi_inquiry(usb_dev_t udev)
 	usb_destroy_xact(udev->dman, &data, 1);
 }
 
-static void ufi_prevent_allow_medium_removal(usb_dev_t udev, int enable)
+static void ufi_prevent_allow_medium_removal(usb_dev_t *udev, int enable)
 {
 	int err;
 	struct ufi_cdb cdb;
@@ -164,7 +164,7 @@ static void ufi_prevent_allow_medium_removal(usb_dev_t udev, int enable)
 	}
 }
 
-uint32_t ufi_read_capacity(usb_dev_t udev)
+uint32_t ufi_read_capacity(usb_dev_t *udev)
 {
 	int err;
 	uint32_t ret;
@@ -196,7 +196,7 @@ uint32_t ufi_read_capacity(usb_dev_t udev)
 	return ret;
 }
 
-static void ufi_mode_sense(usb_dev_t udev)
+static void ufi_mode_sense(usb_dev_t *udev)
 {
 	int err;
 	struct ufi_cdb cdb;
@@ -226,7 +226,7 @@ static void ufi_mode_sense(usb_dev_t udev)
 	usb_destroy_xact(udev->dman, &data, 1);
 }
 
-static void ufi_read10(usb_dev_t udev, uint32_t lba, uint16_t count)
+static void ufi_read10(usb_dev_t *udev, uint32_t lba, uint16_t count)
 {
 	int err;
 	struct ufi_cdb cdb;
@@ -257,7 +257,7 @@ static void ufi_read10(usb_dev_t udev, uint32_t lba, uint16_t count)
 	usb_destroy_xact(udev->dman, &data, 1);
 }
 
-static void ufi_read12(usb_dev_t udev, uint32_t lba, uint32_t count)
+static void ufi_read12(usb_dev_t *udev, uint32_t lba, uint32_t count)
 {
 	int err;
 	struct ufi_cdb cdb;
@@ -289,7 +289,7 @@ static void ufi_read12(usb_dev_t udev, uint32_t lba, uint32_t count)
 }
 
 int
-ufi_init_disk(usb_dev_t udev)
+ufi_init_disk(usb_dev_t *udev)
 {
 	usb_storage_bind(udev);
 

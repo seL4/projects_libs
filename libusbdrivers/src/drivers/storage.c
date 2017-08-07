@@ -50,7 +50,7 @@ struct csw {
 
 /* USB mass storage device */
 struct usb_storage_device {
-    usb_dev_t      udev;      //The handle to the underlying USB device
+    struct usb_dev *udev;     //The handle to the underlying USB device
     unsigned int   max_lun;   //Maximum logical unit number
     unsigned int   subclass;  //Industry standard
     unsigned int   protocol;  //Protocol code
@@ -140,8 +140,8 @@ usb_storage_config_cb(void* token, int cfg, int iface, struct anon_desc* desc)
     return 0;
 }
 
-void
-usb_storage_set_configuration(usb_dev_t udev)
+static void
+usb_storage_set_configuration(struct usb_dev *udev)
 {
     int err;
     struct usb_storage_device *ubms;
@@ -173,8 +173,8 @@ usb_storage_set_configuration(usb_dev_t udev)
     }
 }
 
-void
-usb_storage_reset(usb_dev_t udev)
+static void
+usb_storage_reset(struct usb_dev *udev)
 {
     int err;
     struct xact xact;
@@ -203,8 +203,8 @@ usb_storage_reset(usb_dev_t udev)
     }
 }
 
-int
-usb_storage_get_max_lun(usb_dev_t udev)
+static int
+usb_storage_get_max_lun(struct usb_dev *udev)
 {
     int err;
     struct xact xact[2];
@@ -243,7 +243,7 @@ usb_storage_get_max_lun(usb_dev_t udev)
 }
 
 int
-usb_storage_bind(usb_dev_t udev)
+usb_storage_bind(struct usb_dev *udev)
 {
     int err;
     struct usb_storage_device *ubms;
@@ -305,7 +305,7 @@ usb_storage_bind(usb_dev_t udev)
 }
 
 int
-usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
+usb_storage_xfer(struct usb_dev *udev, void *cb, size_t cb_len,
          struct xact *data, int ndata, int direction)
 {
     int err, i, ret;

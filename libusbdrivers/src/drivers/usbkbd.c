@@ -88,7 +88,7 @@ static int rb_consume(struct ringbuf *rb)
 #define KBDIND_SCRL    0x4
 
 struct usb_kbd_device {
-	usb_dev_t udev;
+	struct usb_dev *udev;
 	struct usb_hid_device *hid;
 	struct endpoint *ep_int;
 	struct xact int_xact;
@@ -292,7 +292,7 @@ kbd_read(ps_chardevice_t *d, void *vdata, size_t bytes,
 	return i;
 }
 
-int usb_kbd_driver_bind(usb_dev_t usb_dev, struct ps_chardevice *cdev)
+int usb_kbd_driver_bind(usb_dev_t *usb_dev, struct ps_chardevice *cdev)
 {
 	struct usb_kbd_device *kbd;
 	int err;

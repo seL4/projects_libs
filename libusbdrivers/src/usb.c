@@ -113,7 +113,7 @@ static void devlist_init(usb_t * host)
 }
 
 /* Insert a device into the list, return the index at which it was inserted */
-static int devlist_insert(usb_dev_t d)
+static int devlist_insert(struct usb_dev *d)
 {
 	usb_t *host = d->host;
 	int i = host->next_addr;
@@ -146,7 +146,7 @@ static int devlist_insert(usb_dev_t d)
 }
 
 /* Remove the device from the list */
-static void devlist_remove(usb_dev_t d)
+static void devlist_remove(struct usb_dev *d)
 {
 	usb_t *host = d->host;
 
@@ -158,9 +158,9 @@ static void devlist_remove(usb_dev_t d)
 }
 
 /* Retrieve a device from the list */
-static usb_dev_t devlist_at(usb_t * host, int addr)
+static struct usb_dev *devlist_at(usb_t *host, int addr)
 {
-	usb_dev_t d;
+	struct usb_dev *d;
 	if (addr < 0 || addr > NUM_DEVICES) {
 		ZF_LOGW("USB: Device not found\n");
 	}
@@ -362,7 +362,7 @@ static void print_string_desc(struct string_desc *desc)
 }
 
 static void
-usb_get_string_desc(usb_dev_t udev, int index, struct string_desc *desc)
+usb_get_string_desc(struct usb_dev *udev, int index, struct string_desc *desc)
 {
 	int err;
 	int lang;
@@ -421,7 +421,7 @@ usb_get_string_desc(usb_dev_t udev, int index, struct string_desc *desc)
 	usb_destroy_xact(udev->dman, xact, 2);
 }
 
-static void print_dev(usb_dev_t d)
+static void print_dev(struct usb_dev *d)
 {
 	if (d) {
 		printf("USB@%02d: 0x%04x:0x%04x | %-40s\n",
@@ -464,7 +464,7 @@ usb_config_print_cb(void *token, int cfg, int iface, struct anon_desc *d)
 	}
 }
 
-static void usbdev_config_print(usb_dev_t udev)
+static void usbdev_config_print(struct usb_dev *udev)
 {
 	struct anon_desc *desc;
 	struct usbreq *req;
@@ -496,7 +496,7 @@ static void usbdev_config_print(usb_dev_t udev)
 	usbdev_parse_config(udev, usb_config_print_cb, cnt);
 }
 
-static void print_dev_graph(usb_t * host, usb_dev_t d, int depth)
+static void print_dev_graph(usb_t * host, struct usb_dev *d, int depth)
 {
 	int i;
 	if (d != NULL) {
@@ -507,7 +507,7 @@ static void print_dev_graph(usb_t * host, usb_dev_t d, int depth)
 	}
 	/* Search for connected devices */
 	for (i = 1; i < NUM_DEVICES; i++) {
-		usb_dev_t d2;
+		struct usb_dev *d2;
 		d2 = devlist_at(host, i);
 		if (d2 && d2->hub == d) {
 			print_dev_graph(host, d2, depth + 1);
@@ -516,7 +516,7 @@ static void print_dev_graph(usb_t * host, usb_dev_t d, int depth)
 }
 
 static int
-parse_config(usb_dev_t udev, struct anon_desc *d, int tot_len,
+parse_config(struct usb_dev *udev, struct anon_desc *d, int tot_len,
 	     usb_config_cb cb, void *t)
 {
 	int cfg = -1;
@@ -607,11 +607,11 @@ parse_config(usb_dev_t udev, struct anon_desc *d, int tot_len,
 }
 
 static int
-usb_new_device_with_host(usb_dev_t hub, usb_t * host, int port,
-			 enum usb_speed speed, usb_dev_t * d)
+usb_new_device_with_host(struct usb_dev *hub, usb_t * host, int port,
+			 enum usb_speed speed, struct usb_dev **d)
 {
-	usb_dev_t udev = NULL;
-	usb_dev_t parent = NULL, child = NULL;
+	struct usb_dev *udev = NULL;
+	struct usb_dev *parent = NULL, *child = NULL;
 	struct usbreq *req;
 	struct device_desc *d_desc;
 	struct string_desc s_desc;
@@ -620,7 +620,7 @@ usb_new_device_with_host(usb_dev_t hub, usb_t * host, int port,
 	int err;
 
 	ZF_LOGD("USB: New USB device!\n");
-	udev = (usb_dev_t) usb_malloc(sizeof(*udev));
+	udev = (struct usb_dev*)usb_malloc(sizeof(*udev));
 	if (!udev) {
 		ZF_LOGE("USB: No heap memory for new USB device\n");
 		return -1;
@@ -788,7 +788,7 @@ usb_init(enum usb_host_id id, ps_io_ops_t * ioops, ps_mutex_ops_t * sync,
 	 usb_t * host)
 {
 	usb_hub_t hub;
-	usb_dev_t udev;
+	struct usb_dev *udev;
 	int err;
 
 	/* Pre-fill the host structure */
@@ -814,12 +814,12 @@ usb_init(enum usb_host_id id, ps_io_ops_t * ioops, ps_mutex_ops_t * sync,
 	return 0;
 }
 
-int usb_new_device(usb_dev_t hub, int port, enum usb_speed speed, usb_dev_t * d)
+int usb_new_device(usb_dev_t *hub, int port, enum usb_speed speed, usb_dev_t **d)
 {
 	return usb_new_device_with_host(hub, hub->host, port, speed, d);
 }
 
-usb_dev_t usb_get_device(usb_t * host, int addr)
+usb_dev_t *usb_get_device(usb_t * host, int addr)
 {
 	if (addr <= 0 || addr >= NUM_DEVICES) {
 		return NULL;
@@ -833,7 +833,7 @@ usb_dev_t usb_get_device(usb_t * host, int addr)
  * We don't support multiple configurations, if the device has more than one
  * configurations, the first one will be activated.
  */
-int usbdev_parse_config(usb_dev_t udev, usb_config_cb cb, void *t)
+int usbdev_parse_config(usb_dev_t *udev, usb_config_cb cb, void *t)
 {
 	struct xact xact[2];
 	struct usbreq *req;
@@ -890,7 +890,7 @@ int usbdev_parse_config(usb_dev_t udev, usb_config_cb cb, void *t)
 	return err;
 }
 
-void usbdev_disconnect(usb_dev_t udev)
+void usbdev_disconnect(usb_dev_t *udev)
 {
 	UNUSED int err;
 	usb_host_t *hdev;
@@ -960,7 +960,7 @@ void usb_handle_irq(usb_t *host)
 }
 
 int
-usbdev_schedule_xact(usb_dev_t udev, struct endpoint *ep, struct xact *xact,
+usbdev_schedule_xact(usb_dev_t *udev, struct endpoint *ep, struct xact *xact,
 		     int nxact, usb_cb_t cb, void *token)
 {
 	int err;
@@ -991,7 +991,7 @@ void usb_lsusb(usb_t * host, int v)
 	if (v == 0) {
 		/* Print a simple list */
 		for (i = 1; i < NUM_DEVICES; i++) {
-			usb_dev_t d = devlist_at(host, i);
+			struct usb_dev *d = devlist_at(host, i);
 			print_dev(d);
 		}
 	} else {
@@ -1002,7 +1002,7 @@ void usb_lsusb(usb_t * host, int v)
 	if (v > 1) {
 		printf("\n");
 		for (i = 1; i < NUM_DEVICES; i++) {
-			usb_dev_t d = devlist_at(host, i);
+			struct usb_dev *d = devlist_at(host, i);
 			if (d) {
 				print_dev(d);
 				usbdev_config_print(d);
@@ -1012,7 +1012,7 @@ void usb_lsusb(usb_t * host, int v)
 	printf("\n");
 }
 
-void usb_probe_device(usb_dev_t dev)
+void usb_probe_device(usb_dev_t *dev)
 {
 	usbdev_config_print(dev);
 }
@@ -1046,7 +1046,7 @@ void usb_destroy_xact(ps_dma_man_t * dman, struct xact *xact, int nxact)
 	}
 }
 
-enum usb_class usbdev_get_class(usb_dev_t dev)
+enum usb_class usbdev_get_class(usb_dev_t *dev)
 {
 	return dev->class;
 }

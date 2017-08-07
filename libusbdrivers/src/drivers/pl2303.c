@@ -36,7 +36,7 @@
 
 /* PL2303 USB to Serial Converter */
 struct pl2303_device {
-	usb_dev_t udev;	         //The handle to the underlying USB device
+	struct usb_dev *udev;	 //The handle to the underlying USB device
 	uint8_t config;          //Active configuration
 	struct endpoint *ep_int; //Interrupt endpoint
 	struct endpoint *ep_in;	 //BULK in endpoint
@@ -73,9 +73,9 @@ pl2303_interrupt_cb(void* token, enum usb_xact_status stat, int rbytes)
 {
 	int err;
 	struct pl2303_device *dev;
-	usb_dev_t udev;
+	struct usb_dev *udev;
 
-	udev = (usb_dev_t)token;
+	udev = (struct usb_dev*)token;
 	dev = (struct pl2303_device*)udev->dev_data;
 
 	/* Queue another request */
@@ -90,7 +90,7 @@ pl2303_interrupt_cb(void* token, enum usb_xact_status stat, int rbytes)
 }
 
 static void
-pl2303_startup_magic(usb_dev_t udev)
+pl2303_startup_magic(struct usb_dev *udev)
 {
 	int err;
 	struct xact xact[2];
@@ -144,7 +144,7 @@ pl2303_startup_magic(usb_dev_t udev)
 	usb_destroy_xact(udev->dman, xact, 2);
 }
 
-int usb_pl2303_bind(usb_dev_t udev)
+int usb_pl2303_bind(usb_dev_t *udev)
 {
 	int err;
 	struct pl2303_device *dev;
@@ -238,7 +238,7 @@ int usb_pl2303_bind(usb_dev_t udev)
 	return 0;
 }
 
-int usb_pl2303_configure(usb_dev_t udev, uint32_t bps, uint8_t char_size,
+int usb_pl2303_configure(usb_dev_t *udev, uint32_t bps, uint8_t char_size,
 		enum serial_parity parity, uint8_t stop)
 {
 	int err;
@@ -322,7 +322,7 @@ int usb_pl2303_configure(usb_dev_t udev, uint32_t bps, uint8_t char_size,
 }
 
 /* TODO: Remove the 20K limitation */
-int usb_pl2303_write(usb_dev_t udev, void *buf, int len)
+int usb_pl2303_write(usb_dev_t *udev, void *buf, int len)
 {
 	int err;
 	struct pl2303_device *dev;
@@ -352,7 +352,7 @@ int usb_pl2303_write(usb_dev_t udev, void *buf, int len)
 }
 
 /* TODO: Remove the 20K limitation and possible babble */
-int usb_pl2303_read(usb_dev_t udev, void *buf, int len)
+int usb_pl2303_read(usb_dev_t *udev, void *buf, int len)
 {
 	int err;
 	struct pl2303_device *dev;

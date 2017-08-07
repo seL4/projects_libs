@@ -14,8 +14,8 @@
 
 #include <usb/usb.h>
 
-int ufi_init_disk(usb_dev_t usb_dev);
-uint32_t ufi_read_capacity(usb_dev_t usb_dev);
+int ufi_init_disk(usb_dev_t *usb_dev);
+uint32_t ufi_read_capacity(usb_dev_t *usb_dev);
 
 #endif /* _USB_STORAGE_H_ */
 

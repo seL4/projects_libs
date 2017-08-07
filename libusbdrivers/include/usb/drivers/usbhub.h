@@ -57,7 +57,7 @@ struct usb_hub_port {
 };
 
 struct usb_hub {
-    usb_dev_t udev;
+    usb_dev_t *udev;
 /// Configuration parameters
     struct endpoint *ep_int;
     int ifno, cfgno, int_ep, int_max_pkt, int_rate_ms;
@@ -71,7 +71,7 @@ struct usb_hub {
 };
 
 typedef struct usb_hub* usb_hub_t;
-int usb_hub_driver_bind(usb_dev_t usb_dev, usb_hub_t* hub);
+int usb_hub_driver_bind(usb_dev_t *usb_dev, usb_hub_t* hub);
 
 struct usb_hubem;
 typedef struct usb_hubem* usb_hubem_t;

@@ -14,8 +14,8 @@
 
 #include <usb/usb.h>
 
-int usb_storage_bind(usb_dev_t udev);
-int usb_storage_xfer(usb_dev_t udev, void *cb, size_t cb_len,
+int usb_storage_bind(struct usb_dev *udev);
+int usb_storage_xfer(struct usb_dev *udev, void *cb, size_t cb_len,
 		 struct xact *data, int ndata, int direction);
 #endif /* _DRIVERS_STORAGE_H_ */
 

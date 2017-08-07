@@ -127,7 +127,7 @@ usb_hid_config_cb(void *token, int cfg, int iface, struct anon_desc *desc)
 	return 0;
 }
 
-struct usb_hid_device *usb_hid_alloc(usb_dev_t udev)
+struct usb_hid_device *usb_hid_alloc(struct usb_dev *udev)
 {
 	int err;
 	struct usb_hid_device *hid;
