@@ -736,7 +736,7 @@ usb_new_device_with_host(struct usb_dev *hub, usb_t * host, int port,
 	}
 
 	/* Device has 2ms to start responding to new address */
-	msdelay(2);
+	ps_mdelay(2);
 	udev->addr = addr;
 
 	/* All settled, start processing standard USB descriptors */
@@ -859,7 +859,7 @@ int usbdev_parse_config(usb_dev_t *udev, usb_config_cb cb, void *t)
 	tot_len = cd->wTotalLength;
 
 	/* Some devices need a pause during initialization */
-	msdelay(100);
+	ps_mdelay(100);
 
 	/* Next read for the entire descriptor table */
 	xact[0].len = sizeof(*req);

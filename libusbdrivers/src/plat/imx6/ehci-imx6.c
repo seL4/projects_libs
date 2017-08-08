@@ -293,15 +293,15 @@ phy_enable(int devid, ps_io_ops_t* o)
         /* Reset PHY */
         phy_regs->ctrl.set = PHYCTRL_SFTRST;
         dsb();
-        udelay(10);
+        ps_udelay(10);
         phy_regs->ctrl.clr = PHYCTRL_SFTRST;
         dsb();
-        udelay(10);
+        ps_udelay(10);
         /* Enable PHY and FS/LS */
         phy_regs->pwd.val = 0;
         phy_regs->ctrl.set = PHYCTRL_ENUTMIL3 | PHYCTRL_ENUTMIL2;
         dsb();
-        msdelay(10);
+        ps_mdelay(10);
     }
 }
 

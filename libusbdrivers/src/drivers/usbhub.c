@@ -225,7 +225,7 @@ static void _handle_port_change(usb_hub_t h, int port)
 		if (status & BIT(PORT_CONNECTION)) {
 			ZF_LOGD("Port %d connected\n", port);
 			/* Wait for the device to stabilize, USB spec 9.1.2 */
-			msdelay(100);
+			ps_mdelay(100);
 
 			/* Enable the connection by resetting the port */
 			*req = __set_port_feature_req(port, PORT_RESET);
@@ -243,7 +243,7 @@ static void _handle_port_change(usb_hub_t h, int port)
 			 */
 			*req = __get_port_status_req(port);
 			do {
-				msdelay(10);
+				ps_mdelay(10);
 				ret =
 				    usbdev_schedule_xact(h->udev,
 							 h->udev->ep_ctrl, xact,
@@ -528,7 +528,7 @@ int usb_hub_driver_bind(usb_dev_t *udev, usb_hub_t *hub)
 			ZF_LOGF("Transaction error\n");
 		}
 	}
-	msdelay(h->power_good_delay_ms);
+	ps_mdelay(h->power_good_delay_ms);
 	usb_destroy_xact(udev->dman, xact, 1);
 #if !defined(HUB_ENABLE_IRQS)
 	/* Setup ports */

@@ -55,7 +55,7 @@ int _set_pf(void *token, int port, enum port_feature feature)
 		/* Sabre will automatically stop the reset and a ENABLE CHANGE
 		 * IRQ event fires, but this does not happen on the Odroid! */
 		/* Wait for reset to complete */
-		msdelay(10);	/* 7.1.7.5 of USB 0.2 10ms delay */
+		ps_mdelay(10);	/* 7.1.7.5 of USB 0.2 10ms delay */
 		*ps_reg &= ~EHCI_PORT_RESET;
 		while (*ps_reg & EHCI_PORT_RESET) ;
 
@@ -126,9 +126,9 @@ int _clr_pf(void *token, int port, enum port_feature feature)
 		       feature);
 		return -1;
 	}
-	udelay(10);
+	ps_udelay(10);
 	*ps_reg = v;
-	udelay(10);
+	ps_udelay(10);
 	return 0;
 }
 

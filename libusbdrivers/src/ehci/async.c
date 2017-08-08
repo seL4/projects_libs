@@ -589,7 +589,7 @@ int ehci_wait_for_completion(struct TDn *tdn)
 						(void*)tdn->ptd);
 				return -1;
 			}
-			msdelay(1);
+			ps_mdelay(1);
 			cnt--;
 		} while (status);
 		tdn = tdn->next;

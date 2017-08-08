@@ -96,7 +96,7 @@ usb_init_phy(ps_io_ops_t* io_ops)
     *PHYREG32(_phy_regs, CTRL0) |= USBPHY_CTRL_RESET;
     *PHYREG32(_phy_regs, CTRL1) |= USBPHY_CTRL_RESET;
     *PHYREG32(_phy_regs, CTRL2) |= USBPHY_CTRL_RESET;
-    udelay(10);
+    ps_udelay(10);
 
     /* Setup clocks and enable PHY */
     *PHYREG32(_phy_regs, CTRL0) = USBPHY_CTRL0_FREQ_SEL(0x05) | USBPHY_CTRL0_SRCSEL(2) | BIT(10);
@@ -106,7 +106,7 @@ usb_init_phy(ps_io_ops_t* io_ops)
     /* Enable the EHCI controller */
     *PHYREG32(_phy_regs, EHCI) |= USBPHY_EHCI_ENABLE;
 
-    udelay(40);
+    ps_udelay(40);
 
     return 0;
 }
@@ -130,7 +130,7 @@ eth_pwren(int state)
 {
     if (state) {
         pmic_ldo_cfg(&pmic, LDO_ETH, LDO_ON, 3300);
-        msdelay(40);
+        ps_mdelay(40);
     } else {
         pmic_ldo_cfg(&pmic, LDO_ETH, LDO_OFF, 3300);
     }

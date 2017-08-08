@@ -19,13 +19,6 @@
 
 void otg_irq(void);
 
-#ifdef ARCH_ARM
-#define udelay(ms)  ps_udelay(ms)
-#else
-#define udelay(ms)  ps_udelay(ms)
-#endif
-#define msdelay(ms) udelay((ms) * 1000)
-
 #define usb_malloc(...) calloc(1, __VA_ARGS__)
 #define usb_free(...) free(__VA_ARGS__)
 
@@ -33,15 +26,14 @@ void otg_irq(void);
 
 #define GET_RESOURCE(ops, id) MAP_DEVICE(ops, id##_PADDR, id##_SIZE)
 
+static inline void dsb()
+{
 #ifdef ARCH_ARM
-#define dsb() asm volatile("dsb")
-#define isb() asm volatile("isb")
-#define dmb() asm volatile("dmb")
+	asm volatile("dsb");
 #else
-#define dsb() asm volatile ("" ::: "memory")
-#define isb() asm volatile ("" ::: "memory")
-#define dmb() asm volatile ("mfence" ::: "memory")
+	asm volatile ("" ::: "memory");
 #endif
+}
 
 static inline void *ps_dma_alloc_pinned(ps_dma_man_t * dma_man, size_t size,
 					int align, int cache,

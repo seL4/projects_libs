@@ -139,7 +139,7 @@ void usb3503_reset(usb3503_t *hub)
 void usb3503_hard_reset(usb3503_t *hub)
 {
 	gpio_clr(&hub->o_nreset);
-	udelay(100);
+	ps_udelay(100);
 	gpio_set(&hub->o_nreset);
 }
 

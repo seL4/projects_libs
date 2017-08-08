@@ -345,7 +345,7 @@ usb_storage_xfer(struct usb_dev *udev, void *cb, size_t cb_len,
     tag = cbw->tag;
     usb_destroy_xact(udev->dman, &xact, 1);
 
-    msdelay(200);
+    ps_mdelay(200);
     /* Send/Receive data */
     if (data != NULL) {
         if (direction) {
@@ -356,7 +356,7 @@ usb_storage_xfer(struct usb_dev *udev, void *cb, size_t cb_len,
 	    ZF_LOGF("Transaction error\n");
         }
     }
-    msdelay(200);
+    ps_mdelay(200);
 
     /* Check CSW from IN endpoint */
     xact.len = sizeof(struct csw);

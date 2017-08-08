@@ -333,7 +333,7 @@ ehci_host_init(usb_host_t *hdev, uintptr_t regs,
 	edev->op_regs->usbcmd = v;
 	edev->op_regs->configflag |= EHCICFLAG_CFLAG;
 	dsb();
-	msdelay(5);
+	ps_mdelay(5);
 
 	/* Enable Interrupts */
 	v = edev->op_regs->usbintr;

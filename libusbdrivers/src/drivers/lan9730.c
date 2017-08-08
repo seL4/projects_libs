@@ -358,7 +358,7 @@ static int write_register(struct usb_eth *eth, int addr, uint32_t v)
 	*d = v;
 
 	/* FIXME: Find out why the delay is important? */
-	msdelay(100);
+	ps_mdelay(100);
 	err = usbdev_schedule_xact(eth->udev, eth->udev->ep_ctrl,
 				   eth->reg_write_xact, 2, NULL, NULL);
 	if (err) {
@@ -378,7 +378,7 @@ static int read_register(struct usb_eth *eth, int addr, uint32_t *v)
 	*r = __reg_read_req(addr);
 
 	/* FIXME: Find out why the delay is important? */
-	msdelay(100);
+	ps_mdelay(100);
 	err = usbdev_schedule_xact(eth->udev, eth->udev->ep_ctrl,
 				   eth->reg_read_xact, 2, NULL, NULL);
 	if (err) {
