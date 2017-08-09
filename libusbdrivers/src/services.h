@@ -9,6 +9,8 @@
  *
  * @TAG(DATA61_BSD)
  */
+#pragma once
+
 #include <stdlib.h>
 #include <platsupport/io.h>
 #include <platsupport/delay.h>
@@ -19,12 +21,39 @@
 
 void otg_irq(void);
 
-#define usb_malloc(...) calloc(1, __VA_ARGS__)
-#define usb_free(...) free(__VA_ARGS__)
-
 #define MAP_DEVICE(o, p, s) ps_io_map(&o->io_mapper, p, s, 0, PS_MEM_NORMAL)
-
 #define GET_RESOURCE(ops, id) MAP_DEVICE(ops, id##_PADDR, id##_SIZE)
+
+extern ps_malloc_ops_t *ps_malloc_ops;
+static inline void *usb_malloc(size_t size)
+{
+	int ret;
+
+	if (ps_malloc_ops && ps_malloc_ops->calloc) {
+		void *ptr;
+		ret = ps_calloc(ps_malloc_ops, 1, size, &ptr);
+		if (!ret) {
+			ZF_LOGF("Malloc error\n");
+		}
+		return ptr;
+	} else {
+		return calloc(1, size);
+	}
+}
+
+static inline void usb_free(void *ptr)
+{
+	int ret;
+
+	if (ps_malloc_ops && ps_malloc_ops->free) {
+		ret = ps_free(ps_malloc_ops, 1, ptr);
+		if (!ret) {
+			ZF_LOGF("Free error\n");
+		}
+	} else {
+		free(ptr);
+	}
+}
 
 static inline void dsb()
 {

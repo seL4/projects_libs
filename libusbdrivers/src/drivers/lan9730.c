@@ -881,13 +881,13 @@ struct netif *lan9730_driver_bind(usb_dev_t *udev)
 		return NULL;
 	}
 	/* Allocate memory */
-	eth = (struct usb_eth *)malloc(sizeof(*eth));
+	eth = (struct usb_eth *)usb_malloc(sizeof(*eth));
 	if (eth == NULL) {
 		return NULL;
 	}
-	netif = (struct netif *)malloc(sizeof(*netif));
+	netif = (struct netif *)usb_malloc(sizeof(*netif));
 	if (netif == NULL) {
-		free(eth);
+		usb_free(eth);
 		return NULL;
 	}
 	memset(eth, 0, sizeof(*eth));

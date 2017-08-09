@@ -778,7 +778,7 @@ usb_new_device_with_host(struct usb_dev *hub, usb_t * host, int port,
 /****************************
  **** Exported functions ****
  ****************************/
-
+ps_malloc_ops_t *ps_malloc_ops = NULL;
 int
 usb_init(enum usb_host_id id, ps_io_ops_t * ioops, ps_mutex_ops_t * sync,
 	 usb_t * host)
@@ -786,6 +786,8 @@ usb_init(enum usb_host_id id, ps_io_ops_t * ioops, ps_mutex_ops_t * sync,
 	usb_hub_t hub;
 	struct usb_dev *udev;
 	int err;
+
+	ps_malloc_ops = &ioops->malloc_ops;
 
 	/* Pre-fill the host structure */
 	devlist_init(host);

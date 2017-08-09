@@ -409,11 +409,11 @@ void qhn_destroy(ps_dma_man_t* dman, struct QHn* qhn)
 			tmp->cb(tmp->token, XACTSTAT_CANCELLED, 0);
 		}
 		ps_dma_free_pinned(dman, (void*)tmp->td, sizeof(struct TD));
-		free(tmp);
+		usb_free(tmp);
 	}
 
 	ps_dma_free_pinned(dman, (void*)qhn->qh, sizeof(struct QH));
-	free(qhn);
+	usb_free(qhn);
 }
 
 void ehci_async_complete(struct ehci_host *edev)
@@ -466,7 +466,7 @@ void ehci_async_complete(struct ehci_host *edev)
 					ps_dma_free_pinned(edev->dman,
 							(void*)tmp->td,
 							sizeof(struct TD));
-					free(tmp);
+					usb_free(tmp);
 				}
 			}
 			tdn = tdn->next;

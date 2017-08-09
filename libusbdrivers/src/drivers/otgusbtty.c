@@ -108,7 +108,7 @@ freebuf_cb(usb_otg_t otg, void* token,
     }
     t = (struct free_token*)token;
     ps_dma_free_pinned(t->dman, t->vaddr, t->size);
-    free(t);
+    usb_free(t);
 }
 
 static void
@@ -167,7 +167,7 @@ send_desc(otg_usbtty_t tty, enum DescriptorType type, int index,
         uintptr_t pbuf;
         int err;
 
-        t = malloc(sizeof(*t));
+        t = usb_malloc(sizeof(*t));
 	if (!t) {
 		ZF_LOGF("Out of memory\n");
 	}
