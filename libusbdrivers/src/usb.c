@@ -929,7 +929,10 @@ void usbdev_disconnect(usb_dev_t *udev)
 		cnt++;
 	}
 
-	ZF_LOGW("USB %d: Failed to cancel some of the transactions\n");
+	if (err) {
+		ZF_LOGW("USB %d: Failed to cancel some of the transactions\n",
+			udev->addr);
+	}
 
 	(void)hdev;
 	devlist_remove(udev);
