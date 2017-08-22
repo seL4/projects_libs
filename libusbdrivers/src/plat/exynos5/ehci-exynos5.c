@@ -188,7 +188,7 @@ usb_plat_gpio_init(ps_io_ops_t* io_ops)
 }
 
 int
-usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, sync_ops_t *sync,
+usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, ps_mutex_ops_t *sync,
 		usb_host_t* hdev)
 {
     int err;
