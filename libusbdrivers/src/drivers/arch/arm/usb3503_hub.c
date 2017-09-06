@@ -89,7 +89,7 @@ usb3503_init(i2c_bus_t *i2c_bus, gpio_sys_t *gpio_sys, gpio_id_t o_nreset,
 	     gpio_id_t o_hubconnect, gpio_id_t i_nint, usb3503_t *hub)
 {
 	if (i2c_kvslave_init
-	    (i2c_bus, USB3503_I2C_ADDR, BIG8, BIG8, &hub->i2c_slave)) {
+	    (i2c_bus, USB3503_I2C_ADDR, I2C_SLAVE_ADDR_7BIT, I2C_SLAVE_SPEED_FAST, BIG8, BIG8, &hub->i2c_slave)) {
 		return -1;
 	}
 	if (gpio_new(gpio_sys, o_nreset, GPIO_DIR_OUT, &hub->o_nreset)) {
