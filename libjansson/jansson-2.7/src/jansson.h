@@ -61,8 +61,8 @@ typedef struct json_t {
 #endif
 typedef long long json_int_t;
 #else
-#define JSON_INTEGER_FORMAT "ld"
-typedef long json_int_t;
+#define JSON_INTEGER_FORMAT "lu"
+typedef unsigned long json_int_t;
 #endif /* JSON_INTEGER_IS_LONG_LONG */
 #endif
 
