@@ -175,6 +175,19 @@ static int object_key_compare_serials(const void *key1, const void *key2)
     return a < b ? -1 : a == b ? 0 : 1;
 }
 
+static int dump_integer(const json_t *json, json_dump_callback_t dump, const char *fmt,
+                        void *data) {
+    char buffer[MAX_INTEGER_STR_LENGTH];
+    int size;
+
+    size = snprintf(buffer, MAX_INTEGER_STR_LENGTH,
+                    fmt, json_integer_value(json));
+    if(size < 0 || size >= MAX_INTEGER_STR_LENGTH)
+        return -1;
+
+    return dump(buffer, size, data);
+}
+
 static int do_dump(const json_t *json, size_t flags, int depth,
                    json_dump_callback_t dump, void *data)
 {
@@ -192,18 +205,8 @@ static int do_dump(const json_t *json, size_t flags, int depth,
             return dump("false", 5, data);
 
         case JSON_INTEGER:
-        {
-            char buffer[MAX_INTEGER_STR_LENGTH];
-            int size;
+            return dump_integer(json, dump, "%" JSON_INTEGER_FORMAT, data);
 
-            size = snprintf(buffer, MAX_INTEGER_STR_LENGTH,
-                            "%" JSON_INTEGER_FORMAT,
-                            json_integer_value(json));
-            if(size < 0 || size >= MAX_INTEGER_STR_LENGTH)
-                return -1;
-
-            return dump(buffer, size, data);
-        }
 
         case JSON_REAL:
         {
