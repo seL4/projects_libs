@@ -54,6 +54,7 @@
 #define json_int_t @JSON_INT_T@
 #define json_strtoint @JSON_STRTOINT@
 #define JSON_INTEGER_FORMAT @JSON_INTEGER_FORMAT@
+#define JSON_NUMBER_FORMAT @JSON_NUMBER_FORMAT@
 
 
 /* If locale.h and localeconv() are available, define to 1, otherwise to 0. */

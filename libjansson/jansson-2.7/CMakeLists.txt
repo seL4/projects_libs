@@ -221,6 +221,7 @@ else ()
    set (JSON_STRTOINT strtol)
    set (JSON_INT_T long)
    set (JSON_INTEGER_FORMAT "\"ld\"")
+   set (JSON_NUMBER_FORMAT "\"lu\"")
 endif ()
 
 # if we haven't defined JSON_INT_T, then we have a 64 bit conversion function.
@@ -244,8 +245,10 @@ if (NOT DEFINED JSON_INT_T)
 
    if (WIN32) # matches both msvc and cygwin
       set (JSON_INTEGER_FORMAT "\"I64d\"")
+      set (JSON_NUMBER_FORMAT "\"I64u\"")
    else ()
       set (JSON_INTEGER_FORMAT "\"lld\"")
+      set (JSON_NUMBER_FORMAT "\"llu\"")
    endif ()
 endif ()
 

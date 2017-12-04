@@ -207,6 +207,8 @@ static int do_dump(const json_t *json, size_t flags, int depth,
         case JSON_INTEGER:
             return dump_integer(json, dump, "%" JSON_INTEGER_FORMAT, data);
 
+        case JSON_NATURAL:
+            return dump_integer(json, dump, "%" JSON_NATURAL_FORMAT, data);
 
         case JSON_REAL:
         {

@@ -41,6 +41,7 @@ typedef enum {
     JSON_ARRAY,
     JSON_STRING,
     JSON_INTEGER,
+    JSON_NATURAL,
     JSON_REAL,
     JSON_TRUE,
     JSON_FALSE,
@@ -56,23 +57,29 @@ typedef struct json_t {
 #if JSON_INTEGER_IS_LONG_LONG
 #ifdef _WIN32
 #define JSON_INTEGER_FORMAT "I64d"
+#define JSON_NATURAL_FORMAT "I64u"
 #else
 #define JSON_INTEGER_FORMAT "lld"
+#define JSON_NATURAL_FORMAT "llu"
 #endif
 typedef long long json_int_t;
 #else
 #define JSON_INTEGER_FORMAT "ld"
 typedef long json_int_t;
+#define JSON_NATURAL_FORMAT "lu"
 #endif /* JSON_INTEGER_IS_LONG_LONG */
 #endif
+
 
 #define json_typeof(json)      ((json)->type)
 #define json_is_object(json)   ((json) && json_typeof(json) == JSON_OBJECT)
 #define json_is_array(json)    ((json) && json_typeof(json) == JSON_ARRAY)
 #define json_is_string(json)   ((json) && json_typeof(json) == JSON_STRING)
 #define json_is_integer(json)  ((json) && json_typeof(json) == JSON_INTEGER)
+#define json_is_natural(json)  ((json) && json_typeof(json) == JSON_NATURAL)
 #define json_is_real(json)     ((json) && json_typeof(json) == JSON_REAL)
-#define json_is_number(json)   (json_is_integer(json) || json_is_real(json))
+#define json_is_number(json)   (json_is_integer(json) || json_is_real(json) || \
+                                json_is_natural(json))
 #define json_is_true(json)     ((json) && json_typeof(json) == JSON_TRUE)
 #define json_is_false(json)    ((json) && json_typeof(json) == JSON_FALSE)
 #define json_boolean_value     json_is_true
