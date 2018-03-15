@@ -22,6 +22,7 @@
 
 struct usb3503 {
     i2c_slave_t i2c_slave;
+    i2c_kvslave_t kvslave;
     gpio_t o_nreset;
     gpio_t o_hubconnect;
     gpio_t i_nint;

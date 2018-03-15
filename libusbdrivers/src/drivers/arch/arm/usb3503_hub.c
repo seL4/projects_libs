@@ -63,7 +63,7 @@ static int read_reg(usb3503_t *hub, int addr)
 {
 	int count;
 	char data;
-	count = i2c_kvslave_read(&hub->i2c_slave, addr, &data, 1);
+	count = i2c_kvslave_read(&hub->kvslave, addr, &data, 1);
 	if (count != 1) {
 		return -1;
 	} else {
@@ -76,7 +76,7 @@ static int write_reg(usb3503_t *hub, int addr, int data)
 	int count;
 	char cdata;
 	cdata = data;
-	count = i2c_kvslave_write(&hub->i2c_slave, addr, &cdata, 1);
+	count = i2c_kvslave_write(&hub->kvslave, addr, &cdata, 1);
 	if (count != 1) {
 		return -1;
 	} else {
@@ -88,10 +88,15 @@ int
 usb3503_init(i2c_bus_t *i2c_bus, gpio_sys_t *gpio_sys, gpio_id_t o_nreset,
 	     gpio_id_t o_hubconnect, gpio_id_t i_nint, usb3503_t *hub)
 {
-	if (i2c_kvslave_init
-	    (i2c_bus, USB3503_I2C_ADDR, I2C_SLAVE_ADDR_7BIT, I2C_SLAVE_SPEED_FAST, BIG8, BIG8, &hub->i2c_slave)) {
+	if (i2c_slave_init
+	    (i2c_bus, USB3503_I2C_ADDR, I2C_SLAVE_ADDR_7BIT, I2C_SLAVE_SPEED_FAST, 0, &hub->i2c_slave)) {
+        ZF_LOGE("Failed to intialize slave handle.");
 		return -1;
 	}
+    if (i2c_kvslave_init(&hub->i2c_slave, BIG8, BIG8, &hub->kvslave)) {
+        ZF_LOGE("Failed to initialize lib KV-Slave instance handle.");
+        return -1;
+    }
 	if (gpio_new(gpio_sys, o_nreset, GPIO_DIR_OUT, &hub->o_nreset)) {
 		return -1;
 	}
