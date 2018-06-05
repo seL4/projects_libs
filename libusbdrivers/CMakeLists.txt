@@ -19,10 +19,10 @@ file(GLOB deps
     src/drivers/*.c
     src/drivers/arch/${KernelArch}/*.c
     src/ehci/*.c
-    src/plat/${PLATFORM}/*.c)
+    src/plat/${KernelPlatform}/*.c)
 
 list(SORT deps)
 
 add_library(usbdrivers STATIC EXCLUDE_FROM_ALL ${deps})
-target_include_directories(usbdrivers PUBLIC include plat_include/${PLATFORM})
+target_include_directories(usbdrivers PUBLIC include plat_include/${KernelPlatform})
 target_link_libraries(usbdrivers Configuration sel4 muslc platsupport common)
