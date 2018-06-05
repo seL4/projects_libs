@@ -25,4 +25,4 @@ list(SORT deps)
 
 add_library(usbdrivers STATIC EXCLUDE_FROM_ALL ${deps})
 target_include_directories(usbdrivers PUBLIC include plat_include/${KernelPlatform})
-target_link_libraries(usbdrivers Configuration sel4 muslc platsupport common)
+target_link_libraries(usbdrivers Configuration sel4 muslc platsupport)
