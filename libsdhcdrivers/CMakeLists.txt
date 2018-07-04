@@ -14,7 +14,7 @@ cmake_minimum_required(VERSION 3.7.2)
 
 project(libsdhcdrivers C)
 
-file(GLOB deps src/*.c)
+file(GLOB deps src/*.c src/plat/${KernelPlatform}/*.c)
 
 list(SORT deps)
 
