@@ -28,7 +28,6 @@ if(LibNfs)
     set(HAVE_NET_IF_H 1)
     set(HAVE_POLL_H 1)
     set(HAVE_SOCKADDR_STORAGE 1)
-    set(HAVE_SO_BINDTODEVICE 1)
     set(HAVE_STDINT_H 1)
     set(HAVE_STDLIB_H 1)
     set(HAVE_STRINGS_H 1)
@@ -51,6 +50,7 @@ if(LibNfs)
     link_libraries(muslc)
     # definitions to make the library compile with muslc
     add_definitions(-D__ANDROID__)
+    add_definitions(-U__linux__)
 
     # find libnfs
     find_file(LIBNFS_PATH libnfs PATHS ${CMAKE_SOURCE_DIR} CMAKE_FIND_ROOT_PATH_BOTH)
