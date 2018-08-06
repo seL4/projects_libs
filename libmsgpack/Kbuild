@@ -1,2 +1,0 @@
-libmsgpack: $(libc) common
-libs-$(CONFIG_LIB_MSGPACK) += libmsgpack

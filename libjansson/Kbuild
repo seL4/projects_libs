@@ -1,2 +1,0 @@
-libjansson: $(libc) libutils common
-libs-$(CONFIG_LIB_JANSSON) += libjansson
