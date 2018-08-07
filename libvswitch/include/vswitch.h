@@ -40,8 +40,8 @@
  * two nodes.
  */
 typedef struct vswitch_virtqueues_ {
-    virtqueue_t *send_queue;
-    virtqueue_t *recv_queue;
+    virtqueue_driver_t *send_queue;
+    virtqueue_device_t *recv_queue;
 } vswitch_virtqueues_t;
 
 extern struct ether_addr null_macaddr, bcast_macaddr;
@@ -102,8 +102,8 @@ int vswitch_init(vswitch_t *lib);
  */
 int vswitch_connect(vswitch_t *lib,
                         struct ether_addr *guest_macaddr,
-                        virtqueue_t *send_virtqueue,
-                        virtqueue_t *recv_virtqueue);
+                        virtqueue_driver_t *send_virtqueue,
+                        virtqueue_device_t *recv_virtqueue);
 
 /** Checks to see if a destination with the MAC address "mac" has been registered with
  * the library.

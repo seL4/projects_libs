@@ -46,8 +46,8 @@ vswitch_init(vswitch_t *lib)
 int
 vswitch_connect(vswitch_t *lib,
                     struct ether_addr *guest_macaddr,
-                    virtqueue_t *send_virtqueue,
-                    virtqueue_t *recv_virtqueue)
+                    virtqueue_driver_t *send_virtqueue,
+                    virtqueue_device_t *recv_virtqueue)
 {
     int slot, err;
 
