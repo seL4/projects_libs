@@ -4,7 +4,7 @@ seL4 Jansson
 This is a port of Jansson-2.7 to seL4 and the seL4 project build system.
 
 The port consists of symlinking the source and header files to the appropriate places
-and adding a Makefile, Kconfig and Kbuild for the seL4 build system.
+and adding a CMakeLists.txt file for the seL4 build system.
 
 Jansson README
 ==============

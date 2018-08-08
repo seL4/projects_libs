@@ -7,7 +7,7 @@ MessagePack data. You can read more about MessagePack at:
 
 ## Directory Contents
 
-  * Kbuild, Kconfig, Makefile — seL4 build system bits and pieces
+  * CMakeLists.txt — seL4 build system configuration
   * msgpack-c — the unaltered msgpack-c 1.4.1 release
 
 ## Legal
