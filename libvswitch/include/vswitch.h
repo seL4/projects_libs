@@ -125,13 +125,11 @@ int vswitch_get_destnode_index_by_macaddr(vswitch_t *lib,
 vswitch_node_t *vswitch_get_destnode_by_index(vswitch_t *lib,
                                                       size_t index);
 
-static vswitch_node_t *
+static inline vswitch_node_t *
 vswitch_get_destnode_by_macaddr(vswitch_t *lib,
                                     struct ether_addr *mac)
 {
-    int idx;
-
-    idx = vswitch_get_destnode_index_by_macaddr(lib, mac);
+    int idx = vswitch_get_destnode_index_by_macaddr(lib, mac);
     if (idx < 0) {
         return NULL;
     }
