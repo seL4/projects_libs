@@ -16,9 +16,7 @@ project(libvswitch C)
 
 add_compile_options(-std=gnu99)
 
-file(GLOB sources src/*.c)
-
-add_library(vswitch STATIC EXCLUDE_FROM_ALL ${sources})
+add_library(vswitch STATIC EXCLUDE_FROM_ALL src/vswitch.c)
 
 target_include_directories(vswitch PUBLIC include)
 target_link_libraries(vswitch Configuration muslc virtqueue)

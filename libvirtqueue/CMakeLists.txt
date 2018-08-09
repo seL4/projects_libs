@@ -16,9 +16,7 @@ project(libvirtqueue C)
 
 add_compile_options(-std=gnu99)
 
-file(GLOB sources src/*.c)
-
-add_library(virtqueue STATIC EXCLUDE_FROM_ALL ${sources})
+add_library(virtqueue STATIC EXCLUDE_FROM_ALL src/virtqueue.c)
 
 target_include_directories(virtqueue PUBLIC include)
 target_link_libraries(virtqueue Configuration muslc platsupport)
