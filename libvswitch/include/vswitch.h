@@ -24,7 +24,7 @@
 /* TODO: Need to introduce or paramterise this variable into the
  * build system
  */
-#define CONFIG_SEL4VSWITCH_NUM_NODES           (4)
+#define VSWITCH_NUM_NODES           (4)
 /* MAC address print format*/
 #define PR_MAC802_ADDR                      "%x:%x:%x:%x:%x:%x"
 /* Expects a *pointer* to a struct ether_addr */
@@ -81,7 +81,7 @@ typedef struct vswitch_node_ {
  */
 typedef struct vswitch_ {
     int n_connected;
-    vswitch_node_t nodes[CONFIG_SEL4VSWITCH_NUM_NODES];
+    vswitch_node_t nodes[VSWITCH_NUM_NODES];
 } vswitch_t;
 
 /** Initialize an instance of this library
@@ -123,7 +123,7 @@ int vswitch_get_destnode_index_by_macaddr(vswitch_t *lib,
 
 /** Used to iterate through all the registered destinations indiscriminately.
  * @param lib Initialized instance of this library.
- * @param index Positive integer from 0 to CONFIG_SEL4VSWITCH_NUM_NODES.
+ * @param index Positive integer from 0 to VSWITCH_NUM_NODES.
  * @return NULL if an invalid index is supplied. Non-NULL if a valid index is
  *              supplied.
  */
