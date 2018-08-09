@@ -19,9 +19,9 @@
 /* Helpers */
 
 static int init_common(virtqueue_t **vq, notify_fn notify,
-        virtqueue_role_t role,
-        virtqueue_header_t *shared_header_data, void *cookie,
-        ps_malloc_ops_t *malloc_ops) {
+                       virtqueue_role_t role,
+                       virtqueue_header_t *shared_header_data, void *cookie,
+                       ps_malloc_ops_t *malloc_ops) {
     /* Check that the virtqueue pointer, header data and notify function pointer is not NULL */
     if(vq == NULL || notify == NULL || shared_header_data == NULL || malloc_ops == NULL) {
         return -1;
@@ -79,7 +79,7 @@ static int signal(virtqueue_t *vq) {
 }
 
 static int driver_enqueue(virtqueue_t *virtqueue,
-        volatile void *buffer, size_t buffer_size) {
+                          volatile void *buffer, size_t buffer_size) {
     /* Check that the virtqueue object has been created */
     if(virtqueue == NULL) {
         return -1;
@@ -105,7 +105,7 @@ static int driver_enqueue(virtqueue_t *virtqueue,
 
 
 static int device_enqueue(virtqueue_t *virtqueue,
-        volatile void *buffer, size_t buffer_size) {
+                          volatile void *buffer, size_t buffer_size) {
     /* Check that the virtqueue has been created */
     if(virtqueue == NULL) {
         return -1;
@@ -127,7 +127,7 @@ static int device_enqueue(virtqueue_t *virtqueue,
 
 
 static int driver_dequeue(virtqueue_t *virtqueue,
-        volatile void **buffer, size_t *buffer_size) {
+                          volatile void **buffer, size_t *buffer_size) {
     /* Check that the virtqueue has been created */
     if(virtqueue == NULL) {
         return -1;
@@ -151,7 +151,7 @@ static int driver_dequeue(virtqueue_t *virtqueue,
 
 
 static int device_dequeue(virtqueue_t *virtqueue,
-        volatile void **buffer, size_t *buffer_size) {
+                          volatile void **buffer, size_t *buffer_size) {
     /* Check that the virtqueue has been created  */
     if(virtqueue == NULL) {
         return -1;
@@ -191,8 +191,8 @@ static int poll(virtqueue_t *vq) {
 
 
 int virtqueue_driver_init(virtqueue_driver_t **drv, notify_fn notify,
-        virtqueue_header_t *shared_header_data, void *cookie,
-        ps_malloc_ops_t *malloc_ops) {
+                          virtqueue_header_t *shared_header_data, void *cookie,
+                          ps_malloc_ops_t *malloc_ops) {
     /* Check that the virtqueue pointer, header data and notify function pointer is not NULL */
     if(drv == NULL || notify == NULL || shared_header_data == NULL || malloc_ops == NULL) {
         return -1;
@@ -216,8 +216,8 @@ int virtqueue_driver_init(virtqueue_driver_t **drv, notify_fn notify,
 }
 
 int virtqueue_device_init(virtqueue_device_t **dev, notify_fn notify,
-        virtqueue_header_t *shared_header_data, void *cookie,
-        ps_malloc_ops_t *malloc_ops) {
+                          virtqueue_header_t *shared_header_data, void *cookie,
+                          ps_malloc_ops_t *malloc_ops) {
     /* Check that the virtqueue pointer, header data and notify function pointer is not NULL */
     if(dev == NULL || notify == NULL || shared_header_data == NULL || malloc_ops == NULL) {
         return -1;

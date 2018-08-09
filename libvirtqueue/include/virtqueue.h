@@ -167,8 +167,8 @@ typedef struct {
  */
 
 int virtqueue_driver_init(virtqueue_driver_t **drv, notify_fn notify,
-        virtqueue_header_t *shared_header_data, void *cookie,
-        ps_malloc_ops_t *malloc_ops);
+                          virtqueue_header_t *shared_header_data, void *cookie,
+                          ps_malloc_ops_t *malloc_ops);
 
 /**
  * Initialises a new virtqueue handle on the device side.
@@ -184,8 +184,8 @@ int virtqueue_driver_init(virtqueue_driver_t **drv, notify_fn notify,
  * @return Success code. 0 for success, -1 for failure
  */
 int virtqueue_device_init(virtqueue_device_t **dev, notify_fn notify,
-        virtqueue_header_t *shared_header_data, void *cookie,
-        ps_malloc_ops_t *malloc_ops);
+                          virtqueue_header_t *shared_header_data, void *cookie,
+                          ps_malloc_ops_t *malloc_ops);
 
 
 /**
