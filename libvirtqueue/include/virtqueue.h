@@ -31,7 +31,7 @@ typedef struct {
 } virtqueue_header_t;
 
 /* TODO - For later development: Rings & Descriptor tables
- * typedef struct buffring {
+ * typedef struct buffering {
  *      desc_table_t desc_table;
  *      avail_ring_t avail_ring;
  *      used_ring_t used_ring;
@@ -140,7 +140,7 @@ typedef struct {
  * virtqueue_device_t interface
  *
  * This side cannot allocate or free buffers. It can dequeue from available, and
- *   enqueu into used. signal signals the driver partner poll polls for work in
+ *   enqueue into used. signal signals the driver partner poll polls for work in
  *   available queue.
  */
 typedef struct {
@@ -211,7 +211,7 @@ int virtqueue_driver_free(virtqueue_driver_t *drv, ps_malloc_ops_t *malloc_ops);
 int virtqueue_device_free(virtqueue_device_t *dev, ps_malloc_ops_t *malloc_ops);
 
 
-/* The below functions are wrappers for the function type definitons defined above */
+/* The below functions are wrappers for the function type definitions defined above */
 
 static inline int virtqueue_driver_enqueue(virtqueue_driver_t *drv, volatile void *buffer, size_t buffer_size) {
     if (drv == NULL) {
