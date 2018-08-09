@@ -50,13 +50,18 @@ static inline bool
 mac802_addr_eq(struct ether_addr *addr0,
                struct ether_addr *addr1)
 {
-    return memcmp(addr0, addr1, sizeof(*addr0)) == 0;
+    for (int i = 0; i < ETH_ALEN; i++) {
+        if (addr0->ether_addr_octet[i] != addr1->ether_addr_octet[i]) {
+            return false;
+        }
+    }
+    return true;
 }
 
 static inline bool
 mac802_addr_eq_bcast(struct ether_addr *addr)
 {
-    return memcmp(addr, &bcast_macaddr, sizeof(*addr)) == 0;
+    return mac802_addr_eq(addr, &bcast_macaddr);
 }
 
 typedef struct vswitch_node_ {
