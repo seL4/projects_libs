@@ -190,11 +190,11 @@ static int poll(virtqueue_t *vq) {
 
 
 
-int virtqueue_driver_init(virtqueue_driver_t **drv, notify_fn notify,
+int virtqueue_driver_init(virtqueue_driver_t **driver, notify_fn notify,
                           virtqueue_header_t *shared_header_data, void *cookie,
                           ps_malloc_ops_t *malloc_ops) {
     /* Check that the virtqueue pointer, header data and notify function pointer is not NULL */
-    if(drv == NULL || notify == NULL || shared_header_data == NULL || malloc_ops == NULL) {
+    if(driver == NULL || notify == NULL || shared_header_data == NULL || malloc_ops == NULL) {
         return -1;
     }
     virtqueue_driver_t *new_virtqueue = NULL;
@@ -210,16 +210,16 @@ int virtqueue_driver_init(virtqueue_driver_t **drv, notify_fn notify,
     if (res) {
         ps_free(malloc_ops, sizeof(new_virtqueue[0]), (void **)&new_virtqueue);
     }
-    *drv = new_virtqueue;
+    *driver = new_virtqueue;
     return res;
 
 }
 
-int virtqueue_device_init(virtqueue_device_t **dev, notify_fn notify,
+int virtqueue_device_init(virtqueue_device_t **device, notify_fn notify,
                           virtqueue_header_t *shared_header_data, void *cookie,
                           ps_malloc_ops_t *malloc_ops) {
     /* Check that the virtqueue pointer, header data and notify function pointer is not NULL */
-    if(dev == NULL || notify == NULL || shared_header_data == NULL || malloc_ops == NULL) {
+    if(device == NULL || notify == NULL || shared_header_data == NULL || malloc_ops == NULL) {
         return -1;
     }
     virtqueue_device_t *new_virtqueue = NULL;
@@ -235,21 +235,21 @@ int virtqueue_device_init(virtqueue_device_t **dev, notify_fn notify,
     if (res) {
         ps_free(malloc_ops, sizeof(new_virtqueue[0]), (void **)&new_virtqueue);
     }
-    *dev = new_virtqueue;
+    *device = new_virtqueue;
     return res;
 
 }
 
-int virtqueue_driver_free(virtqueue_driver_t *drv, ps_malloc_ops_t *malloc_ops) {
-    if (free_common(drv->data, malloc_ops)) {
+int virtqueue_driver_free(virtqueue_driver_t *driver, ps_malloc_ops_t *malloc_ops) {
+    if (free_common(driver->data, malloc_ops)) {
         ZF_LOGE("Could not free virtqueue");
     }
-    return ps_free(malloc_ops, sizeof(drv[0]), drv);
+    return ps_free(malloc_ops, sizeof(driver[0]), driver);
 }
 
-int virtqueue_device_free(virtqueue_device_t *dev, ps_malloc_ops_t *malloc_ops) {
-    if (free_common(dev->data, malloc_ops)) {
+int virtqueue_device_free(virtqueue_device_t *device, ps_malloc_ops_t *malloc_ops) {
+    if (free_common(device->data, malloc_ops)) {
         ZF_LOGE("Could not free virtqueue");
     }
-    return ps_free(malloc_ops, sizeof(dev[0]), dev);
+    return ps_free(malloc_ops, sizeof(device[0]), device);
 }
