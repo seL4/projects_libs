@@ -22,7 +22,8 @@
 struct ether_addr null_macaddr = { .ether_addr_octet = {0, 0, 0, 0, 0, 0} };
 struct ether_addr bcast_macaddr = { .ether_addr_octet = {
         0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
-} };
+    }
+};
 
 static int
 vswitch_find_free_slot(vswitch_t *lib)
@@ -45,9 +46,9 @@ vswitch_init(vswitch_t *lib)
 
 int
 vswitch_connect(vswitch_t *lib,
-                    struct ether_addr *guest_macaddr,
-                    virtqueue_driver_t *send_virtqueue,
-                    virtqueue_device_t *recv_virtqueue)
+                struct ether_addr *guest_macaddr,
+                virtqueue_driver_t *send_virtqueue,
+                virtqueue_device_t *recv_virtqueue)
 {
     int slot, err;
 
@@ -83,7 +84,7 @@ vswitch_connect(vswitch_t *lib,
 
 int
 vswitch_get_destnode_index_by_macaddr(vswitch_t *lib,
-                                       struct ether_addr *mac)
+                                      struct ether_addr *mac)
 {
     for (int i=0; i<CONFIG_SEL4VSWITCH_NUM_NODES; i++) {
         if (mac802_addr_eq((void *)&lib->nodes[i].addr, mac)) {
