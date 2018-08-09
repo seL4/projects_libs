@@ -78,7 +78,7 @@ static int signal(virtqueue_t *vq) {
     return 0;
 }
 
-static int enqueue_available_buff(virtqueue_t *virtqueue,
+static int driver_enqueue(virtqueue_t *virtqueue,
         volatile void *buffer, size_t buffer_size) {
     /* Check that the virtqueue object has been created */
     if(virtqueue == NULL) {
@@ -104,7 +104,7 @@ static int enqueue_available_buff(virtqueue_t *virtqueue,
 }
 
 
-static int enqueue_used_buff(virtqueue_t *virtqueue,
+static int device_enqueue(virtqueue_t *virtqueue,
         volatile void *buffer, size_t buffer_size) {
     /* Check that the virtqueue has been created */
     if(virtqueue == NULL) {
@@ -126,7 +126,7 @@ static int enqueue_used_buff(virtqueue_t *virtqueue,
 }
 
 
-static int dequeue_used_buff(virtqueue_t *virtqueue,
+static int driver_dequeue(virtqueue_t *virtqueue,
         volatile void **buffer, size_t *buffer_size) {
     /* Check that the virtqueue has been created */
     if(virtqueue == NULL) {
@@ -150,7 +150,7 @@ static int dequeue_used_buff(virtqueue_t *virtqueue,
 }
 
 
-static int dequeue_available_buff(virtqueue_t *virtqueue,
+static int device_dequeue(virtqueue_t *virtqueue,
         volatile void **buffer, size_t *buffer_size) {
     /* Check that the virtqueue has been created  */
     if(virtqueue == NULL) {
@@ -190,7 +190,7 @@ static int poll(virtqueue_t *vq) {
 
 
 
-int virtqueue_init_drv(virtqueue_driver_t **drv, notify_fn notify,
+int virtqueue_driver_init(virtqueue_driver_t **drv, notify_fn notify,
         virtqueue_header_t *shared_header_data, void *cookie,
         ps_malloc_ops_t *malloc_ops) {
     /* Check that the virtqueue pointer, header data and notify function pointer is not NULL */
@@ -202,10 +202,10 @@ int virtqueue_init_drv(virtqueue_driver_t **drv, notify_fn notify,
     if(err) {
         return -1;
     }
-    new_virtqueue->enqueue_available_buff = enqueue_available_buff;
-    new_virtqueue->dequeue_used_buff = dequeue_used_buff;
-    new_virtqueue->signal = signal;
-    new_virtqueue->poll = poll;
+    new_virtqueue->driver_enqueue = driver_enqueue;
+    new_virtqueue->driver_dequeue = driver_dequeue;
+    new_virtqueue->driver_signal = signal;
+    new_virtqueue->driver_poll = poll;
     int res = init_common(&new_virtqueue->data, notify, VIRTQUEUE_DRIVER, shared_header_data, cookie, malloc_ops);
     if (res) {
         ps_free(malloc_ops, sizeof(new_virtqueue[0]), (void **)&new_virtqueue);
@@ -215,7 +215,7 @@ int virtqueue_init_drv(virtqueue_driver_t **drv, notify_fn notify,
 
 }
 
-int virtqueue_init_dev(virtqueue_device_t **dev, notify_fn notify,
+int virtqueue_device_init(virtqueue_device_t **dev, notify_fn notify,
         virtqueue_header_t *shared_header_data, void *cookie,
         ps_malloc_ops_t *malloc_ops) {
     /* Check that the virtqueue pointer, header data and notify function pointer is not NULL */
@@ -227,10 +227,10 @@ int virtqueue_init_dev(virtqueue_device_t **dev, notify_fn notify,
     if(err) {
         return -1;
     }
-    new_virtqueue->dequeue_available_buff = dequeue_available_buff;
-    new_virtqueue->enqueue_used_buff = enqueue_used_buff;
-    new_virtqueue->signal = signal;
-    new_virtqueue->poll = poll;
+    new_virtqueue->device_dequeue = device_dequeue;
+    new_virtqueue->device_enqueue = device_enqueue;
+    new_virtqueue->device_signal = signal;
+    new_virtqueue->device_poll = poll;
     int res = init_common(&new_virtqueue->data, notify, VIRTQUEUE_DEVICE, shared_header_data, cookie, malloc_ops);
     if (res) {
         ps_free(malloc_ops, sizeof(new_virtqueue[0]), (void **)&new_virtqueue);
@@ -240,14 +240,14 @@ int virtqueue_init_dev(virtqueue_device_t **dev, notify_fn notify,
 
 }
 
-int virtqueue_free_drv(virtqueue_driver_t *drv, ps_malloc_ops_t *malloc_ops) {
+int virtqueue_driver_free(virtqueue_driver_t *drv, ps_malloc_ops_t *malloc_ops) {
     if (free_common(drv->data, malloc_ops)) {
         ZF_LOGE("Could not free virtqueue");
     }
     return ps_free(malloc_ops, sizeof(drv[0]), drv);
 }
 
-int virtqueue_free_dev(virtqueue_device_t *dev, ps_malloc_ops_t *malloc_ops) {
+int virtqueue_device_free(virtqueue_device_t *dev, ps_malloc_ops_t *malloc_ops) {
     if (free_common(dev->data, malloc_ops)) {
         ZF_LOGE("Could not free virtqueue");
     }
