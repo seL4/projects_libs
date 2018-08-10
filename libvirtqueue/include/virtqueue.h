@@ -65,7 +65,7 @@ typedef struct {
  * @return Success code. 0 for success, -1 for failure
  */
 typedef int (*virtqueue_driver_enqueue_fn)(virtqueue_t *virtqueue,
-        volatile void *buffer, size_t buffer_size);
+                                           volatile void *buffer, size_t buffer_size);
 
 /**
  * Enqueues a used buffer into the virtqueue_buff_t. Called by the device role.
@@ -77,7 +77,7 @@ typedef int (*virtqueue_driver_enqueue_fn)(virtqueue_t *virtqueue,
  * @return Success code. 0 for success, -1 for failure
  */
 typedef int (*virtqueue_device_enqueue_fn)(virtqueue_t *virtqueue,
-        volatile void *buffer, size_t buffer_size);
+                                           volatile void *buffer, size_t buffer_size);
 
 /**
  * Dequeues an available buffer from the virtqueue_buff_t. Called by the device
@@ -90,7 +90,7 @@ typedef int (*virtqueue_device_enqueue_fn)(virtqueue_t *virtqueue,
  * @return Success code. 0 for success, -1 for failure
  */
 typedef int (*virtqueue_device_dequeue_fn)(virtqueue_t *virtqueue,
-        volatile void **buffer, size_t *buffer_size);
+                                           volatile void **buffer, size_t *buffer_size);
 
 /**
  * Dequeues a used buffer from the virtqueue_buff_t. Called by the driver role.
@@ -102,7 +102,7 @@ typedef int (*virtqueue_device_dequeue_fn)(virtqueue_t *virtqueue,
  * @return Success code. 0 for success, -1 for failure
  */
 typedef int (*virtqueue_driver_dequeue_fn)(virtqueue_t *virtqueue,
-        volatile void **buffer, size_t *buffer_size);
+                                           volatile void **buffer, size_t *buffer_size);
 
 /**
  * Signals the virtqueue which will wake up the "waiting end" of this queue and
@@ -213,7 +213,8 @@ int virtqueue_device_free(virtqueue_device_t *device, ps_malloc_ops_t *malloc_op
 
 /* The below functions are wrappers for the function type definitions defined above */
 
-static inline int virtqueue_driver_enqueue(virtqueue_driver_t *driver, volatile void *buffer, size_t buffer_size) {
+static inline int virtqueue_driver_enqueue(virtqueue_driver_t *driver, volatile void *buffer, size_t buffer_size)
+{
     if (driver == NULL) {
         ZF_LOGE("driver is NULL");
         return -1;
@@ -229,7 +230,8 @@ static inline int virtqueue_driver_enqueue(virtqueue_driver_t *driver, volatile 
     return driver->driver_enqueue(driver->data, buffer, buffer_size);
 }
 
-static inline int virtqueue_driver_dequeue(virtqueue_driver_t *driver, volatile void **buffer, size_t *buffer_size) {
+static inline int virtqueue_driver_dequeue(virtqueue_driver_t *driver, volatile void **buffer, size_t *buffer_size)
+{
     if (driver == NULL) {
         ZF_LOGE("driver is NULL");
         return -1;
@@ -245,7 +247,8 @@ static inline int virtqueue_driver_dequeue(virtqueue_driver_t *driver, volatile 
     return driver->driver_dequeue(driver->data, buffer, buffer_size);
 }
 
-static inline int virtqueue_driver_signal(virtqueue_driver_t *driver) {
+static inline int virtqueue_driver_signal(virtqueue_driver_t *driver)
+{
     if (driver == NULL) {
         ZF_LOGE("driver is NULL");
         return -1;
@@ -253,7 +256,8 @@ static inline int virtqueue_driver_signal(virtqueue_driver_t *driver) {
     return driver->driver_signal(driver->data);
 }
 
-static inline int virtqueue_driver_poll(virtqueue_driver_t *driver) {
+static inline int virtqueue_driver_poll(virtqueue_driver_t *driver)
+{
     if (driver == NULL) {
         ZF_LOGE("driver is NULL");
         return -1;
@@ -262,7 +266,8 @@ static inline int virtqueue_driver_poll(virtqueue_driver_t *driver) {
 }
 
 
-static inline int virtqueue_device_dequeue(virtqueue_device_t *device, volatile void **buffer, size_t *buffer_size) {
+static inline int virtqueue_device_dequeue(virtqueue_device_t *device, volatile void **buffer, size_t *buffer_size)
+{
     if (device == NULL) {
         ZF_LOGE("device is NULL");
         return -1;
@@ -278,7 +283,8 @@ static inline int virtqueue_device_dequeue(virtqueue_device_t *device, volatile 
     return device->device_dequeue(device->data, buffer, buffer_size);
 }
 
-static inline int virtqueue_device_enqueue(virtqueue_device_t *device, volatile void *buffer, size_t buffer_size) {
+static inline int virtqueue_device_enqueue(virtqueue_device_t *device, volatile void *buffer, size_t buffer_size)
+{
     if (device == NULL) {
         ZF_LOGE("device is NULL");
         return -1;
@@ -294,7 +300,8 @@ static inline int virtqueue_device_enqueue(virtqueue_device_t *device, volatile 
     return device->device_enqueue(device->data, buffer, buffer_size);
 }
 
-static inline int virtqueue_device_signal(virtqueue_device_t *device) {
+static inline int virtqueue_device_signal(virtqueue_device_t *device)
+{
     if (device == NULL) {
         ZF_LOGE("device is NULL");
         return -1;
@@ -302,7 +309,8 @@ static inline int virtqueue_device_signal(virtqueue_device_t *device) {
     return device->device_signal(device->data);
 }
 
-static inline int virtqueue_device_poll(virtqueue_device_t *device) {
+static inline int virtqueue_device_poll(virtqueue_device_t *device)
+{
     if (device == NULL) {
         ZF_LOGE("device is NULL");
         return -1;

@@ -119,7 +119,7 @@ int vswitch_connect(vswitch_t *lib,
  *         Negative integer if not.
  */
 int vswitch_get_destnode_index_by_macaddr(vswitch_t *lib,
-        struct ether_addr *mac);
+                                          struct ether_addr *mac);
 
 /** Used to iterate through all the registered destinations indiscriminately.
  * @param lib Initialized instance of this library.
@@ -128,7 +128,7 @@ int vswitch_get_destnode_index_by_macaddr(vswitch_t *lib,
  *              supplied.
  */
 vswitch_node_t *vswitch_get_destnode_by_index(vswitch_t *lib,
-        size_t index);
+                                              size_t index);
 
 static inline vswitch_node_t *
 vswitch_get_destnode_by_macaddr(vswitch_t *lib,

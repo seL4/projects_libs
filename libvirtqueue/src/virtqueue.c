@@ -21,15 +21,16 @@
 static int init_common(virtqueue_t **vq, notify_fn notify,
                        virtqueue_role_t role,
                        virtqueue_header_t *shared_header_data, void *cookie,
-                       ps_malloc_ops_t *malloc_ops) {
+                       ps_malloc_ops_t *malloc_ops)
+{
     /* Check that the virtqueue pointer, header data and notify function pointer is not NULL */
-    if(vq == NULL || notify == NULL || shared_header_data == NULL || malloc_ops == NULL) {
+    if (vq == NULL || notify == NULL || shared_header_data == NULL || malloc_ops == NULL) {
         return -1;
     }
     /* Create a new virtqueue object */
     virtqueue_t *new_virtqueue = NULL;
     int err = ps_calloc(malloc_ops, 1, sizeof(virtqueue_t), (void **)&new_virtqueue);
-    if(err) {
+    if (err) {
         return -1;
     }
     /* Initialise the contents of the new virtqueue */
@@ -48,8 +49,9 @@ static int init_common(virtqueue_t **vq, notify_fn notify,
 }
 
 
-static int free_common(virtqueue_t *vq, ps_malloc_ops_t *malloc_ops) {
-    if(vq == NULL || malloc_ops == NULL) {
+static int free_common(virtqueue_t *vq, ps_malloc_ops_t *malloc_ops)
+{
+    if (vq == NULL || malloc_ops == NULL) {
         return -1;
     }
     /* Leave it the API user to clean up the data structures internals e.g.
@@ -57,7 +59,8 @@ static int free_common(virtqueue_t *vq, ps_malloc_ops_t *malloc_ops) {
     return ps_free(malloc_ops, sizeof(virtqueue_t), vq);
 }
 
-static bool is_virtqueue_full(virtqueue_t *virtqueue) {
+static bool is_virtqueue_full(virtqueue_t *virtqueue)
+{
     virtqueue_header_t *header = virtqueue->header;
     if (header->used_flag || header->available_flag) {
         return true;
@@ -65,13 +68,14 @@ static bool is_virtqueue_full(virtqueue_t *virtqueue) {
     return false;
 }
 
-static int signal(virtqueue_t *vq) {
+static int signal(virtqueue_t *vq)
+{
     /* Check that the virtqueue object has been created */
-    if(vq == NULL) {
+    if (vq == NULL) {
         return -1;
     }
     /* Check that the notify function is not NULL */
-    if(vq->notify == NULL) {
+    if (vq->notify == NULL) {
         return -1;
     }
     vq->notify();
@@ -79,15 +83,16 @@ static int signal(virtqueue_t *vq) {
 }
 
 static int driver_enqueue(virtqueue_t *virtqueue,
-                          volatile void *buffer, size_t buffer_size) {
+                          volatile void *buffer, size_t buffer_size)
+{
     /* Check that the virtqueue object has been created */
-    if(virtqueue == NULL) {
+    if (virtqueue == NULL) {
         return -1;
     }
-    if(virtqueue->header == NULL) {
+    if (virtqueue->header == NULL) {
         return -1;
     }
-    if(is_virtqueue_full(virtqueue)) {
+    if (is_virtqueue_full(virtqueue)) {
         return -1;
     }
     /*
@@ -105,15 +110,16 @@ static int driver_enqueue(virtqueue_t *virtqueue,
 
 
 static int device_enqueue(virtqueue_t *virtqueue,
-                          volatile void *buffer, size_t buffer_size) {
+                          volatile void *buffer, size_t buffer_size)
+{
     /* Check that the virtqueue has been created */
-    if(virtqueue == NULL) {
+    if (virtqueue == NULL) {
         return -1;
     }
-    if(virtqueue->header == NULL) {
+    if (virtqueue->header == NULL) {
         return -1;
     }
-    if(virtqueue->header->used_flag) {
+    if (virtqueue->header->used_flag) {
         return -1;
     }
     virtqueue->buffer = buffer;
@@ -127,17 +133,18 @@ static int device_enqueue(virtqueue_t *virtqueue,
 
 
 static int driver_dequeue(virtqueue_t *virtqueue,
-                          volatile void **buffer, size_t *buffer_size) {
+                          volatile void **buffer, size_t *buffer_size)
+{
     /* Check that the virtqueue has been created */
-    if(virtqueue == NULL) {
+    if (virtqueue == NULL) {
         return -1;
     }
-    if(virtqueue->header == NULL) {
+    if (virtqueue->header == NULL) {
         return -1;
     }
     virtqueue_header_t *header = virtqueue->header;
     /* Check there is a used buffer */
-    if(!header->used_flag) {
+    if (!header->used_flag) {
         return -1;
     }
     /* Return the buffer */
@@ -151,17 +158,18 @@ static int driver_dequeue(virtqueue_t *virtqueue,
 
 
 static int device_dequeue(virtqueue_t *virtqueue,
-                          volatile void **buffer, size_t *buffer_size) {
+                          volatile void **buffer, size_t *buffer_size)
+{
     /* Check that the virtqueue has been created  */
-    if(virtqueue == NULL) {
+    if (virtqueue == NULL) {
         return -1;
     }
-    if(virtqueue->header == NULL) {
+    if (virtqueue->header == NULL) {
         return -1;
     }
     virtqueue_header_t *header = virtqueue->header;
     /* Check there is a buffer available */
-    if(!header->available_flag) {
+    if (!header->available_flag) {
         return -1;
     }
     /* Return the buffer */
@@ -170,17 +178,18 @@ static int device_dequeue(virtqueue_t *virtqueue,
     return 0;
 }
 
-static int poll(virtqueue_t *vq) {
+static int poll(virtqueue_t *vq)
+{
     /* Check that the virtqueue has been created  */
-    if(vq == NULL) {
+    if (vq == NULL) {
         return -1;
     }
     /* Check that the virtqueue header has been initalised  */
-    if(vq->header == NULL) {
+    if (vq->header == NULL) {
         return -1;
     }
     virtqueue_header_t *header = vq->header;
-    if(vq->role == VIRTQUEUE_DRIVER) {
+    if (vq->role == VIRTQUEUE_DRIVER) {
         return header->used_flag;
     } else if (vq->role == VIRTQUEUE_DEVICE) {
         return header->available_flag;
@@ -192,14 +201,15 @@ static int poll(virtqueue_t *vq) {
 
 int virtqueue_driver_init(virtqueue_driver_t **driver, notify_fn notify,
                           virtqueue_header_t *shared_header_data, void *cookie,
-                          ps_malloc_ops_t *malloc_ops) {
+                          ps_malloc_ops_t *malloc_ops)
+{
     /* Check that the virtqueue pointer, header data and notify function pointer is not NULL */
-    if(driver == NULL || notify == NULL || shared_header_data == NULL || malloc_ops == NULL) {
+    if (driver == NULL || notify == NULL || shared_header_data == NULL || malloc_ops == NULL) {
         return -1;
     }
     virtqueue_driver_t *new_virtqueue = NULL;
     int err = ps_calloc(malloc_ops, 1, sizeof(new_virtqueue[0]), (void **)&new_virtqueue);
-    if(err) {
+    if (err) {
         return -1;
     }
     new_virtqueue->driver_enqueue = driver_enqueue;
@@ -217,14 +227,15 @@ int virtqueue_driver_init(virtqueue_driver_t **driver, notify_fn notify,
 
 int virtqueue_device_init(virtqueue_device_t **device, notify_fn notify,
                           virtqueue_header_t *shared_header_data, void *cookie,
-                          ps_malloc_ops_t *malloc_ops) {
+                          ps_malloc_ops_t *malloc_ops)
+{
     /* Check that the virtqueue pointer, header data and notify function pointer is not NULL */
-    if(device == NULL || notify == NULL || shared_header_data == NULL || malloc_ops == NULL) {
+    if (device == NULL || notify == NULL || shared_header_data == NULL || malloc_ops == NULL) {
         return -1;
     }
     virtqueue_device_t *new_virtqueue = NULL;
     int err = ps_calloc(malloc_ops, 1, sizeof(new_virtqueue[0]), (void **)&new_virtqueue);
-    if(err) {
+    if (err) {
         return -1;
     }
     new_virtqueue->device_dequeue = device_dequeue;
@@ -240,14 +251,16 @@ int virtqueue_device_init(virtqueue_device_t **device, notify_fn notify,
 
 }
 
-int virtqueue_driver_free(virtqueue_driver_t *driver, ps_malloc_ops_t *malloc_ops) {
+int virtqueue_driver_free(virtqueue_driver_t *driver, ps_malloc_ops_t *malloc_ops)
+{
     if (free_common(driver->data, malloc_ops)) {
         ZF_LOGE("Could not free virtqueue");
     }
     return ps_free(malloc_ops, sizeof(driver[0]), driver);
 }
 
-int virtqueue_device_free(virtqueue_device_t *device, ps_malloc_ops_t *malloc_ops) {
+int virtqueue_device_free(virtqueue_device_t *device, ps_malloc_ops_t *malloc_ops)
+{
     if (free_common(device->data, malloc_ops)) {
         ZF_LOGE("Could not free virtqueue");
     }

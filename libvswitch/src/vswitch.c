@@ -28,7 +28,7 @@ struct ether_addr bcast_macaddr = { .ether_addr_octet = {
 static int
 vswitch_find_free_slot(vswitch_t *lib)
 {
-    for (int i = 0; i<VSWITCH_NUM_NODES; i++) {
+    for (int i = 0; i < VSWITCH_NUM_NODES; i++) {
         if (mac802_addr_eq((void *)&lib->nodes[i].addr, &null_macaddr)) {
             return i;
         }
@@ -86,7 +86,7 @@ int
 vswitch_get_destnode_index_by_macaddr(vswitch_t *lib,
                                       struct ether_addr *mac)
 {
-    for (int i=0; i<VSWITCH_NUM_NODES; i++) {
+    for (int i = 0; i < VSWITCH_NUM_NODES; i++) {
         if (mac802_addr_eq((void *)&lib->nodes[i].addr, mac)) {
             return i;
         }
