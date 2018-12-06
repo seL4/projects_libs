@@ -38,10 +38,10 @@ static int init_common(virtqueue_t **vq, notify_fn notify,
     new_virtqueue->role = role;
     new_virtqueue->buffer = NULL;
     new_virtqueue->cookie = cookie;
+    /* Note - We rely on the shared header memory region to be zeroed before passing it into
+     * virtqueue init. Its the callers responsiblity to ensure there are no race conditions
+     * over the initialisation of the shared memory region */
     new_virtqueue->header = shared_header_data;
-    new_virtqueue->header->available_flag = 0;
-    new_virtqueue->header->used_flag = 0;
-    new_virtqueue->header->buffer_size = 0;
     /* Initialise the callers virtqueue pointer */
     *vq = new_virtqueue;
     return 0;
