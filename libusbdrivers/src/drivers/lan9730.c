@@ -15,6 +15,8 @@
  * @see https://www.microchip.com/wwwproducts/en/LAN9730
  */
 #include <autoconf.h>
+#include <usbdrivers/gen_config.h>
+#include <lwip/gen_config.h>
 #ifdef CONFIG_LIB_LWIP
 
 #include <stdio.h>

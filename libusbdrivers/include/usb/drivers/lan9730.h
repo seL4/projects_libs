@@ -11,6 +11,8 @@
  */
 #include <usb/usb.h>
 #include <autoconf.h>
+#include <usbdrivers/gen_config.h>
+#include <lwip/gen_config.h>
 
 #define LAN9730_PID  0x9730
 #define LAN9730_VID  0x0424

@@ -19,4 +19,4 @@ add_compile_options(-std=gnu99)
 add_library(vswitch STATIC EXCLUDE_FROM_ALL src/vswitch.c)
 
 target_include_directories(vswitch PUBLIC include)
-target_link_libraries(vswitch Configuration muslc virtqueue)
+target_link_libraries(vswitch muslc virtqueue)

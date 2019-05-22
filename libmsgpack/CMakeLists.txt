@@ -22,4 +22,4 @@ list(SORT deps)
 add_library(msgpack EXCLUDE_FROM_ALL ${deps})
 target_include_directories(msgpack PUBLIC
     "msgpack-c/include/")
-target_link_libraries(msgpack Configuration muslc)
+target_link_libraries(msgpack muslc)

@@ -19,8 +19,8 @@ config_option(LibUSB LIB_USB
     DEFAULT ON
 )
 
+add_config_library(usbdrivers "${configure_string}")
 if(LibUSB)
-    add_config_library(usbdrivers "${configure_string}")
 
     file(GLOB deps
         src/*.c
@@ -33,5 +33,5 @@ if(LibUSB)
 
     add_library(usbdrivers STATIC EXCLUDE_FROM_ALL ${deps})
     target_include_directories(usbdrivers PUBLIC include plat_include/${KernelPlatform})
-    target_link_libraries(usbdrivers Configuration sel4 muslc platsupport)
+    target_link_libraries(usbdrivers sel4 muslc platsupport usbdrivers_Config lwip_Config)
 endif()
