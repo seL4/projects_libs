@@ -14,12 +14,10 @@ cmake_minimum_required(VERSION 3.7.2)
 
 project(libmsgpack C)
 
-file(GLOB deps
-    msgpack-c/src/*.c)
+file(GLOB deps msgpack-c/src/*.c)
 
 list(SORT deps)
 
 add_library(msgpack EXCLUDE_FROM_ALL ${deps})
-target_include_directories(msgpack PUBLIC
-    "msgpack-c/include/")
+target_include_directories(msgpack PUBLIC "msgpack-c/include/")
 target_link_libraries(msgpack muslc)

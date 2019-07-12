@@ -14,20 +14,20 @@ cmake_minimum_required(VERSION 3.7.2)
 
 project(libusbdrivers C)
 
-config_option(LibUSB LIB_USB
-    "Build USB interface library"
-    DEFAULT ON
-)
+config_option(LibUSB LIB_USB "Build USB interface library" DEFAULT ON)
 
 add_config_library(usbdrivers "${configure_string}")
 if(LibUSB)
 
-    file(GLOB deps
-        src/*.c
-        src/drivers/*.c
-        src/drivers/arch/${KernelArch}/*.c
-        src/ehci/*.c
-        src/plat/${KernelPlatform}/*.c)
+    file(
+        GLOB
+            deps
+            src/*.c
+            src/drivers/*.c
+            src/drivers/arch/${KernelArch}/*.c
+            src/ehci/*.c
+            src/plat/${KernelPlatform}/*.c
+    )
 
     list(SORT deps)
 

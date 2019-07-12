@@ -10,10 +10,7 @@
 # @TAG(DATA61_BSD)
 #
 
-config_option(LibNfs LIB_NFS
-    "Build libnfs"
-    DEFAULT OFF
-)
+config_option(LibNfs LIB_NFS "Build libnfs" DEFAULT OFF)
 
 if(LibNfs)
     set(HAVE_ARPA_INET_H 1)
