@@ -20,4 +20,4 @@ list(SORT deps)
 
 add_library(jansson EXCLUDE_FROM_ALL ${deps})
 target_include_directories(jansson PUBLIC "include/" "jansson-2.7/src/")
-target_link_libraries(jansson muslc utils kernel_autoconf)
+target_link_libraries(jansson muslc utils sel4_autoconf)
