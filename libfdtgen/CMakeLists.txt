@@ -1,5 +1,4 @@
-#
-# Copyright 2017, Data61
+# Copyright 2019, Data61
 # Commonwealth Scientific and Industrial Research Organisation (CSIRO)
 # ABN 41 687 119 230.
 #
@@ -12,12 +11,8 @@
 
 cmake_minimum_required(VERSION 3.7.2)
 
-add_subdirectory(libjansson)
-add_subdirectory(libmsgpack)
-add_subdirectory(libringbuffer)
-add_subdirectory(libsdhcdrivers)
-add_subdirectory(libusbdrivers)
-add_subdirectory(libnfs)
-add_subdirectory(libvirtqueue)
-add_subdirectory(libvswitch)
-add_subdirectory(libfdtgen)
+project(libfdtgen C)
+
+add_library(fdtgen STATIC EXCLUDE_FROM_ALL fdtgen.c)
+target_include_directories(fdtgen PUBLIC include)
+target_link_libraries(fdtgen muslc utils fdt)
