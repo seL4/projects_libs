@@ -12,4 +12,8 @@
 
 #pragma once
 
-void *fdt_gen(const void *fdt, const char **nodes_to_keep, int num_nodes);
+void *fdtgen_generate(const void *fdt, const char **nodes_to_keep, int num_nodes);
+void fdtgen_add_nodes_to_keep(const char **nodes_to_keep, int num_nodes);
+void fdtgen_generate_memory_node(void *fdt, unsigned long base, size_t size);
+void fdtgen_generate_chosen_node(void *fdt, const char *stdout_path, const char *bootargs);
+void fdtgen_append_chosen_node_with_initrd_info(void *fdt, unsigned long base, size_t size);

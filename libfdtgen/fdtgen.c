@@ -27,7 +27,7 @@ static path_node_t *nodes_table = NULL;
 
 static path_node_t *keep_node = NULL;
 
-static char *tempbuf;
+static char tempbuf[4096];
 
 static int root_offset;
 
@@ -97,12 +97,13 @@ static void inspect_keep_list(void)
     }
 }
 
-static int retrive_to_phandle(const void *prop_data, int lenp, const char *type)
+static int retrive_to_phandle(const void *prop_data, int lenp)
 {
-    /* TODO: validate lenp based on prop type */
     uint32_t handle = fdt32_ld(prop_data);
     return handle;
 }
+
+static void register_node_dependencies(void *dtb, int offset);
 
 static void keep_node_and_parents(void *dtb, int offset)
 {
@@ -124,51 +125,83 @@ static void keep_node_and_parents(void *dtb, int offset)
     keep_node_and_parents(dtb, fdt_parent_offset(dtb, offset));
 }
 
-static void register_dependency(void *dtb, int offset)
+static void register_single_dependency(void *dtb, int offset, int lenp, const void *data, dependency_t *this)
 {
-    for (int i = 0; i < num_props_with_dep; i++) {
-        int lenp = 0;
-        const void *data = fdt_getprop(dtb, offset, props_with_dep[i], &lenp);
+    d_list_node_t *new_node = malloc(sizeof(d_list_node_t));
+    uint32_t to_phandle = retrive_to_phandle(data, lenp);
+    int off = fdt_node_offset_by_phandle(dtb, to_phandle);
+    fdt_get_path(dtb, off, tempbuf, 4096);
+    new_node->to_path = strdup(tempbuf);
+    new_node->to_phandle = to_phandle;
 
-        if (lenp >= 0) { // we got the property we want
-            fdt_get_path(dtb, offset, tempbuf, 4096);
-            dependency_t *this;
-            HASH_FIND_STR(d_table, tempbuf, this);
-            if (this == NULL) {
-                dependency_t *new = malloc(sizeof(dependency_t));
-                new->from_path = strdup(tempbuf);
-                new->d_list = malloc(sizeof(list_t));
-                list_init(new->d_list);
-                this = new;
-                HASH_ADD_STR(d_table, from_path, this);
-            }
-
-
-            d_list_node_t *new_node = malloc(sizeof(d_list_node_t));
-            uint32_t to_phandle = retrive_to_phandle(data, lenp, props_with_dep[i]);
-            int off = fdt_node_offset_by_phandle(dtb, to_phandle);
-            fdt_get_path(dtb, off, tempbuf, 4096);
-            new_node->to_path = strdup(tempbuf);
-            new_node->to_phandle = to_phandle;
-
-            // it is the same node when it refers to itself
-            if (offset == off || list_exists(this->d_list, new_node, dnode_cmp)) {
-                free(new_node->to_path);
-                free(new_node);
-            } else {
-                list_append(this->d_list, new_node);
-                keep_node_and_parents(dtb, off);
-                register_dependency(dtb, off);
-            }
-        }
+    // it is the same node when it refers to itself
+    if (offset == off || list_exists(this->d_list, new_node, dnode_cmp)) {
+        free(new_node->to_path);
+        free(new_node);
+    } else {
+        list_append(this->d_list, new_node);
+        keep_node_and_parents(dtb, off);
+        register_node_dependencies(dtb, off);
     }
 }
 
-static void resolve_dependency(void *dtb)
+static void register_clocks_dependency(void *dtb, int offset, int lenp, const void *data_, dependency_t *this)
+{
+    void *data = data_;
+    int done = 0;
+    while (lenp > done) {
+        data = (data_ + done);
+        int phandle = fdt32_ld(data);
+        int refers_to = fdt_node_offset_by_phandle(dtb, phandle);
+        int len;
+        const void *clock_cells = fdt_getprop(dtb, refers_to, "#clock-cells", &len);
+        int cells = fdt32_ld(clock_cells);
+
+        register_single_dependency(dtb, offset, lenp, data, this);
+
+        done += 4 + cells * 4;
+    }
+}
+
+static void register_node_dependency(void *dtb, int offset, const char *type)
+{
+    int lenp = 0;
+    const void *data = fdt_getprop(dtb, offset, type, &lenp);
+    if (lenp < 0) {
+        return;
+    }
+    fdt_get_path(dtb, offset, tempbuf, 4096);
+    dependency_t *this;
+    HASH_FIND_STR(d_table, tempbuf, this);
+
+    if (this == NULL) {
+        dependency_t *new = malloc(sizeof(dependency_t));
+        new->from_path = strdup(tempbuf);
+        new->d_list = malloc(sizeof(list_t));
+        list_init(new->d_list);
+        this = new;
+        HASH_ADD_STR(d_table, from_path, this);
+    }
+
+    if (strcmp(type, "clocks") == 0) {
+        register_clocks_dependency(dtb, offset, lenp, data, this);
+    } else {
+        register_single_dependency(dtb, offset, lenp, data, this);
+    }
+}
+
+static void register_node_dependencies(void *dtb, int offset)
+{
+    for (int i = 0; i < num_props_with_dep; i++) {
+        register_node_dependency(dtb, offset, props_with_dep[i]);
+    }
+}
+
+static void resolve_all_dependencies(void *dtb)
 {
     path_node_t *tmp, *el;
     HASH_ITER(hh, nodes_table, el, tmp) {
-        register_dependency(dtb, el->offset);
+        register_node_dependencies(dtb, el->offset);
     }
 }
 
@@ -261,18 +294,22 @@ static void clean_up()
         free(el1->name);
         free(el1);
     }
-
-    free(tempbuf);
 }
 
-void *fdt_gen(const void *fdt_ori, const char **nodes_to_keep, int num_nodes)
+void fdtgen_add_nodes_to_keep(const char **nodes_to_keep, int num_nodes)
 {
-    tempbuf = malloc(4096);
+    init_keep_node(nodes_to_keep, num_nodes);
+}
+
+#define MAX_FDT_SIZE (0x10000)
+void *fdtgen_generate(const void *fdt_ori, const char **nodes_to_keep, int num_nodes)
+{
     int fdtsize = fdt_totalsize(fdt_ori);
-    void *fdt_gen = malloc(fdtsize);
+    void *fdt_gen = malloc(MAX_FDT_SIZE);
     memcpy(fdt_gen, fdt_ori, fdtsize);
+    fdt_open_into(fdt_gen, fdt_gen, MAX_FDT_SIZE);
     /* just make sure the device tree is valid */
-    int rst = fdt_check_full(fdt_gen, fdtsize);
+    int rst = fdt_check_full(fdt_gen, MAX_FDT_SIZE);
     ZF_LOGF_IF(rst != 0, "The fdt is illegal");
 
     /* in case the root node is not at 0 offset.
@@ -282,7 +319,7 @@ void *fdt_gen(const void *fdt_ori, const char **nodes_to_keep, int num_nodes)
     init_keep_node(nodes_to_keep, num_nodes);
 
     find_nodes_to_keep(fdt_gen, root_offset);
-    resolve_dependency(fdt_gen);
+    resolve_all_dependencies(fdt_gen);
 
     // always keep the root node
     path_node_t *root = malloc(sizeof(path_node_t));
@@ -292,11 +329,47 @@ void *fdt_gen(const void *fdt_ori, const char **nodes_to_keep, int num_nodes)
 
     trim_tree(fdt_gen, root_offset);
 
-    fdt_pack(fdt_gen);
-    rst = fdt_check_full(fdt_gen, fdtsize);
+    rst = fdt_check_full(fdt_gen, MAX_FDT_SIZE);
     ZF_LOGF_IF(rst != 0, "The generated fdt is illegal");
 
     clean_up();
 
     return fdt_gen;
 }
+
+void fdtgen_generate_memory_node(void *fdt, unsigned long base, size_t size)
+{
+    // TODO: support different arch
+    uint32_t memory_reg_prop[]  = {
+        cpu_to_fdt32(base),
+        cpu_to_fdt32(size),
+    };
+
+    int this = fdt_add_subnode(fdt, root_offset, "memory");
+    int err = fdt_appendprop_string(fdt, this, "device_type", "memory");
+    ZF_LOGF_IF(err, "%d", err);
+    err = fdt_appendprop(fdt, this, "reg", memory_reg_prop, sizeof(memory_reg_prop));
+    ZF_LOGF_IF(err, "%d", err);
+}
+
+void fdtgen_generate_chosen_node(void *fdt, const char *stdout_path, const char *bootargs)
+{
+    int this = fdt_add_subnode(fdt, root_offset, "chosen");
+    int err = fdt_appendprop_string(fdt, this, "stdout-path", stdout_path);
+    ZF_LOGF_IF(err, "%d", err);
+    err = fdt_appendprop_string(fdt, this, "bootargs", bootargs);
+    ZF_LOGF_IF(err, "%d", err);
+    err = fdt_appendprop_string(fdt, this, "linux,stdout-path", stdout_path);
+    ZF_LOGF_IF(err, "%d", err);
+}
+
+void fdtgen_append_chosen_node_with_initrd_info(void *fdt, unsigned long base, size_t size)
+{
+    int this = fdt_path_offset(fdt, "/chosen");
+    ZF_LOGF_IF(this <= 0, "no chosen node");
+    int err = fdt_appendprop_cell(fdt, this, "linux,initrd-start", base);
+    ZF_LOGF_IF(err, "%d", err);
+    err = fdt_appendprop_cell(fdt, this, "linux,initrd-end", base + size);
+    ZF_LOGF_IF(err, "%d", err);
+}
+
