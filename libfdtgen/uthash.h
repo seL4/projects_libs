@@ -1,3 +1,4 @@
+/* @TAG(OTHER_NON_STANDARD) */
 /*
 Copyright (c) 2003-2018, Troy D. Hanson     http://troydhanson.github.com/uthash/
 All rights reserved.

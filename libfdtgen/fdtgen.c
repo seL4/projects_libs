@@ -12,10 +12,10 @@
 
 #include <stdio.h>
 #include <stdbool.h>
-#include <assert.h>
 
 #include <libfdt.h>
 #include <utils/list.h>
+#include <utils/util.h>
 #include "uthash.h"
 
 typedef struct {
@@ -74,6 +74,7 @@ static dependency_t *d_table = NULL;
 static int print_d_node(void *node)
 {
     d_list_node_t *temp = node;
+    printf("\t\t to %s\n", temp->to_path);
     return 0;
 }
 
@@ -99,12 +100,12 @@ static void inspect_keep_list(void)
 static int retrive_to_phandle(const void *prop_data, int lenp, const char *type)
 {
     // TODO: this is ugly
-    if (lenp == 4) {
-    } else if (lenp == 32) {
-        // according to the device tree specification, this case the only type is interrupt-extended
-        assert(strcmp(type, "interrupts-extended") == 0);
-    } else {
-        assert(strcmp(type, "clocks") == 0);
+    if (lenp == 32) {
+        // this case the only type is interrupt-extended
+        ZF_LOGF_IF(strcmp(type, "interrupts-extended") != 0, "type length mismatch");
+    } else if (lenp > 4) {
+        // this case the only type is clocks, and it has variable length
+        ZF_LOGF_IF(strcmp(type, "clocks") != 0, "type length mismatch");
     }
 
     uint32_t handle = fdt32_ld(prop_data);
@@ -219,7 +220,7 @@ static void trim_tree(void *dtb, int offset)
         HASH_FIND_STR(nodes_table, tempbuf, this);
         if (this == NULL) {
             int err = fdt_del_node(dtb, child);
-            assert(err == 0);
+            ZF_LOGF_IF(err != 0, "Failed to delete a node from device tree");
             /* NOTE: after deleting a node, all the offsets are invalidated,
              * we need to repeat this triming process for the same node if
              * we don't want to miss anything */
@@ -241,6 +242,8 @@ static void free_list(list_t *l)
         free(node);
         a = next;
     }
+
+    list_remove_all(l);
 }
 
 static void clean_up()
@@ -278,7 +281,7 @@ void *fdt_gen(const void *fdt_ori, const char **nodes_to_keep, int num_nodes)
     memcpy(fdt_gen, fdt_ori, fdtsize);
     /* just make sure the device tree is valid */
     int rst = fdt_check_full(fdt_gen, fdtsize);
-    assert(rst == 0);
+    ZF_LOGF_IF(rst != 0, "The fdt is illegal");
 
     /* in case the root node is not at 0 offset.
      * is that possible? */
@@ -295,14 +298,11 @@ void *fdt_gen(const void *fdt_ori, const char **nodes_to_keep, int num_nodes)
     root->offset = root_offset;
     HASH_ADD_STR(nodes_table, name, root);
 
-    /* inspect_dependency_list(); */
-    /* inspect_keep_list(); */
-
     trim_tree(fdt_gen, root_offset);
 
     fdt_pack(fdt_gen);
     rst = fdt_check_full(fdt_gen, fdtsize);
-    assert(rst == 0);
+    ZF_LOGF_IF(rst != 0, "The generated fdt is illegal");
 
     clean_up();
 
