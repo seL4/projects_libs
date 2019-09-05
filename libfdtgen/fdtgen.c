@@ -99,15 +99,7 @@ static void inspect_keep_list(void)
 
 static int retrive_to_phandle(const void *prop_data, int lenp, const char *type)
 {
-    // TODO: this is ugly
-    if (lenp == 32) {
-        // this case the only type is interrupt-extended
-        ZF_LOGF_IF(strcmp(type, "interrupts-extended") != 0, "type length mismatch");
-    } else if (lenp > 4) {
-        // this case the only type is clocks, and it has variable length
-        ZF_LOGF_IF(strcmp(type, "clocks") != 0, "type length mismatch");
-    }
-
+    /* TODO: validate lenp based on prop type */
     uint32_t handle = fdt32_ld(prop_data);
     return handle;
 }
