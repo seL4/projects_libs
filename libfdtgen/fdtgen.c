@@ -34,9 +34,13 @@ static int root_offset;
 static void init_keep_node(const char **nodes, int num_nodes)
 {
     for (int i = 0; i < num_nodes; ++i) {
-        path_node_t *new = malloc(sizeof(path_node_t));
-        new->name = strdup(nodes[i]);
-        HASH_ADD_STR(keep_node, name, new);
+        path_node_t *this = NULL;
+        HASH_FIND_STR(keep_node, nodes[i], this);
+        if (this == NULL) {
+            path_node_t *new = malloc(sizeof(path_node_t));
+            new->name = strdup(nodes[i]);
+            HASH_ADD_STR(keep_node, name, new);
+        }
     }
 }
 
@@ -49,7 +53,7 @@ static bool is_to_keep(void *dtb, int offset)
 }
 
 
-static const char *props_with_dep[] = {"phy-handle", "next-level-cache", "interrupt-parent", "interrupts-extended", "clocks"};
+static const char *props_with_dep[] = {"phy-handle", "next-level-cache", "interrupt-parent", "interrupts-extended", "clocks", "power-domains"};
 static const int num_props_with_dep = sizeof(props_with_dep) / sizeof(char *);
 
 typedef struct {
@@ -147,7 +151,7 @@ static void register_single_dependency(void *dtb, int offset, int lenp, const vo
 
 static void register_clocks_dependency(void *dtb, int offset, int lenp, const void *data_, dependency_t *this)
 {
-    void *data = data_;
+    const void *data = data_;
     int done = 0;
     while (lenp > done) {
         data = (data_ + done);
@@ -160,6 +164,17 @@ static void register_clocks_dependency(void *dtb, int offset, int lenp, const vo
         register_single_dependency(dtb, offset, lenp, data, this);
 
         done += 4 + cells * 4;
+    }
+}
+
+static void register_power_domains_dependency(void *dtb, int offset, int lenp, const void *data_, dependency_t *this)
+{
+    const void *data = data_;
+    int done = 0;
+    while (lenp > done) {
+        data = (data_ + done);
+        register_single_dependency(dtb, offset, lenp, data, this);
+        done += 4;
     }
 }
 
@@ -185,6 +200,8 @@ static void register_node_dependency(void *dtb, int offset, const char *type)
 
     if (strcmp(type, "clocks") == 0) {
         register_clocks_dependency(dtb, offset, lenp, data, this);
+    } else if (strcmp(type, "power-domains") == 0) {
+        register_power_domains_dependency(dtb, offset, lenp, data, this);
     } else {
         register_single_dependency(dtb, offset, lenp, data, this);
     }
@@ -296,13 +313,37 @@ static void clean_up()
     }
 }
 
-void fdtgen_add_nodes_to_keep(const char **nodes_to_keep, int num_nodes)
+void fdtgen_keep_nodes(const char **nodes_to_keep, int num_nodes)
 {
     init_keep_node(nodes_to_keep, num_nodes);
 }
 
+static void keep_node_and_children(const void *fdt, int offset)
+{
+    int child;
+    fdt_for_each_subnode(child, fdt, offset) {
+        fdt_get_path(fdt, child, tempbuf, 4096);
+        path_node_t *this;
+        HASH_FIND_STR(nodes_table, tempbuf, this);
+        if (this == NULL) {
+            path_node_t *new = malloc(sizeof(path_node_t));
+            new->name = strdup(tempbuf);
+            HASH_ADD_STR(keep_node, name, new);
+        }
+        keep_node_and_children(fdt, child);
+    }
+}
+
+void fdtgen_keep_node_and_children(const void *ori_fdt, const char *node)
+{
+    int this_off = fdt_path_offset(ori_fdt, node);
+    if (!(this_off < 0)) {
+        keep_node_and_children(ori_fdt, this_off);
+    }
+}
+
 #define MAX_FDT_SIZE (0x10000)
-void *fdtgen_generate(const void *fdt_ori, const char **nodes_to_keep, int num_nodes)
+void *fdtgen_generate(const void *fdt_ori)
 {
     int fdtsize = fdt_totalsize(fdt_ori);
     void *fdt_gen = malloc(MAX_FDT_SIZE);
@@ -315,8 +356,6 @@ void *fdtgen_generate(const void *fdt_ori, const char **nodes_to_keep, int num_n
     /* in case the root node is not at 0 offset.
      * is that possible? */
     root_offset = fdt_path_offset(fdt_gen, "/");
-
-    init_keep_node(nodes_to_keep, num_nodes);
 
     find_nodes_to_keep(fdt_gen, root_offset);
     resolve_all_dependencies(fdt_gen);
