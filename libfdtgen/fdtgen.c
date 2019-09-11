@@ -47,7 +47,7 @@ typedef struct {
 
 static dependency_t *d_table = NULL;
 
-struct fdtgen {
+struct fdtgen_context {
     path_node_t *nodes_table;
     path_node_t *keep_node;
     dependency_t *dep_table;
@@ -56,10 +56,10 @@ struct fdtgen {
     int bufsize;
     char *string_buf;
 };
-typedef struct fdtgen fdtgen_t;
+typedef struct fdtgen_context fdtgen_context_t;
 
 
-static void init_keep_node(fdtgen_t *handle, const char **nodes, int num_nodes)
+static void init_keep_node(fdtgen_context_t *handle, const char **nodes, int num_nodes)
 {
     for (int i = 0; i < num_nodes; ++i) {
         path_node_t *this = NULL;
@@ -72,7 +72,7 @@ static void init_keep_node(fdtgen_t *handle, const char **nodes, int num_nodes)
     }
 }
 
-static bool is_to_keep(fdtgen_t *handle, int offset)
+static bool is_to_keep(fdtgen_context_t *handle, int offset)
 {
     void *dtb = handle->buffer;
     fdt_get_path(dtb, offset, handle->string_buf, 4096);
@@ -88,7 +88,7 @@ static int print_d_node(void *node)
     return 0;
 }
 
-static void inspect_dependency_list(fdtgen_t *handle)
+static void inspect_dependency_list(fdtgen_context_t *handle)
 {
     printf("\nInspecting the dependency list\n");
     dependency_t *tmp, *el;
@@ -98,7 +98,7 @@ static void inspect_dependency_list(fdtgen_t *handle)
     }
 }
 
-static void inspect_keep_list(fdtgen_t *handle)
+static void inspect_keep_list(fdtgen_context_t *handle)
 {
     printf("\nInspecting the keep list\n");
     path_node_t *tmp, *el;
@@ -113,9 +113,9 @@ static int retrive_to_phandle(const void *prop_data, int lenp)
     return handle;
 }
 
-static void register_node_dependencies(fdtgen_t *handle, int offset);
+static void register_node_dependencies(fdtgen_context_t *handle, int offset);
 
-static void keep_node_and_parents(fdtgen_t *handle,  int offset)
+static void keep_node_and_parents(fdtgen_context_t *handle,  int offset)
 {
     void *dtb = handle->buffer;
     if (offset == handle->root_offset) {
@@ -136,7 +136,8 @@ static void keep_node_and_parents(fdtgen_t *handle,  int offset)
     keep_node_and_parents(handle, fdt_parent_offset(dtb, offset));
 }
 
-static void register_single_dependency(fdtgen_t *handle,  int offset, int lenp, const void *data, dependency_t *this)
+static void register_single_dependency(fdtgen_context_t *handle,  int offset, int lenp, const void *data,
+                                       dependency_t *this)
 {
     void *dtb = handle->buffer;
     d_list_node_t *new_node = malloc(sizeof(d_list_node_t));
@@ -157,7 +158,8 @@ static void register_single_dependency(fdtgen_t *handle,  int offset, int lenp, 
     }
 }
 
-static void register_clocks_dependency(fdtgen_t *handle,  int offset, int lenp, const void *data_, dependency_t *this)
+static void register_clocks_dependency(fdtgen_context_t *handle,  int offset, int lenp, const void *data_,
+                                       dependency_t *this)
 {
     void *dtb = handle->buffer;
     const void *data = data_;
@@ -176,7 +178,7 @@ static void register_clocks_dependency(fdtgen_t *handle,  int offset, int lenp, 
     }
 }
 
-static void register_power_domains_dependency(fdtgen_t *handle,  int offset, int lenp, const void *data_,
+static void register_power_domains_dependency(fdtgen_context_t *handle,  int offset, int lenp, const void *data_,
                                               dependency_t *this)
 {
     void *dtb = handle->buffer;
@@ -189,7 +191,7 @@ static void register_power_domains_dependency(fdtgen_t *handle,  int offset, int
     }
 }
 
-static void register_node_dependency(fdtgen_t *handle, int offset, const char *type)
+static void register_node_dependency(fdtgen_context_t *handle, int offset, const char *type)
 {
     void *dtb = handle->buffer;
     int lenp = 0;
@@ -219,14 +221,14 @@ static void register_node_dependency(fdtgen_t *handle, int offset, const char *t
     }
 }
 
-static void register_node_dependencies(fdtgen_t *handle, int offset)
+static void register_node_dependencies(fdtgen_context_t *handle, int offset)
 {
     for (int i = 0; i < num_props_with_dep; i++) {
         register_node_dependency(handle, offset, props_with_dep[i]);
     }
 }
 
-static void resolve_all_dependencies(fdtgen_t *handle)
+static void resolve_all_dependencies(fdtgen_context_t *handle)
 {
     path_node_t *tmp, *el;
     HASH_ITER(hh, handle->nodes_table, el, tmp) {
@@ -238,7 +240,7 @@ static void resolve_all_dependencies(fdtgen_t *handle)
  * prefix traverse the device tree
  * keep the parent if the child is kept
  */
-static int find_nodes_to_keep(fdtgen_t *handle, int offset)
+static int find_nodes_to_keep(fdtgen_context_t *handle, int offset)
 {
     void *dtb = handle->buffer;
     int child;
@@ -265,7 +267,7 @@ static int find_nodes_to_keep(fdtgen_t *handle, int offset)
     return find;
 }
 
-static void trim_tree(fdtgen_t *handle, int offset)
+static void trim_tree(fdtgen_context_t *handle, int offset)
 {
     int child;
     void *dtb = handle->buffer;
@@ -302,7 +304,7 @@ static void free_list(list_t *l)
     list_remove_all(l);
 }
 
-static void clean_up(fdtgen_t *handle)
+static void clean_up(fdtgen_context_t *handle)
 {
     dependency_t *tmp, *el;
     HASH_ITER(hh, handle->dep_table, el, tmp) {
@@ -329,12 +331,12 @@ static void clean_up(fdtgen_t *handle)
     free(handle->string_buf);
 }
 
-void fdtgen_keep_nodes(fdtgen_t *handle, const char **nodes_to_keep, int num_nodes)
+void fdtgen_keep_nodes(fdtgen_context_t *handle, const char **nodes_to_keep, int num_nodes)
 {
     init_keep_node(handle, nodes_to_keep, num_nodes);
 }
 
-static void keep_node_and_children(fdtgen_t *handle, const void *ori_fdt, int offset)
+static void keep_node_and_children(fdtgen_context_t *handle, const void *ori_fdt, int offset)
 {
     int child;
     fdt_for_each_subnode(child, ori_fdt, offset) {
@@ -350,12 +352,12 @@ static void keep_node_and_children(fdtgen_t *handle, const void *ori_fdt, int of
     }
 }
 
-void fdtgen_keep_node_and_children(fdtgen_t *handle, const void *ori_fdt, const char *node)
+void fdtgen_keep_node_and_children(fdtgen_context_t *handle, const void *ori_fdt, const char *node)
 {
     keep_node_and_children(handle, ori_fdt, handle->root_offset);
 }
 
-void fdtgen_generate(fdtgen_t *handle, const void *fdt_ori)
+void fdtgen_generate(fdtgen_context_t *handle, const void *fdt_ori)
 {
     int fdtsize = fdt_totalsize(fdt_ori);
     void *fdt_gen = handle->buffer;
@@ -383,7 +385,7 @@ void fdtgen_generate(fdtgen_t *handle, const void *fdt_ori)
     ZF_LOGF_IF(rst != 0, "The generated fdt is illegal");
 }
 
-static int append_prop_with_cells(fdtgen_t *handle, int offset,  uint64_t val, int num_cells, const char *name)
+static int append_prop_with_cells(fdtgen_context_t *handle, int offset,  uint64_t val, int num_cells, const char *name)
 {
     int err;
     if (num_cells == 2) {
@@ -397,7 +399,7 @@ static int append_prop_with_cells(fdtgen_t *handle, int offset,  uint64_t val, i
     return err;
 }
 
-void fdtgen_generate_memory_node(fdtgen_t *handle, unsigned long base, size_t size)
+void fdtgen_generate_memory_node(fdtgen_context_t *handle, unsigned long base, size_t size)
 {
     int address_cells = fdt_address_cells(handle->buffer, handle->root_offset);
     int size_cells = fdt_address_cells(handle->buffer, handle->root_offset);
@@ -412,7 +414,7 @@ void fdtgen_generate_memory_node(fdtgen_t *handle, unsigned long base, size_t si
     ZF_LOGF_IF(err, "%d", err);
 }
 
-void fdtgen_generate_chosen_node(fdtgen_t *handle, const char *stdout_path, const char *bootargs)
+void fdtgen_generate_chosen_node(fdtgen_context_t *handle, const char *stdout_path, const char *bootargs)
 {
     void *fdt = handle->buffer;
     int this = fdt_add_subnode(fdt, handle->root_offset, "chosen");
@@ -424,7 +426,7 @@ void fdtgen_generate_chosen_node(fdtgen_t *handle, const char *stdout_path, cons
     ZF_LOGF_IF(err, "%d", err);
 }
 
-void fdtgen_append_chosen_node_with_initrd_info(fdtgen_t *handle, unsigned long base, size_t size)
+void fdtgen_append_chosen_node_with_initrd_info(fdtgen_context_t *handle, unsigned long base, size_t size)
 {
     int address_cells = fdt_address_cells(handle->buffer, handle->root_offset);
     void *fdt = handle->buffer;
@@ -436,9 +438,9 @@ void fdtgen_append_chosen_node_with_initrd_info(fdtgen_t *handle, unsigned long 
     ZF_LOGF_IF(err, "%d", err);
 }
 
-fdtgen_t *fdtgen_new(void *buf, size_t bufsize)
+fdtgen_context_t *fdtgen_new_context(void *buf, size_t bufsize)
 {
-    fdtgen_t *to_return = malloc(sizeof(fdtgen_t));
+    fdtgen_context_t *to_return = malloc(sizeof(fdtgen_context_t));
     to_return->buffer = buf;
     to_return->bufsize = bufsize;
     to_return->nodes_table = NULL;
@@ -449,7 +451,7 @@ fdtgen_t *fdtgen_new(void *buf, size_t bufsize)
     return to_return;
 }
 
-void fdtgen_cleanup(fdtgen_t *h)
+void fdtgen_free_context(fdtgen_context_t *h)
 {
     clean_up(h);
     free(h);
