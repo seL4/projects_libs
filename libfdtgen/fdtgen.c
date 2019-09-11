@@ -69,7 +69,7 @@ static int dnode_cmp(void *_a, void *_b)
 
 typedef struct {
     char *from_path;
-    list_t *d_list;
+    list_t *to_list;
     UT_hash_handle hh;
 } dependency_t;
 
@@ -88,7 +88,7 @@ static void inspect_dependency_list(void)
     dependency_t *tmp, *el;
     HASH_ITER(hh, d_table, el, tmp) {
         printf("From %s\n", el->from_path);
-        list_foreach(el->d_list, print_d_node);
+        list_foreach(el->to_list, print_d_node);
     }
 }
 
@@ -139,11 +139,11 @@ static void register_single_dependency(void *dtb, int offset, int lenp, const vo
     new_node->to_phandle = to_phandle;
 
     // it is the same node when it refers to itself
-    if (offset == off || list_exists(this->d_list, new_node, dnode_cmp)) {
+    if (offset == off || list_exists(this->to_list, new_node, dnode_cmp)) {
         free(new_node->to_path);
         free(new_node);
     } else {
-        list_append(this->d_list, new_node);
+        list_append(this->to_list, new_node);
         keep_node_and_parents(dtb, off);
         register_node_dependencies(dtb, off);
     }
@@ -192,8 +192,8 @@ static void register_node_dependency(void *dtb, int offset, const char *type)
     if (this == NULL) {
         dependency_t *new = malloc(sizeof(dependency_t));
         new->from_path = strdup(tempbuf);
-        new->d_list = malloc(sizeof(list_t));
-        list_init(new->d_list);
+        new->to_list = malloc(sizeof(list_t));
+        list_init(new->to_list);
         this = new;
         HASH_ADD_STR(d_table, from_path, this);
     }
@@ -293,8 +293,8 @@ static void clean_up()
     dependency_t *tmp, *el;
     HASH_ITER(hh, d_table, el, tmp) {
         HASH_DEL(d_table, el);
-        free_list(el->d_list);
-        free(el->d_list);
+        free_list(el->to_list);
+        free(el->to_list);
         free(el->from_path);
         free(el);
     }
