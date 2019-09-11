@@ -383,18 +383,32 @@ void fdtgen_generate(fdtgen_t *handle, const void *fdt_ori)
     ZF_LOGF_IF(rst != 0, "The generated fdt is illegal");
 }
 
-void fdtgen_generate_memory_node(fdtgen_t *handle,  unsigned long base, size_t size)
+static int append_prop_with_cells(fdtgen_t *handle, int offset,  uint64_t val, int num_cells, const char *name)
 {
-    // TODO: support different arch
-    uint32_t memory_reg_prop[]  = {
-        cpu_to_fdt32(base),
-        cpu_to_fdt32(size),
-    };
+    int err;
+    if (num_cells == 2) {
+        err = fdt_appendprop_u64(handle->buffer, offset, name, val);
+    } else if (num_cells == 1) {
+        err = fdt_appendprop_u32(handle->buffer, offset, name, val);
+    } else {
+        ZF_LOGF("non-supported arch");
+    }
+
+    return err;
+}
+
+void fdtgen_generate_memory_node(fdtgen_t *handle, unsigned long base, size_t size)
+{
+    int address_cells = fdt_address_cells(handle->buffer, handle->root_offset);
+    int size_cells = fdt_address_cells(handle->buffer, handle->root_offset);
     void *fdt = handle->buffer;
+
     int this = fdt_add_subnode(fdt, handle->root_offset, "memory");
     int err = fdt_appendprop_string(fdt, this, "device_type", "memory");
     ZF_LOGF_IF(err, "%d", err);
-    err = fdt_appendprop(fdt, this, "reg", memory_reg_prop, sizeof(memory_reg_prop));
+    err = append_prop_with_cells(handle, this, base, address_cells, "reg");
+    ZF_LOGF_IF(err, "%d", err);
+    err = append_prop_with_cells(handle, this, size, size_cells, "reg");
     ZF_LOGF_IF(err, "%d", err);
 }
 
@@ -412,12 +426,13 @@ void fdtgen_generate_chosen_node(fdtgen_t *handle, const char *stdout_path, cons
 
 void fdtgen_append_chosen_node_with_initrd_info(fdtgen_t *handle, unsigned long base, size_t size)
 {
+    int address_cells = fdt_address_cells(handle->buffer, handle->root_offset);
     void *fdt = handle->buffer;
     int this = fdt_path_offset(fdt, "/chosen");
     ZF_LOGF_IF(this <= 0, "no chosen node");
-    int err = fdt_appendprop_cell(fdt, this, "linux,initrd-start", base);
+    int err = append_prop_with_cells(handle, this, base, address_cells, "linux,initrd-start");
     ZF_LOGF_IF(err, "%d", err);
-    err = fdt_appendprop_cell(fdt, this, "linux,initrd-end", base + size);
+    err = append_prop_with_cells(handle, this, base + size, address_cells, "linux,initrd-end");
     ZF_LOGF_IF(err, "%d", err);
 }
 
@@ -437,4 +452,5 @@ fdtgen_t *fdtgen_new(void *buf, size_t bufsize)
 void fdtgen_cleanup(fdtgen_t *h)
 {
     clean_up(h);
+    free(h);
 }
