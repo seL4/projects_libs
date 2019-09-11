@@ -12,9 +12,13 @@
 
 #pragma once
 
-void *fdtgen_generate(const void *fdt);
-void fdtgen_keep_nodes(const char **nodes_to_keep, int num_nodes);
-void fdtgen_keep_node_and_children(const void *ori_fdt, const char *node);
-void fdtgen_generate_memory_node(void *fdt, unsigned long base, size_t size);
-void fdtgen_generate_chosen_node(void *fdt, const char *stdout_path, const char *bootargs);
-void fdtgen_append_chosen_node_with_initrd_info(void *fdt, unsigned long base, size_t size);
+typedef struct fdtgen fdtgen_t;
+
+fdtgen_t *fdtgen_new(void *buf, size_t bufsize);
+void fdtgen_cleanup(fdtgen_t *handle);
+void fdtgen_generate(fdtgen_t *handle, const void *ori_fdt);
+void fdtgen_keep_nodes(fdtgen_t *handle, const char **nodes_to_keep, int num_nodes);
+void fdtgen_keep_node_and_children(fdtgen_t *handle, const void *ori_fdt, const char *node);
+void fdtgen_generate_memory_node(fdtgen_t *handle, unsigned long base, size_t size);
+void fdtgen_generate_chosen_node(fdtgen_t *handle, const char *stdout_path, const char *bootargs);
+void fdtgen_append_chosen_node_with_initrd_info(fdtgen_t *handle, unsigned long base, size_t size);
