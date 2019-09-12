@@ -45,8 +45,6 @@ void fdtgen_keep_nodes(fdtgen_context_t *context, const char **nodes_to_keep, in
 */
 int fdtgen_generate(fdtgen_context_t *context, const void *ori_fdt);
 
-/* NOTE: the helper functions below need to be called after calling fdtgen_generate */
-
 /**
 * keep a node and all its children
 * @param context
@@ -54,30 +52,3 @@ int fdtgen_generate(fdtgen_context_t *context, const void *ori_fdt);
 * @param node, the node to keep
 */
 void fdtgen_keep_node_and_children(fdtgen_context_t *context, const void *ori_fdt, const char *node);
-
-/**
-* generate a "memory" node
-* @param context
-* @param base, the base of the memory region
-* @param size, the size of the memory region
-* @return -1 on error, 0 otherwise
-*/
-int fdtgen_generate_memory_node(fdtgen_context_t *context, unsigned long base, size_t size);
-
-/**
-* generate a "chosen" node
-* @param context
-* @param stdout_path, the path of the stdout
-* @param bootargs
-* @return -1 on error, 0 otherwise
-*/
-int fdtgen_generate_chosen_node(fdtgen_context_t *context, const char *stdout_path, const char *bootargs);
-
-/**
-* append the chosen node with initrd info
-* @param context
-* @param base, the base of the initrd image
-* @param size, the size of the initrd image
-* @return -1 on error, 0 otherwise
-*/
-int fdtgen_append_chosen_node_with_initrd_info(fdtgen_context_t *context, unsigned long base, size_t size);
