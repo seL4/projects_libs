@@ -16,7 +16,7 @@
 #include <libfdt.h>
 #include <utils/list.h>
 #include <utils/util.h>
-#include "uthash.h"
+#include <utils/uthash.h>
 #include <fdtgen.h>
 
 #define MAX_FULL_PATH_LENGTH (4096)
