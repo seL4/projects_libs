@@ -19,6 +19,8 @@
 #include "uthash.h"
 #include <fdtgen.h>
 
+#define MAX_FULL_PATH_LENGTH (4096)
+
 typedef struct {
     char *name;
     int offset;
@@ -75,7 +77,7 @@ static void init_keep_node(fdtgen_context_t *handle, const char **nodes, int num
 static bool is_to_keep(fdtgen_context_t *handle, int offset)
 {
     void *dtb = handle->buffer;
-    fdt_get_path(dtb, offset, handle->string_buf, 4096);
+    fdt_get_path(dtb, offset, handle->string_buf, MAX_FULL_PATH_LENGTH);
     path_node_t *this;
     HASH_FIND_STR(handle->keep_node, handle->string_buf, this);
     return this != NULL;
@@ -122,7 +124,7 @@ static void keep_node_and_parents(fdtgen_context_t *handle,  int offset)
         return;
     }
 
-    fdt_get_path(dtb, offset, handle->string_buf, 4096);
+    fdt_get_path(dtb, offset, handle->string_buf, MAX_FULL_PATH_LENGTH);
     path_node_t *target;
     HASH_FIND_STR(handle->nodes_table, handle->string_buf, target);
 
@@ -143,7 +145,7 @@ static void register_single_dependency(fdtgen_context_t *handle,  int offset, in
     d_list_node_t *new_node = malloc(sizeof(d_list_node_t));
     uint32_t to_phandle = retrive_to_phandle(data, lenp);
     int off = fdt_node_offset_by_phandle(dtb, to_phandle);
-    fdt_get_path(dtb, off, handle->string_buf, 4096);
+    fdt_get_path(dtb, off, handle->string_buf, MAX_FULL_PATH_LENGTH);
     new_node->to_path = strdup(handle->string_buf);
     new_node->to_phandle = to_phandle;
 
@@ -199,7 +201,7 @@ static void register_node_dependency(fdtgen_context_t *handle, int offset, const
     if (lenp < 0) {
         return;
     }
-    fdt_get_path(dtb, offset, handle->string_buf, 4096);
+    fdt_get_path(dtb, offset, handle->string_buf, MAX_FULL_PATH_LENGTH);
     dependency_t *this;
     HASH_FIND_STR(handle->dep_table, handle->string_buf, this);
 
@@ -251,7 +253,7 @@ static int find_nodes_to_keep(fdtgen_context_t *handle, int offset)
 
         if (in_keep_list || child_is_kept) {
             find = 1;
-            fdt_get_path(dtb, child, handle->string_buf, 4096);
+            fdt_get_path(dtb, child, handle->string_buf, MAX_FULL_PATH_LENGTH);
             path_node_t *this;
             HASH_FIND_STR(handle->nodes_table, handle->string_buf, this);
 
@@ -272,7 +274,7 @@ static void trim_tree(fdtgen_context_t *handle, int offset)
     int child;
     void *dtb = handle->buffer;
     fdt_for_each_subnode(child, dtb, offset) {
-        fdt_get_path(dtb, child, handle->string_buf, 4096);
+        fdt_get_path(dtb, child, handle->string_buf, MAX_FULL_PATH_LENGTH);
         path_node_t *this;
 
         HASH_FIND_STR(handle->nodes_table, handle->string_buf, this);
@@ -340,7 +342,7 @@ static void keep_node_and_children(fdtgen_context_t *handle, const void *ori_fdt
 {
     int child;
     fdt_for_each_subnode(child, ori_fdt, offset) {
-        fdt_get_path(ori_fdt, child, handle->string_buf, 4096);
+        fdt_get_path(ori_fdt, child, handle->string_buf, MAX_FULL_PATH_LENGTH);
         path_node_t *this;
         HASH_FIND_STR(handle->nodes_table, handle->string_buf, this);
         if (this == NULL) {
@@ -480,7 +482,7 @@ fdtgen_context_t *fdtgen_new_context(void *buf, size_t bufsize)
     to_return->keep_node = NULL;
     to_return->dep_table = NULL;
     to_return->root_offset = 0;
-    to_return->string_buf = malloc(4096);
+    to_return->string_buf = malloc(MAX_FULL_PATH_LENGTH);
     return to_return;
 }
 
