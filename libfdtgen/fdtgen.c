@@ -357,13 +357,19 @@ void fdtgen_keep_node_and_children(fdtgen_context_t *handle, const void *ori_fdt
     keep_node_and_children(handle, ori_fdt, handle->root_offset);
 }
 
-void fdtgen_generate(fdtgen_context_t *handle, const void *fdt_ori)
+int fdtgen_generate(fdtgen_context_t *handle, const void *fdt_ori)
 {
+    if (handle == NULL) {
+        return -1;
+    }
     void *fdt_gen = handle->buffer;
     fdt_open_into(fdt_ori, fdt_gen, handle->bufsize);
     /* just make sure the device tree is valid */
     int rst = fdt_check_full(fdt_gen, handle->bufsize);
-    ZF_LOGF_IF(rst != 0, "The fdt is illegal");
+    if (rst != 0) {
+        ZF_LOGD("The fdt is illegal");
+        return -1;
+    }
 
     /* in case the root node is not at 0 offset.
      * is that possible? */
@@ -380,7 +386,12 @@ void fdtgen_generate(fdtgen_context_t *handle, const void *fdt_ori)
 
     trim_tree(handle, handle->root_offset);
     rst = fdt_check_full(fdt_gen, handle->bufsize);
-    ZF_LOGF_IF(rst != 0, "The generated fdt is illegal");
+    if (rst != 0) {
+        ZF_LOGD("The generated fdt is illegal");
+        return -1;
+    }
+
+    return 0;
 }
 
 static int append_prop_with_cells(fdtgen_context_t *handle, int offset,  uint64_t val, int num_cells, const char *name)
@@ -397,7 +408,7 @@ static int append_prop_with_cells(fdtgen_context_t *handle, int offset,  uint64_
     return err;
 }
 
-void fdtgen_generate_memory_node(fdtgen_context_t *handle, unsigned long base, size_t size)
+int fdtgen_generate_memory_node(fdtgen_context_t *handle, unsigned long base, size_t size)
 {
     int address_cells = fdt_address_cells(handle->buffer, handle->root_offset);
     int size_cells = fdt_address_cells(handle->buffer, handle->root_offset);
@@ -405,40 +416,64 @@ void fdtgen_generate_memory_node(fdtgen_context_t *handle, unsigned long base, s
 
     int this = fdt_add_subnode(fdt, handle->root_offset, "memory");
     int err = fdt_appendprop_string(fdt, this, "device_type", "memory");
-    ZF_LOGF_IF(err, "%d", err);
+    if (err) {
+        return -1;
+    }
     err = append_prop_with_cells(handle, this, base, address_cells, "reg");
-    ZF_LOGF_IF(err, "%d", err);
+    if (err) {
+        return -1;
+    }
     err = append_prop_with_cells(handle, this, size, size_cells, "reg");
-    ZF_LOGF_IF(err, "%d", err);
+    if (err) {
+        return -1;
+    }
+
+    return 0;
 }
 
-void fdtgen_generate_chosen_node(fdtgen_context_t *handle, const char *stdout_path, const char *bootargs)
+int fdtgen_generate_chosen_node(fdtgen_context_t *handle, const char *stdout_path, const char *bootargs)
 {
     void *fdt = handle->buffer;
     int this = fdt_add_subnode(fdt, handle->root_offset, "chosen");
     int err = fdt_appendprop_string(fdt, this, "stdout-path", stdout_path);
-    ZF_LOGF_IF(err, "%d", err);
+    if (err) {
+        return -1;
+    }
     err = fdt_appendprop_string(fdt, this, "bootargs", bootargs);
-    ZF_LOGF_IF(err, "%d", err);
+    if (err) {
+        return -1;
+    }
     err = fdt_appendprop_string(fdt, this, "linux,stdout-path", stdout_path);
-    ZF_LOGF_IF(err, "%d", err);
+    if (err) {
+        return -1;
+    }
+
+    return 0;
 }
 
-void fdtgen_append_chosen_node_with_initrd_info(fdtgen_context_t *handle, unsigned long base, size_t size)
+int fdtgen_append_chosen_node_with_initrd_info(fdtgen_context_t *handle, unsigned long base, size_t size)
 {
     int address_cells = fdt_address_cells(handle->buffer, handle->root_offset);
     void *fdt = handle->buffer;
     int this = fdt_path_offset(fdt, "/chosen");
-    ZF_LOGF_IF(this <= 0, "no chosen node");
     int err = append_prop_with_cells(handle, this, base, address_cells, "linux,initrd-start");
-    ZF_LOGF_IF(err, "%d", err);
+    if (err) {
+        return -1;
+    }
     err = append_prop_with_cells(handle, this, base + size, address_cells, "linux,initrd-end");
-    ZF_LOGF_IF(err, "%d", err);
+    if (err) {
+        return -1;
+    }
+
+    return 0;
 }
 
 fdtgen_context_t *fdtgen_new_context(void *buf, size_t bufsize)
 {
     fdtgen_context_t *to_return = malloc(sizeof(fdtgen_context_t));
+    if (to_return == NULL) {
+        return NULL;
+    }
     to_return->buffer = buf;
     to_return->bufsize = bufsize;
     to_return->nodes_table = NULL;
@@ -451,6 +486,8 @@ fdtgen_context_t *fdtgen_new_context(void *buf, size_t bufsize)
 
 void fdtgen_free_context(fdtgen_context_t *h)
 {
-    clean_up(h);
-    free(h);
+    if (h) {
+        clean_up(h);
+        free(h);
+    }
 }
