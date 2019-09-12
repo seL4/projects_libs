@@ -359,10 +359,8 @@ void fdtgen_keep_node_and_children(fdtgen_context_t *handle, const void *ori_fdt
 
 void fdtgen_generate(fdtgen_context_t *handle, const void *fdt_ori)
 {
-    int fdtsize = fdt_totalsize(fdt_ori);
     void *fdt_gen = handle->buffer;
-    memcpy(fdt_gen, fdt_ori, fdtsize);
-    fdt_open_into(fdt_gen, fdt_gen, handle->bufsize);
+    fdt_open_into(fdt_ori, fdt_gen, handle->bufsize);
     /* just make sure the device tree is valid */
     int rst = fdt_check_full(fdt_gen, handle->bufsize);
     ZF_LOGF_IF(rst != 0, "The fdt is illegal");
