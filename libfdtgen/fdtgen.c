@@ -60,7 +60,6 @@ struct fdtgen_context {
 };
 typedef struct fdtgen_context fdtgen_context_t;
 
-
 static void init_keep_node(fdtgen_context_t *handle, const char **nodes, int num_nodes)
 {
     for (int i = 0; i < num_nodes; ++i) {
@@ -81,32 +80,6 @@ static bool is_to_keep(fdtgen_context_t *handle, int offset)
     path_node_t *this;
     HASH_FIND_STR(handle->keep_node, handle->string_buf, this);
     return this != NULL;
-}
-
-static int print_d_node(void *node)
-{
-    d_list_node_t *temp = node;
-    printf("\t\t to %s\n", temp->to_path);
-    return 0;
-}
-
-static void inspect_dependency_list(fdtgen_context_t *handle)
-{
-    printf("\nInspecting the dependency list\n");
-    dependency_t *tmp, *el;
-    HASH_ITER(hh, handle->dep_table, el, tmp) {
-        printf("From %s\n", el->from_path);
-        list_foreach(el->to_list, print_d_node);
-    }
-}
-
-static void inspect_keep_list(fdtgen_context_t *handle)
-{
-    printf("\nInspecting the keep list\n");
-    path_node_t *tmp, *el;
-    HASH_ITER(hh, handle->nodes_table, el, tmp) {
-        printf("keep %s\n", el->name);
-    }
 }
 
 static int retrive_to_phandle(const void *prop_data, int lenp)
