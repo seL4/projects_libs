@@ -36,6 +36,7 @@ void fdtgen_free_context(fdtgen_context_t *context);
 * @param num_nodes, the number of full paths in the list
 */
 void fdtgen_keep_nodes(fdtgen_context_t *context, const char **nodes_to_keep, int num_nodes);
+void fdtgen_keep_nodes_and_disable(fdtgen_context_t *handle, const char **nodes_to_keep, int num_nodes);
 
 /**
 * generate a fdt
@@ -51,4 +52,5 @@ int fdtgen_generate(fdtgen_context_t *context, const void *ori_fdt);
 * @param ori_fdt, the base fdt
 * @param node, the node to keep
 */
-void fdtgen_keep_node_and_children(fdtgen_context_t *context, const void *ori_fdt, const char *node);
+void fdtgen_keep_node_subtree(fdtgen_context_t *context, const void *ori_fdt, const char *node);
+void fdtgen_keep_node_subtree_disable(fdtgen_context_t *handle, const void *ori_fdt, const char *node);
