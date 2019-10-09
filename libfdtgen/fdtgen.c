@@ -54,8 +54,6 @@ typedef struct {
     UT_hash_handle hh;
 } dependency_t;
 
-static dependency_t *d_table = NULL;
-
 struct fdtgen_context {
     path_node_t *nodes_table;
     dependency_t *dep_table;
@@ -178,14 +176,11 @@ static void register_power_domains_dependency(fdtgen_context_t *handle,  int off
     }
 }
 
-static void register_node_dependency(fdtgen_context_t *handle, int offset, const char *type)
+static void register_node_dependency(fdtgen_context_t *handle, int offset, const char *type, int p_offset)
 {
     void *dtb = handle->buffer;
     int lenp = 0;
-    const void *data = fdt_getprop(dtb, offset, type, &lenp);
-    if (lenp < 0) {
-        return;
-    }
+    const void *data = fdt_getprop_by_offset(dtb, p_offset, NULL, NULL);
     fdt_get_path(dtb, offset, handle->string_buf, MAX_FULL_PATH_LENGTH);
     dependency_t *this = NULL;
     HASH_FIND_STR(handle->dep_table, handle->string_buf, this);
@@ -210,8 +205,17 @@ static void register_node_dependency(fdtgen_context_t *handle, int offset, const
 
 static void register_node_dependencies(fdtgen_context_t *handle, int offset)
 {
-    for (int i = 0; i < num_props_with_dep; i++) {
-        register_node_dependency(handle, offset, props_with_dep[i]);
+    int prop_off, lenp;
+    void *dtb = handle->buffer;
+
+    fdt_for_each_property_offset(prop_off, dtb, offset) {
+        const struct fdt_property *prop = fdt_get_property_by_offset(dtb, prop_off, NULL);
+        const char *name = fdt_get_string(dtb, fdt32_ld(&prop->nameoff), &lenp);
+        for (int i = 0; i < num_props_with_dep; i++) {
+            if (strcmp(name, props_with_dep[i]) == 0) {
+                register_node_dependency(handle, offset, name, prop_off);
+            }
+        }
     }
 }
 
@@ -285,7 +289,7 @@ static void trim_tree(fdtgen_context_t *handle, int offset)
                 ZF_LOGF_IF(err, "failed, %d", err);
                 trim_tree(handle, offset);
                 return;
-            } else {
+            } else if (this->cnt == 1) {
                 trim_tree(handle, child);
             }
         }
