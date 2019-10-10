@@ -81,12 +81,12 @@ static void init_keep_node(fdtgen_context_t *handle, const char **nodes, int num
     }
 }
 
-static int is_to_keep(fdtgen_context_t *handle, int offset)
+static int is_to_keep(fdtgen_context_t *handle, UNUSED int child)
 {
     void *dtb = handle->buffer;
-    fdt_get_path(dtb, offset, handle->string_buf, MAX_FULL_PATH_LENGTH);
     path_node_t *this;
     HASH_FIND_STR(handle->nodes_table, handle->string_buf, this);
+
     return this != NULL;
 }
 
@@ -98,27 +98,44 @@ static int retrive_to_phandle(const void *prop_data, int lenp)
 
 static void register_node_dependencies(fdtgen_context_t *handle, int offset);
 
-static void keep_node_and_parents(fdtgen_context_t *handle,  int offset)
+static int keep_node_and_parents(fdtgen_context_t *handle,  int offset, int target)
 {
     void *dtb = handle->buffer;
-    if (offset == handle->root_offset) {
-        return;
+    if (target == handle->root_offset) {
+        return 0;
+    }
+    if (target == offset) {
+        return 1;
+    }
+    int child;
+
+    fdt_for_each_subnode(child, dtb, offset) {
+        int new_len = strlen(handle->string_buf);
+        strcat(handle->string_buf, "/");
+        const char *n = fdt_get_name(dtb, child, NULL);
+        strcat(handle->string_buf, n);
+
+        int keep = keep_node_and_parents(handle, child, target);
+        if (keep) {
+            path_node_t *target_node = NULL;
+            /* printf("keep %s\n", handle->string_buf); */
+            HASH_FIND_STR(handle->nodes_table, handle->string_buf, target_node);
+            if (target_node == NULL) {
+                target_node = malloc(sizeof(path_node_t));
+                target_node->name = strdup(handle->string_buf);
+                target_node->offset = offset;
+                target_node->cnt = 0;
+                target_node->flag = DEVICE_KEEP;
+                HASH_ADD_STR(handle->nodes_table, name, target_node);
+            }
+            return 1;
+        }
+
+        handle->string_buf[new_len] = '\0';
     }
 
-    fdt_get_path(dtb, offset, handle->string_buf, MAX_FULL_PATH_LENGTH);
-    path_node_t *target;
-    HASH_FIND_STR(handle->nodes_table, handle->string_buf, target);
+    return 0;
 
-    if (target == NULL) {
-        target = malloc(sizeof(path_node_t));
-        target->name = strdup(handle->string_buf);
-        target->offset = offset;
-        target->cnt = 0;
-        target->flag = DEVICE_KEEP;
-        HASH_ADD_STR(handle->nodes_table, name, target);
-    }
-
-    keep_node_and_parents(handle, fdt_parent_offset(dtb, offset));
 }
 
 static void register_single_dependency(fdtgen_context_t *handle,  int offset, int lenp, const void *data,
@@ -138,7 +155,8 @@ static void register_single_dependency(fdtgen_context_t *handle,  int offset, in
         free(new_node);
     } else {
         list_append(this->to_list, new_node);
-        keep_node_and_parents(handle, off);
+        handle->string_buf[0] = '\0';
+        keep_node_and_parents(handle, handle->root_offset, off);
         register_node_dependencies(handle, off);
     }
 }
@@ -236,13 +254,21 @@ static int find_nodes_to_keep(fdtgen_context_t *handle, int offset)
     void *dtb = handle->buffer;
     int child;
     int find = 0;
+
     fdt_for_each_subnode(child, dtb, offset) {
+        int len_ori = strlen(handle->string_buf);
+        strcat(handle->string_buf, "/");
+        const char *n = fdt_get_name(dtb, child, NULL);
+        strcat(handle->string_buf, n);
+
         int child_is_kept = find_nodes_to_keep(handle, child);
-        int in_keep_list = is_to_keep(handle, child);
+        int in_keep_list = 0;
+        if (child_is_kept == 0) {
+            in_keep_list = is_to_keep(handle, child);
+        }
 
         if (in_keep_list || child_is_kept) {
             find = 1;
-            fdt_get_path(dtb, child, handle->string_buf, MAX_FULL_PATH_LENGTH);
             path_node_t *this;
             HASH_FIND_STR(handle->nodes_table, handle->string_buf, this);
 
@@ -257,6 +283,8 @@ static int find_nodes_to_keep(fdtgen_context_t *handle, int offset)
                 this->offset = child;
             }
         }
+
+        handle->string_buf[len_ori] = '\0';
     }
 
     return find;
@@ -268,9 +296,11 @@ static void trim_tree(fdtgen_context_t *handle, int offset)
     void *dtb = handle->buffer;
 
     fdt_for_each_subnode(child, dtb, offset) {
-        fdt_get_path(dtb, child, handle->string_buf, MAX_FULL_PATH_LENGTH);
+        int len_ori = strlen(handle->string_buf);
+        const char *n = fdt_get_name(dtb, child, NULL);
+        strcat(handle->string_buf, "/");
+        strcat(handle->string_buf, n);
         path_node_t *this;
-        /* ZF_LOGE("triming %s", handle->string_buf); */
 
         HASH_FIND_STR(handle->nodes_table, handle->string_buf, this);
         if (this == NULL) {
@@ -279,6 +309,7 @@ static void trim_tree(fdtgen_context_t *handle, int offset)
             /* NOTE: after deleting a node, all the offsets are invalidated,
              * we need to repeat this triming process for the same node if
              * we don't want to miss anything */
+            handle->string_buf[len_ori] = '\0';
             trim_tree(handle, offset);
             return;
         } else {
@@ -287,12 +318,14 @@ static void trim_tree(fdtgen_context_t *handle, int offset)
             if (this->flag == DEVICE_KEEP_AND_DISABLE && this->cnt == 1) {
                 int err = fdt_setprop_string(dtb, child, "status", "disabled");
                 ZF_LOGF_IF(err, "failed, %d", err);
+                handle->string_buf[len_ori] = '\0';
                 trim_tree(handle, offset);
                 return;
-            } else if (this->cnt == 1) {
+            } else {
                 trim_tree(handle, child);
             }
         }
+        handle->string_buf[len_ori] = '\0';
     }
 }
 
@@ -348,7 +381,11 @@ static void keep_node_and_children(fdtgen_context_t *handle, const void *ori_fdt
 {
     int child;
     fdt_for_each_subnode(child, ori_fdt, offset) {
-        fdt_get_path(ori_fdt, child, handle->string_buf, MAX_FULL_PATH_LENGTH);
+        int len_ori = strlen(handle->string_buf);
+        strcat(handle->string_buf, "/");
+        const char *n = fdt_get_name(ori_fdt, child, NULL);
+        strcat(handle->string_buf, n);
+
         path_node_t *this;
         HASH_FIND_STR(handle->nodes_table, handle->string_buf, this);
         if (this == NULL) {
@@ -360,7 +397,9 @@ static void keep_node_and_children(fdtgen_context_t *handle, const void *ori_fdt
         } else {
             this->flag = flag;
         }
+
         keep_node_and_children(handle, ori_fdt, child, flag);
+        handle->string_buf[len_ori] = '\0';
     }
 }
 
@@ -427,6 +466,7 @@ int fdtgen_generate(fdtgen_context_t *handle, const void *fdt_ori)
      * is that possible? */
     handle->root_offset = fdt_path_offset(fdt_gen, "/");
 
+    handle->string_buf[0] = '\0';
     find_nodes_to_keep(handle, handle->root_offset);
     resolve_all_dependencies(handle);
 
@@ -438,6 +478,7 @@ int fdtgen_generate(fdtgen_context_t *handle, const void *fdt_ori)
     root->flag = DEVICE_KEEP;
     HASH_ADD_STR(handle->nodes_table, name, root);
 
+    handle->string_buf[0] = '\0';
     trim_tree(handle, handle->root_offset);
     rst = fdt_check_full(fdt_gen, handle->bufsize);
     if (rst != 0) {
