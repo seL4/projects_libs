@@ -126,9 +126,12 @@ static int keep_node_and_parents(fdtgen_context_t *handle,  int offset, int targ
                 target_node->cnt = 0;
                 target_node->flag = DEVICE_KEEP;
                 HASH_ADD_STR(handle->nodes_table, name, target_node);
-                if (child != target) {
-                    register_node_dependencies(handle, child);
-                }
+            }
+
+            dependency_t *dep;
+            HASH_FIND_STR(handle->dep_table, handle->string_buf, dep);
+            if (dep == NULL) {
+                register_node_dependencies(handle, child);
             }
             handle->string_buf[new_len] = '\0';
             return 1;
