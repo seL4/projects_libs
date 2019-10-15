@@ -118,7 +118,6 @@ static int keep_node_and_parents(fdtgen_context_t *handle,  int offset, int targ
         int keep = keep_node_and_parents(handle, child, target);
         if (keep) {
             path_node_t *target_node = NULL;
-            /* printf("keep %s\n", handle->string_buf); */
             HASH_FIND_STR(handle->nodes_table, handle->string_buf, target_node);
             if (target_node == NULL) {
                 target_node = malloc(sizeof(path_node_t));
@@ -127,7 +126,11 @@ static int keep_node_and_parents(fdtgen_context_t *handle,  int offset, int targ
                 target_node->cnt = 0;
                 target_node->flag = DEVICE_KEEP;
                 HASH_ADD_STR(handle->nodes_table, name, target_node);
+                if (child != target) {
+                    register_node_dependencies(handle, child);
+                }
             }
+            handle->string_buf[new_len] = '\0';
             return 1;
         }
 
@@ -135,7 +138,6 @@ static int keep_node_and_parents(fdtgen_context_t *handle,  int offset, int targ
     }
 
     return 0;
-
 }
 
 static void register_single_dependency(fdtgen_context_t *handle,  int offset, int lenp, const void *data,
@@ -175,7 +177,7 @@ static void register_clocks_dependency(fdtgen_context_t *handle,  int offset, in
         const void *clock_cells = fdt_getprop(dtb, refers_to, "#clock-cells", &len);
         int cells = fdt32_ld(clock_cells);
 
-        register_single_dependency(handle,  offset, lenp, data, this);
+        register_single_dependency(handle, offset, lenp, data, this);
 
         done += 4 + cells * 4;
     }
@@ -189,7 +191,7 @@ static void register_power_domains_dependency(fdtgen_context_t *handle,  int off
     int done = 0;
     while (lenp > done) {
         data = (data_ + done);
-        register_single_dependency(handle,  offset, lenp, data, this);
+        register_single_dependency(handle, offset, lenp, data, this);
         done += 4;
     }
 }
@@ -198,7 +200,7 @@ static void register_node_dependency(fdtgen_context_t *handle, int offset, const
 {
     void *dtb = handle->buffer;
     int lenp = 0;
-    const void *data = fdt_getprop_by_offset(dtb, p_offset, NULL, NULL);
+    const void *data = fdt_getprop_by_offset(dtb, p_offset, NULL, &lenp);
     fdt_get_path(dtb, offset, handle->string_buf, MAX_FULL_PATH_LENGTH);
     dependency_t *this = NULL;
     HASH_FIND_STR(handle->dep_table, handle->string_buf, this);
@@ -213,9 +215,9 @@ static void register_node_dependency(fdtgen_context_t *handle, int offset, const
     }
 
     if (strcmp(type, "clocks") == 0) {
-        register_clocks_dependency(handle,  offset, lenp, data, this);
+        register_clocks_dependency(handle, offset, lenp, data, this);
     } else if (strcmp(type, "power-domains") == 0) {
-        register_power_domains_dependency(handle,  offset, lenp, data, this);
+        register_power_domains_dependency(handle, offset, lenp, data, this);
     } else {
         register_single_dependency(handle, offset, lenp, data, this);
     }
@@ -223,6 +225,9 @@ static void register_node_dependency(fdtgen_context_t *handle, int offset, const
 
 static void register_node_dependencies(fdtgen_context_t *handle, int offset)
 {
+    if (offset == handle->root_offset) {
+        return;
+    }
     int prop_off, lenp;
     void *dtb = handle->buffer;
 
