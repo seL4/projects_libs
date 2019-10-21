@@ -72,7 +72,11 @@ static unsigned vq_add_desc(virtqueue_driver_t *vq, void *buf, unsigned len,
     }
     vq->free_desc_head = vq->desc_table[new].next;
     desc = vq->desc_table + new;
-    desc->addr = (uint64_t)buf;
+
+    // casting pointers to integers directly is not allowed, must cast the
+    // pointer to a uintptr_t first
+    desc->addr = (uintptr_t)buf;
+
     desc->len = len;
     desc->flags = flag;
     desc->next = DESC_TABLE_SIZE;
@@ -89,7 +93,10 @@ static unsigned vq_pop_desc(virtqueue_driver_t *vq, unsigned idx,
 {
     unsigned next = vq->desc_table[idx].next;
 
-    *buf = (void *)(vq->desc_table[idx].addr);
+    // casting integers to pointers directly is not allowed, must cast the
+    // integer to a uintptr_t first
+    *buf = (void *)(uintptr_t)(vq->desc_table[idx].addr);
+
     *len = vq->desc_table[idx].len;
     *flag = vq->desc_table[idx].flags;
     vq->desc_table[idx].next = vq->free_desc_head;
@@ -190,7 +197,11 @@ int virtqueue_gather_available(virtqueue_device_t *vq, virtqueue_ring_object_t *
     if (idx == DESC_TABLE_SIZE) {
         return 0;
     }
-    *buf = (void *)(vq->desc_table[idx].addr);
+
+    // casting integers to pointers directly is not allowed, must cast the
+    // integer to a uintptr_t first
+    *buf = (void *)(uintptr_t)(vq->desc_table[idx].addr);
+
     *len = vq->desc_table[idx].len;
     *flag = vq->desc_table[idx].flags;
     robj->cur = vq->desc_table[idx].next;
