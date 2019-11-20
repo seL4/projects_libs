@@ -68,9 +68,9 @@ typedef struct virtqueue_device {
 
     unsigned a_ring_last_seen;  /* Index of the last seen element in the available ring */
 
-    volatile struct vq_vring_avail *avail_ring; /* The available ring */
-    volatile struct vq_vring_used *used_ring;   /* The used ring */
-    volatile struct vq_vring_desc *desc_table;  /* The descriptor table */
+    struct vq_vring_avail *avail_ring; /* The available ring */
+    struct vq_vring_used *used_ring;   /* The used ring */
+    struct vq_vring_desc *desc_table;  /* The descriptor table */
 } virtqueue_device_t;
 
 /* A driver-side virtqueue */
@@ -81,9 +81,9 @@ typedef struct virtqueue_driver {
     unsigned free_desc_head;    /* The head of the free list in the descriptor table */
     unsigned u_ring_last_seen;  /* Index of the last seen element in the used ring */
 
-    volatile struct vq_vring_avail *avail_ring; /* The available ring */
-    volatile struct vq_vring_used *used_ring;   /* The used ring */
-    volatile struct vq_vring_desc *desc_table;  /* The descritor table */
+    struct vq_vring_avail *avail_ring; /* The available ring */
+    struct vq_vring_used *used_ring;   /* The used ring */
+    struct vq_vring_desc *desc_table;  /* The descritor table */
 } virtqueue_driver_t;
 
 /* Initialise a driver-side virtqueue.
@@ -94,8 +94,8 @@ typedef struct virtqueue_driver {
  * @param notify the notify function to wake up device side
  * @param cookie user's cookie
  */
-void virtqueue_init_driver(virtqueue_driver_t *vq, volatile vq_vring_avail_t *avail_ring,
-                           volatile vq_vring_used_t *used_ring, volatile vq_vring_desc_t *desc, void (*notify)(void),
+void virtqueue_init_driver(virtqueue_driver_t *vq, vq_vring_avail_t *avail_ring,
+                           vq_vring_used_t *used_ring, vq_vring_desc_t *desc, void (*notify)(void),
                            void *cookie);
 
 /* Initialise a device-side virtqueue.
@@ -106,18 +106,18 @@ void virtqueue_init_driver(virtqueue_driver_t *vq, volatile vq_vring_avail_t *av
  * @param notify the notify function to wake up driver side
  * @param cookie user's cookie
  */
-void virtqueue_init_device(virtqueue_device_t *vq, volatile vq_vring_avail_t *avail_ring,
-                           volatile vq_vring_used_t *used_ring, volatile vq_vring_desc_t *desc, void (*notify)(void),
+void virtqueue_init_device(virtqueue_device_t *vq, vq_vring_avail_t *avail_ring,
+                           vq_vring_used_t *used_ring, vq_vring_desc_t *desc, void (*notify)(void),
                            void *cookie);
 
 /* Initialise the descriptor table (create the free list) */
-void virtqueue_init_desc_table(volatile vq_vring_desc_t *table);
+void virtqueue_init_desc_table(vq_vring_desc_t *table);
 
 /* Initialise the available ring */
-void virtqueue_init_avail_ring(volatile vq_vring_avail_t *ring);
+void virtqueue_init_avail_ring(vq_vring_avail_t *ring);
 
 /* Initialise the used ring */
-void virtqueue_init_used_ring(volatile vq_vring_used_t *ring);
+void virtqueue_init_used_ring(vq_vring_used_t *ring);
 
 /** Driver side **/
 

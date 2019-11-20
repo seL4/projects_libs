@@ -12,8 +12,8 @@
 
 #include <virtqueue.h>
 
-void virtqueue_init_driver(virtqueue_driver_t *vq, volatile vq_vring_avail_t *avail_ring,
-                           volatile vq_vring_used_t *used_ring, volatile vq_vring_desc_t *desc, void (*notify)(void),
+void virtqueue_init_driver(virtqueue_driver_t *vq, vq_vring_avail_t *avail_ring,
+                           vq_vring_used_t *used_ring, vq_vring_desc_t *desc, void (*notify)(void),
                            void *cookie)
 {
     vq->free_desc_head = 0;
@@ -25,8 +25,8 @@ void virtqueue_init_driver(virtqueue_driver_t *vq, volatile vq_vring_avail_t *av
     vq->cookie = cookie;
 }
 
-void virtqueue_init_device(virtqueue_device_t *vq, volatile vq_vring_avail_t *avail_ring,
-                           volatile vq_vring_used_t *used_ring, volatile vq_vring_desc_t *desc, void (*notify)(void),
+void virtqueue_init_device(virtqueue_device_t *vq, vq_vring_avail_t *avail_ring,
+                           vq_vring_used_t *used_ring, vq_vring_desc_t *desc, void (*notify)(void),
                            void *cookie)
 {
     vq->a_ring_last_seen = RING_SIZE - 1;
@@ -37,7 +37,7 @@ void virtqueue_init_device(virtqueue_device_t *vq, volatile vq_vring_avail_t *av
     vq->cookie = cookie;
 }
 
-void virtqueue_init_desc_table(volatile vq_vring_desc_t *table)
+void virtqueue_init_desc_table(vq_vring_desc_t *table)
 {
     unsigned i;
     for (i = 0; i < DESC_TABLE_SIZE; i++) {
@@ -48,13 +48,13 @@ void virtqueue_init_desc_table(volatile vq_vring_desc_t *table)
     }
 }
 
-void virtqueue_init_avail_ring(volatile vq_vring_avail_t *ring)
+void virtqueue_init_avail_ring(vq_vring_avail_t *ring)
 {
     ring->flags = 0;
     ring->idx = 0;
 }
 
-void virtqueue_init_used_ring(volatile vq_vring_used_t *ring)
+void virtqueue_init_used_ring(vq_vring_used_t *ring)
 {
     ring->flags = 0;
     ring->idx = 0;
