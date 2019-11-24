@@ -250,7 +250,7 @@ static const int _usb_irqs[] = {
 };
 
 static void
-phy_enable(int devid, ps_io_ops_t* o)
+phy_enable(const int devid, ps_io_ops_t* o)
 {
     volatile struct usb_phy_regs* phy_regs;
     clk_t* clk;
@@ -306,7 +306,7 @@ phy_enable(int devid, ps_io_ops_t* o)
 }
 
 static int
-imx6_usb_generic_init(int id, ps_io_ops_t* ioops)
+imx6_usb_generic_init(const int id, ps_io_ops_t* ioops)
 {
     struct usb_host_regs * hc_regs = NULL;
     volatile uint32_t* hc_ctrl;
@@ -319,6 +319,7 @@ imx6_usb_generic_init(int id, ps_io_ops_t* ioops)
         _usb_regs = GET_RESOURCE(ioops, USB);
     }
     if (_usb_regs == NULL) {
+        ZF_LOGF("Could not map usb hardware, is it defined in camkes?");
         return -1;
     }
     hc_regs = (struct usb_host_regs*)_usb_regs + id;
@@ -355,6 +356,7 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* ioops, ps_mutex_ops_t *sync,
 
     err = imx6_usb_generic_init(hdev->id, ioops);
     if (err) {
+        ZF_LOGF("Failed generic init");
         return -1;
     }
     /* Pass control to EHCI initialisation */
@@ -387,7 +389,7 @@ usb_plat_otg_init(usb_otg_t odev, ps_io_ops_t* ioops)
     struct usb_otg_regs* otg_regs;
     int err;
 
-    if (!odev->dman || !odev->id) {
+    if (!odev->dman) {
         ZF_LOGF("Invalid arguments\n");
     }
     err = imx6_usb_generic_init(odev->id, ioops);

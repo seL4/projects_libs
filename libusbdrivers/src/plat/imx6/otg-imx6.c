@@ -729,7 +729,7 @@ ehci_otg_init(usb_otg_t odev, uintptr_t cap_regs)
     struct otg_ep* ep;
     int i;
     odev->pdata = usb_malloc(sizeof(*odev->pdata));
-    if (odev->pdata) {
+    if (!odev->pdata) {
 	    ZF_LOGE("Out of memory\n");
 	    return -1;
     }

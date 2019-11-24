@@ -32,6 +32,17 @@ if(LibUSB)
     list(SORT deps)
 
     add_library(usbdrivers STATIC EXCLUDE_FROM_ALL ${deps})
-    target_include_directories(usbdrivers PUBLIC include plat_include/${KernelPlatform})
-    target_link_libraries(usbdrivers sel4 muslc platsupport usbdrivers_Config lwip_Config)
+    target_include_directories(
+        usbdrivers
+        PUBLIC include plat_include/${KernelPlatform} arch_include/${KernelArch}
+    )
+    target_link_libraries(
+        usbdrivers
+        sel4
+        muslc
+        platsupport
+        usbdrivers_Config
+        lwip_Config
+        sel4_autoconf
+    )
 endif()

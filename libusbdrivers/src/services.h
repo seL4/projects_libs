@@ -32,7 +32,7 @@ static inline void *usb_malloc(size_t size)
 	if (ps_malloc_ops && ps_malloc_ops->calloc) {
 		void *ptr;
 		ret = ps_calloc(ps_malloc_ops, 1, size, &ptr);
-		if (!ret) {
+		if (0 != ret) {
 			ZF_LOGF("Malloc error\n");
 		}
 		return ptr;
@@ -47,7 +47,7 @@ static inline void usb_free(void *ptr)
 
 	if (ps_malloc_ops && ps_malloc_ops->free) {
 		ret = ps_free(ps_malloc_ops, 1, ptr);
-		if (!ret) {
+		if (0 != ret) {
 			ZF_LOGF("Free error\n");
 		}
 	} else {

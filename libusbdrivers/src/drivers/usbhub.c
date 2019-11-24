@@ -175,15 +175,15 @@ static void _handle_port_change(usb_hub_t h, int port)
 	int ret;
 
 	if (!h) {
-		ZF_LOGF("Invalid HUB\n");
+		ZF_LOGF("Invalid HUB");
 	}
 
 	if (!port) {
-		ZF_LOGD("Error: check hub status!\n");
+		ZF_LOGD("Error: check hub status!");
 		return;
 	}
 
-	ZF_LOGD("Handle status change of port %d\n", port);
+	ZF_LOGD("Handle status change of port %d", port);
 
 	/* Get port status change */
 	xact[0].type = PID_SETUP;
@@ -193,7 +193,7 @@ static void _handle_port_change(usb_hub_t h, int port)
 
 	ret = usb_alloc_xact(h->udev->dman, xact, 2);
 	if (ret) {
-		ZF_LOGF("Out of DMA memory\n");
+		ZF_LOGF("Out of DMA memory");
 	}
 	req = xact_get_vaddr(&xact[0]);
 	sts = xact_get_vaddr(&xact[1]);
@@ -202,14 +202,14 @@ static void _handle_port_change(usb_hub_t h, int port)
 	ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
 				   xact, 2, NULL, NULL);
 	if (ret < 0) {
-		ZF_LOGF("Transaction error\n");
+		ZF_LOGF("Transaction error");
 	}
 
 	/* Cache the port status, because we need to clear it right away. */
 	change = sts->wPortChange;
 	status = sts->wPortStatus;
 
-	ZF_LOGD("Status change (0x%x:0x%x) on port %d.\n",
+	ZF_LOGD("Status change (0x%x:0x%x) on port %d.",
 		change, status, port);
 
 	/* Attach and detach detect event */
@@ -219,11 +219,11 @@ static void _handle_port_change(usb_hub_t h, int port)
 		ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
 					   xact, 1, NULL, NULL);
 		if (ret < 0) {
-			ZF_LOGF("Transaction error\n");
+			ZF_LOGF("Transaction error");
 		}
 
 		if (status & BIT(PORT_CONNECTION)) {
-			ZF_LOGD("Port %d connected\n", port);
+			ZF_LOGD("Port %d connected", port);
 			/* Wait for the device to stabilize, USB spec 9.1.2 */
 			ps_mdelay(100);
 
@@ -232,7 +232,7 @@ static void _handle_port_change(usb_hub_t h, int port)
 			ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
 						   xact, 1, NULL, NULL);
 			if (ret < 0) {
-				ZF_LOGF("Transaction error\n");
+				ZF_LOGF("Transaction error");
 			}
 
 			/*
@@ -249,7 +249,7 @@ static void _handle_port_change(usb_hub_t h, int port)
 							 h->udev->ep_ctrl, xact,
 							 2, NULL, NULL);
 				if (ret < 0) {
-					ZF_LOGF("Transaction error\n");
+					ZF_LOGF("Transaction error");
 				}
 
 				status = sts->wPortStatus;
@@ -260,7 +260,7 @@ static void _handle_port_change(usb_hub_t h, int port)
 			ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
 						   xact, 1, NULL, NULL);
 			if (ret < 0) {
-				ZF_LOGF("Transaction error\n");
+				ZF_LOGF("Transaction error");
 			}
 
 			/* Create the new device */
@@ -284,7 +284,7 @@ static void _handle_port_change(usb_hub_t h, int port)
 							 h->udev->ep_ctrl, xact,
 							 1, NULL, NULL);
 				if (ret < 0) {
-					ZF_LOGF("Transaction error\n");
+					ZF_LOGF("Transaction error");
 				}
 				if (new_dev) {
 					usbdev_disconnect(new_dev);
@@ -294,12 +294,12 @@ static void _handle_port_change(usb_hub_t h, int port)
 				usb_hub_driver_bind(new_dev, &new_hub);
 			}
 		} else {
-			ZF_LOGD("Port %d disconnected\n", port);
+			ZF_LOGD("Port %d disconnected", port);
 			*req = __set_port_feature_req(port, PORT_SUSPEND);
 			ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
 						   xact, 1, NULL, NULL);
 			if (ret < 0) {
-				ZF_LOGF("Transaction error\n");
+				ZF_LOGF("Transaction error");
 			}
 			if (h->port[port - 1].udev) {
 				usbdev_disconnect(h->port[port - 1].udev);
@@ -310,49 +310,49 @@ static void _handle_port_change(usb_hub_t h, int port)
 
 	/* Port enable */
 	if (change & BIT(PORT_ENABLE)) {
-		ZF_LOGD("Port %d enabled\n", port);
+		ZF_LOGD("Port %d enabled", port);
 		/* Clear the port connection status */
 		*req = __clear_port_feature_req(port, C_PORT_CONNECTION);
 		ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
 					   xact, 1, NULL, NULL);
 		if (ret < 0) {
-			ZF_LOGF("Transaction error\n");
+			ZF_LOGF("Transaction error");
 		}
 	}
 
 	/* Port suspend */
 	if (change & BIT(PORT_SUSPEND)) {
-		ZF_LOGD("Port %d suspended\n", port);
+		ZF_LOGD("Port %d suspended", port);
 		/* Clear suspend status */
 		*req = __clear_port_feature_req(port, C_PORT_SUSPEND);
 		ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
 					   xact, 1, NULL, NULL);
 		if (ret < 0) {
-			ZF_LOGF("Transaction error\n");
+			ZF_LOGF("Transaction error");
 		}
 	}
 
 	/* Port over-current */
 	if (change & BIT(PORT_OVER_CURRENT)) {
-		ZF_LOGD("Port %d over-current\n", port);
+		ZF_LOGD("Port %d over-current", port);
 		/* Clear over-current status */
 		*req = __clear_port_feature_req(port, C_PORT_OVER_CURRENT);
 		ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
 					   xact, 1, NULL, NULL);
 		if (ret < 0) {
-			ZF_LOGF("Transaction error\n");
+			ZF_LOGF("Transaction error");
 		}
 	}
 
 	/* Port reset */
 	if (change & BIT(PORT_RESET)) {
-		ZF_LOGD("Port %d reset\n", port);
+		ZF_LOGD("Port %d reset", port);
 		/* Clear reset status */
 		*req = __clear_port_feature_req(port, C_PORT_RESET);
 		ret = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
 					   xact, 1, NULL, NULL);
 		if (ret < 0) {
-			ZF_LOGF("Transaction error\n");
+			ZF_LOGF("Transaction error");
 		}
 	}
 
@@ -370,15 +370,15 @@ hub_irq_handler(void *token, enum usb_xact_status stat, int bytes_remaining)
 
 	/* Check the status */
 	if (stat != XACTSTAT_SUCCESS) {
-		ZF_LOGD("Received unsuccessful IRQ\n");
+		ZF_LOGD("Received unsuccessful IRQ");
 		return 1;
 	}
 
-	ZF_LOGD("Handling IRQ\n");
+	ZF_LOGD("Handling IRQ");
 
 	intbm = h->intbm;
 	if (intbm != xact_get_vaddr(&h->int_xact)) {
-		ZF_LOGF("Invalid bitmap\n");
+		ZF_LOGF("Invalid bitmap");
 	}
 	for (i = 0; i < len; i++) {
 		/* Check if any bits have changed */
@@ -396,7 +396,7 @@ hub_irq_handler(void *token, enum usb_xact_status stat, int bytes_remaining)
 		intbm[i] = 0;
 	}
 	if (!handled) {
-		ZF_LOGD("Spurious IRQ\n");
+		ZF_LOGD("Spurious IRQ");
 	}
 
 	usbdev_schedule_xact(h->udev, h->udev->ep[0],
@@ -410,7 +410,7 @@ static int hub_config_cb(void *token, int cfg, int iface, struct anon_desc *d)
 	usb_hub_t hub = (usb_hub_t)token;
 
 	if (!hub) {
-		ZF_LOGF("Invalid token\n");
+		ZF_LOGF("Invalid token");
 	}
 	if (d) {
 		switch (d->bDescriptorType) {
@@ -457,14 +457,14 @@ int usb_hub_driver_bind(usb_dev_t *udev, usb_hub_t *hub)
 	udev->dev_data = (struct udev_priv *)h;
 
 	/* Get hub descriptor for nports and power delay */
-	ZF_LOGD("Get hub descriptor\n");
+	ZF_LOGD("Get hub descriptor");
 	xact[0].type = PID_SETUP;
 	xact[0].len = sizeof(*req);
 	xact[1].type = PID_IN;
 	xact[1].len = sizeof(*hdesc);
 	err = usb_alloc_xact(udev->dman, xact, 2);
 	if (err) {
-		ZF_LOGF("Out of DMA memory\n");
+		ZF_LOGF("Out of DMA memory");
 	}
 	req = xact_get_vaddr(&xact[0]);
 	*req = __get_hub_descriptor_req();
@@ -481,10 +481,10 @@ int usb_hub_driver_bind(usb_dev_t *udev, usb_hub_t *hub)
 	usb_destroy_xact(udev->dman, xact, 2);
 	h->port = (struct usb_hub_port *)usb_malloc(sizeof(*h->port) * h->nports);
 	if (!h->port) {
-		ZF_LOGF("Out of memory\n");
+		ZF_LOGF("Out of memory");
 	}
 	memset(h->port, 0, sizeof(*h->port) * h->nports);
-	ZF_LOGD("Parsing config\n");
+	ZF_LOGD("Parsing config");
 	h->int_ep = -1;
 	err = usbdev_parse_config(h->udev, &hub_config_cb, h);
 	if (err || h->int_ep == -1) {
@@ -492,13 +492,13 @@ int usb_hub_driver_bind(usb_dev_t *udev, usb_hub_t *hub)
 		h = NULL;
 		return -1;
 	}
-	ZF_LOGD("Configure HUB\n");
+	ZF_LOGD("Configure HUB");
 	xact[0].type = PID_SETUP;
 	xact[0].len = sizeof(*req);
 
 	err = usb_alloc_xact(h->udev->dman, xact, 1);
 	if (err) {
-		ZF_LOGE("Out of DMA memory\n");
+		ZF_LOGE("Out of DMA memory");
 		return -1;
 	}
 	req = xact_get_vaddr(&xact[0]);
@@ -520,12 +520,12 @@ int usb_hub_driver_bind(usb_dev_t *udev, usb_hub_t *hub)
 	usb_alloc_xact(h->udev->dman, xact, 1);
 	req = xact_get_vaddr(&xact[0]);
 	for (i = 1; i <= h->nports; i++) {
-		ZF_LOGD("Power on port %d\n", i);
+		ZF_LOGD("Power on port %d", i);
 		*req = __set_port_feature_req(i, PORT_POWER);
 		err = usbdev_schedule_xact(h->udev, h->udev->ep_ctrl,
 					   xact, 1, NULL, NULL);
 		if (err < 0) {
-			ZF_LOGF("Transaction error\n");
+			ZF_LOGF("Transaction error");
 		}
 	}
 	ps_mdelay(h->power_good_delay_ms);
@@ -546,10 +546,10 @@ int usb_hub_driver_bind(usb_dev_t *udev, usb_hub_t *hub)
 	h->int_xact.len = h->int_max_pkt;
 	err = usb_alloc_xact(udev->dman, &h->int_xact, 1);
 	if (err) {
-		ZF_LOGF("Out of DMA memory\n");
+		ZF_LOGF("Out of DMA memory");
 	}
 	h->intbm = xact_get_vaddr(&h->int_xact);
-	ZF_LOGD("Registering for INT\n");
+	ZF_LOGD("Registering for INT");
 	/* FIXME: Search for the right ep */
 	usbdev_schedule_xact(udev, udev->ep[0],
 			     &h->int_xact, 1, &hub_irq_handler, h);
@@ -637,7 +637,7 @@ hubem_get_descriptor(usb_hubem_t dev, struct usbreq *req, void *buf, int len)
 	switch (dtype) {
 	case DEVICE:{
 		struct device_desc *ret = (struct device_desc *)buf;
-		ZF_LOGD("Get device descriptor\n");
+		ZF_LOGD("Get device descriptor");
 		act_len = MIN(len, sizeof(*ret));
 		memcpy(ret, &_hub_device_desc, act_len);
 		return act_len;}
@@ -645,7 +645,7 @@ hubem_get_descriptor(usb_hubem_t dev, struct usbreq *req, void *buf, int len)
 		struct hub_desc *ret = (struct hub_desc *)buf;
 		int nregs = (dev->hubem_nports + 7) / 8;
 		int i;
-		ZF_LOGD("Get hub type descriptor\n");
+		ZF_LOGD("Get hub type descriptor");
 		_hub_hub_desc.bNbrPorts = dev->hubem_nports;
 		_hub_hub_desc.bPwrOn2PwrGood = dev->pwr_delay_ms / 2;
 		_hub_hub_desc.bDescLength = 7 + nregs * 2;
@@ -660,7 +660,7 @@ hubem_get_descriptor(usb_hubem_t dev, struct usbreq *req, void *buf, int len)
 		int cp_len;
 		int pos = 0;
 		int act_len;
-		ZF_LOGD("Get configuration descriptor\n");
+		ZF_LOGD("Get configuration descriptor");
 		act_len = MIN(_hub_config_desc.wTotalLength, len);
 		/* Copy the config */
 		cp_len = MIN(act_len - pos, _hub_config_desc.bLength);
@@ -677,18 +677,18 @@ hubem_get_descriptor(usb_hubem_t dev, struct usbreq *req, void *buf, int len)
 		memcpy(buf + pos, &_hub_endpoint_desc, cp_len);
 		pos += cp_len;
 		if (pos != act_len) {
-			ZF_LOGF("Invalid descriptor\n");
+			ZF_LOGF("Invalid descriptor");
 		}
 		return act_len;}
 	case INTERFACE:{
 		int act_len;
-		ZF_LOGD("Get interface descriptor\n");
+		ZF_LOGD("Get interface descriptor");
 		act_len = MIN(_hub_iface_desc.bLength, len);
 		memcpy(buf, &_hub_iface_desc, act_len);
 		return act_len;}
 	case ENDPOINT:{
 		int act_len;
-		ZF_LOGD("Get endpoint descriptor\n");
+		ZF_LOGD("Get endpoint descriptor");
 		act_len = MIN(_hub_endpoint_desc.bLength, len);
 		memcpy(buf, &_hub_endpoint_desc, act_len);
 		return act_len;}
@@ -697,7 +697,7 @@ hubem_get_descriptor(usb_hubem_t dev, struct usbreq *req, void *buf, int len)
 	case OTHER_SPEED_CONFIGURATION:
 	case INTERFACE_POWER:
 	default:
-		ZF_LOGD("Descriptor 0x%x not supported\n", dtype);
+		ZF_LOGD("Descriptor 0x%x not supported", dtype);
 		return -1;
 	}
 }
@@ -710,13 +710,13 @@ static int hubem_feature(usb_hubem_t dev, struct usbreq *req)
 	int ret;
 	switch (req->bRequest) {
 	case SET_FEATURE:
-		ZF_LOGD("Set feature %d -> port %d\n", f, p);
+		ZF_LOGD("Set feature %d -> port %d", f, p);
 		return dev->set_pf(t, p, f);
 	case CLR_FEATURE:
-		ZF_LOGD("Clear feature %d -> port %d\n", f, p);
+		ZF_LOGD("Clear feature %d -> port %d", f, p);
 		return dev->clr_pf(t, p, f);
 	default:
-		printf("Unsupported feature: %d\n", f);
+		printf("Unsupported feature: %d", f);
 		return -1;
 	}
 	return ret;
@@ -730,7 +730,7 @@ hubem_get_status(usb_hubem_t dev, struct usbreq *req, void *buf, int len)
 		/* Device status: self powered | remote wakeup */
 		uint16_t stat = 0;
 		int act_len;
-		ZF_LOGD("Get Status: Device status\n");
+		ZF_LOGD("Get Status: Device status");
 		act_len = MIN(len, sizeof(stat));
 		memcpy(buf, &stat, act_len);
 		return act_len;
@@ -739,20 +739,20 @@ hubem_get_status(usb_hubem_t dev, struct usbreq *req, void *buf, int len)
 		struct port_status *psts = (struct port_status *)buf;
 		int act_len = MIN(len, sizeof(*psts));
 		if (len < sizeof(*psts)) {
-			ZF_LOGF("Invalid port status\n");
+			ZF_LOGF("Invalid port status");
 		}
 		if (dev->get_pstat(dev->token, port, psts)) {
 			ZF_LOGD
-			    ("Get Status: Failed to read status for port %d\n",
+			    ("Get Status: Failed to read status for port %d",
 			     port);
 			return -1;
 		} else {
-			ZF_LOGD("Get Status: Success s0x%x c0x%0x on port %d\n",
+			ZF_LOGD("Get Status: Success s0x%x c0x%0x on port %d",
 			       psts->wPortStatus, psts->wPortChange, port);
 			return act_len;
 		}
 	} else {
-		ZF_LOGD("Get Status: Invalid port (%d/%d)\n", port,
+		ZF_LOGD("Get Status: Invalid port (%d/%d)", port,
 		       dev->hubem_nports);
 		return -1;
 	}
@@ -774,7 +774,7 @@ hubem_process_xact(usb_hubem_t dev, struct xact *xact, int nxact,
 		}
 		req = xact_get_vaddr(&xact[i]);
 		if (xact[i].len < sizeof(*req)) {
-			ZF_LOGF("Buffer too small\n");
+			ZF_LOGF("Buffer too small");
 		}
 
 		if (i + 1 < nxact && xact[i + 1].type != PID_SETUP) {
@@ -790,20 +790,20 @@ hubem_process_xact(usb_hubem_t dev, struct xact *xact, int nxact,
 		case GET_DESCRIPTOR:
 			return hubem_get_descriptor(dev, req, buf, buf_len);
 		case SET_CONFIGURATION:
-			ZF_LOGD("Unhandled transaction: SET_CONFIGURATION\n");
+			ZF_LOGD("Unhandled transaction: SET_CONFIGURATION");
 			break;
 		case SET_INTERFACE:
-			ZF_LOGD("Unhandled transaction: SET_INTERFACE\n");
+			ZF_LOGD("Unhandled transaction: SET_INTERFACE");
 			break;
 		case SET_ADDRESS:
-			ZF_LOGD("Unhandled transaction: SET_ADDRESS\n");
+			ZF_LOGD("Unhandled transaction: SET_ADDRESS");
 			break;
 		case CLR_FEATURE:
 		case SET_FEATURE:
 			err = hubem_feature(dev, req);
 			break;
 		default:
-			ZF_LOGE("Request code %d not supported\n",
+			ZF_LOGE("Request code %d not supported",
 			       req->bRequest);
 		}
 	}
@@ -831,7 +831,7 @@ usb_hubem_driver_init(void *token, int nports, int pwr_delay_ms,
 	usb_hubem_t h;
 	h = (usb_hubem_t) usb_malloc(sizeof(*h));
 	if (h == NULL) {
-		ZF_LOGE("Out of memory\n");
+		ZF_LOGE("Out of memory");
 		return -1;
 	}
 
