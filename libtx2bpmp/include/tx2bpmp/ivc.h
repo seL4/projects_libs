@@ -1,12 +1,24 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2016, NVIDIA CORPORATION.
+ * Copright 2019, Data61
+ * Commonwealth Scientific and Industrial Research Organisation (CSIRO)
+ * ABN 41 687 119 230.
+ *
+ * This software may be distributed and modified according to the terms of
+ * the GNU General Public License version 2. Note that NO WARRANTY is provided.
+ * See "LICENSE_GPLv2.txt" for details.
+ *
+ * @TAG(DATA61_GPL)
+ */
+
+/*
+ * This a port of the Tegra IVC sources from U-Boot with some additional
+ * modifications. Unfortunately there's no documentation in manuals whatsoever
+ * about this protocol.
  */
 
 #ifndef _ASM_ARCH_TEGRA_IVC_H
 #define _ASM_ARCH_TEGRA_IVC_H
-
-#include <common.h>
 
 /*
  * Tegra IVC is a communication protocol that transfers fixed-size frames
@@ -77,7 +89,9 @@ struct tegra_ivc {
 	 * notify - Function to call to notify the remote processor of a
 	 * change in channel state.
 	 */
-	void (*notify)(struct tegra_ivc *);
+	void (*notify)(struct tegra_ivc *, void *);
+
+    void *notify_token;
 };
 
 /**
@@ -171,8 +185,8 @@ void tegra_ivc_channel_reset(struct tegra_ivc *ivc);
  *
  * @return 0 if OK, else a negative error code.
  */
-int tegra_ivc_init(struct tegra_ivc *ivc, ulong rx_base, ulong tx_base,
+int tegra_ivc_init(struct tegra_ivc *ivc, unsigned long rx_base, unsigned long tx_base,
 		   uint32_t nframes, uint32_t frame_size,
-		   void (*notify)(struct tegra_ivc *));
+		   void (*notify)(struct tegra_ivc *, void *), void *notify_token);
 
 #endif

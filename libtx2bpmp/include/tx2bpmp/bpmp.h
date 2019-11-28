@@ -1,6 +1,20 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2014-2016, NVIDIA CORPORATION.
+ * Copright 2019, Data61
+ * Commonwealth Scientific and Industrial Research Organisation (CSIRO)
+ * ABN 41 687 119 230.
+ *
+ * This software may be distributed and modified according to the terms of
+ * the GNU General Public License version 2. Note that NO WARRANTY is provided.
+ * See "LICENSE_GPLv2.txt" for details.
+ *
+ * @TAG(DATA61_GPL)
+ */
+
+/*
+ * This a port of the Tegra BPMP sources from U-Boot with some small additional
+ * modifications. Similar to the Tegra IVC protocol, there's no documentation
+ * on the BPMP module ABI.
  */
 
 #ifndef _ABI_BPMP_ABI_H_
@@ -9,6 +23,9 @@
 #ifdef LK
 #include <stdint.h>
 #endif
+#include <platsupport/io.h>
+#include <tx2bpmp/hsp.h>
+#include <tx2bpmp/ivc.h>
 
 #ifndef __ABI_PACKED
 #define __ABI_PACKED __attribute__((packed))
@@ -29,6 +46,24 @@
  * @file
  */
 
+#define TX2_BPMP_TX_SHMEM_PADDR 0x3004e000
+#define TX2_BPMP_TX_SHMEM_SIZE 0x1000
+#define TX2_BPMP_RX_SHMEM_PADDR 0x3004f000
+#define TX2_BPMP_RX_SHMEM_SIZE 0x1000
+
+struct tx2_bpmp {
+    tx2_hsp_t hsp;
+    bool hsp_initialised;
+    struct tegra_ivc ivc;
+    void *tx_base;
+    void *rx_base;
+};
+
+int tx2_bpmp_init(ps_io_ops_t *io_ops, struct tx2_bpmp *bpmp);
+
+int tx2_bpmp_destroy(ps_io_ops_t *io_ops, struct tx2_bpmp *bpmp);
+
+int tx2_bpmp_call(struct tx2_bpmp *bpmp, int mrq, void *tx_msg, size_t tx_size, void *rx_msg, size_t rx_size);
 
 /**
  * @defgroup MRQ MRQ Messages

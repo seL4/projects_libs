@@ -1,13 +1,39 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2016, NVIDIA CORPORATION.
+ * Copright 2019, Data61
+ * Commonwealth Scientific and Industrial Research Organisation (CSIRO)
+ * ABN 41 687 119 230.
+ *
+ * This software may be distributed and modified according to the terms of
+ * the GNU General Public License version 2. Note that NO WARRANTY is provided.
+ * See "LICENSE_GPLv2.txt" for details.
+ *
+ * @TAG(DATA61_GPL)
  */
 
-#include <common.h>
-#include <asm/io.h>
-#include <asm/arch-tegra/ivc.h>
+/*
+ * This is a port of the Tegra IVC sources from U-Boot with some addtional
+ * modifications. Unfortunately there's no documentation in manuals whatsoever
+ * about this protocol.
+ *
+ * One of the biggest change is the removal of data cache invalidation and
+ * flushing functions. Memory backing the channels (which is usually device
+ * memory) should be mapped uncached.
+ */
+
+#include <errno.h>
+#include <utils/util.h>
+
+#include <tx2bpmp/ivc.h>
 
 #define TEGRA_IVC_ALIGN 64
+
+#define __ACCESS_ONCE(x) ({ \
+      UNUSED typeof(x) __var = (__attribute__((force)) typeof(x)) 0; \
+     (volatile typeof(x) *)&(x); })     
+#define ACCESS_ONCE(x) (*__ACCESS_ONCE(x))
+
+#define mb() asm volatile ("dsb sy" : : : "memory")
 
 /*
  * IVC channel reset protocol.
@@ -68,29 +94,14 @@ struct tegra_ivc_channel_header {
 	};
 };
 
-static inline void tegra_ivc_invalidate_counter(struct tegra_ivc *ivc,
-					struct tegra_ivc_channel_header *h,
-					ulong offset)
-{
-	ulong base = ((ulong)h) + offset;
-	invalidate_dcache_range(base, base + TEGRA_IVC_ALIGN);
-}
-
-static inline void tegra_ivc_flush_counter(struct tegra_ivc *ivc,
-					   struct tegra_ivc_channel_header *h,
-					   ulong offset)
-{
-	ulong base = ((ulong)h) + offset;
-	flush_dcache_range(base, base + TEGRA_IVC_ALIGN);
-}
-
-static inline ulong tegra_ivc_frame_addr(struct tegra_ivc *ivc,
+static inline unsigned long tegra_ivc_frame_addr(struct tegra_ivc *ivc,
 					 struct tegra_ivc_channel_header *h,
 					 uint32_t frame)
 {
-	BUG_ON(frame >= ivc->nframes);
+	ZF_LOGF_IF(frame >= ivc->nframes,
+               "Accesing non-existent frame number %d of %d frames", frame, ivc->nframes);
 
-	return ((ulong)h) + sizeof(struct tegra_ivc_channel_header) +
+	return ((unsigned long)h) + sizeof(struct tegra_ivc_channel_header) +
 	       (ivc->frame_size * frame);
 }
 
@@ -99,22 +110,6 @@ static inline void *tegra_ivc_frame_pointer(struct tegra_ivc *ivc,
 					    uint32_t frame)
 {
 	return (void *)tegra_ivc_frame_addr(ivc, ch, frame);
-}
-
-static inline void tegra_ivc_invalidate_frame(struct tegra_ivc *ivc,
-					struct tegra_ivc_channel_header *h,
-					unsigned frame)
-{
-	ulong base = tegra_ivc_frame_addr(ivc, h, frame);
-	invalidate_dcache_range(base, base + ivc->frame_size);
-}
-
-static inline void tegra_ivc_flush_frame(struct tegra_ivc *ivc,
-					 struct tegra_ivc_channel_header *h,
-					 unsigned frame)
-{
-	ulong base = tegra_ivc_frame_addr(ivc, h, frame);
-	flush_dcache_range(base, base + ivc->frame_size);
 }
 
 static inline int tegra_ivc_channel_empty(struct tegra_ivc *ivc,
@@ -179,8 +174,6 @@ static inline void tegra_ivc_advance_tx(struct tegra_ivc *ivc)
 
 static inline int tegra_ivc_check_read(struct tegra_ivc *ivc)
 {
-	ulong offset;
-
 	/*
 	 * tx_channel->state is set locally, so it is not synchronized with
 	 * state from the remote peer. The remote peer cannot reset its
@@ -201,23 +194,17 @@ static inline int tegra_ivc_check_read(struct tegra_ivc *ivc)
 	if (!tegra_ivc_channel_empty(ivc, ivc->rx_channel))
 		return 0;
 
-	offset = offsetof(struct tegra_ivc_channel_header, w_count);
-	tegra_ivc_invalidate_counter(ivc, ivc->rx_channel, offset);
 	return tegra_ivc_channel_empty(ivc, ivc->rx_channel) ? -ENOMEM : 0;
 }
 
 static inline int tegra_ivc_check_write(struct tegra_ivc *ivc)
 {
-	ulong offset;
-
 	if (ivc->tx_channel->state != ivc_state_established)
 		return -ECONNRESET;
 
 	if (!tegra_ivc_channel_full(ivc, ivc->tx_channel))
 		return 0;
 
-	offset = offsetof(struct tegra_ivc_channel_header, r_count);
-	tegra_ivc_invalidate_counter(ivc, ivc->tx_channel, offset);
 	return tegra_ivc_channel_full(ivc, ivc->tx_channel) ? -ENOMEM : 0;
 }
 
@@ -245,7 +232,6 @@ int tegra_ivc_read_get_next_frame(struct tegra_ivc *ivc, void **frame)
 	 */
 	mb();
 
-	tegra_ivc_invalidate_frame(ivc, ivc->rx_channel, ivc->r_pos);
 	*frame = tegra_ivc_frame_pointer(ivc, ivc->rx_channel, ivc->r_pos);
 
 	return 0;
@@ -253,7 +239,6 @@ int tegra_ivc_read_get_next_frame(struct tegra_ivc *ivc, void **frame)
 
 int tegra_ivc_read_advance(struct tegra_ivc *ivc)
 {
-	ulong offset;
 	int result;
 
 	/*
@@ -266,20 +251,15 @@ int tegra_ivc_read_advance(struct tegra_ivc *ivc)
 		return result;
 
 	tegra_ivc_advance_rx(ivc);
-	offset = offsetof(struct tegra_ivc_channel_header, r_count);
-	tegra_ivc_flush_counter(ivc, ivc->rx_channel, offset);
 
 	/*
 	 * Ensure our write to r_pos occurs before our read from w_pos.
 	 */
 	mb();
 
-	offset = offsetof(struct tegra_ivc_channel_header, w_count);
-	tegra_ivc_invalidate_counter(ivc, ivc->rx_channel, offset);
-
 	if (tegra_ivc_channel_avail_count(ivc, ivc->rx_channel) ==
 	    ivc->nframes - 1)
-		ivc->notify(ivc);
+		ivc->notify(ivc, ivc->notify_token);
 
 	return 0;
 }
@@ -297,14 +277,11 @@ int tegra_ivc_write_get_next_frame(struct tegra_ivc *ivc, void **frame)
 
 int tegra_ivc_write_advance(struct tegra_ivc *ivc)
 {
-	ulong offset;
 	int result;
 
 	result = tegra_ivc_check_write(ivc);
 	if (result)
 		return result;
-
-	tegra_ivc_flush_frame(ivc, ivc->tx_channel, ivc->w_pos);
 
 	/*
 	 * Order any possible stores to the frame before update of w_pos.
@@ -312,19 +289,14 @@ int tegra_ivc_write_advance(struct tegra_ivc *ivc)
 	mb();
 
 	tegra_ivc_advance_tx(ivc);
-	offset = offsetof(struct tegra_ivc_channel_header, w_count);
-	tegra_ivc_flush_counter(ivc, ivc->tx_channel, offset);
 
 	/*
 	 * Ensure our write to w_pos occurs before our read from r_pos.
 	 */
 	mb();
 
-	offset = offsetof(struct tegra_ivc_channel_header, r_count);
-	tegra_ivc_invalidate_counter(ivc, ivc->tx_channel, offset);
-
 	if (tegra_ivc_channel_avail_count(ivc, ivc->tx_channel) == 1)
-		ivc->notify(ivc);
+		ivc->notify(ivc, ivc->notify_token);
 
 	return 0;
 }
@@ -350,12 +322,9 @@ int tegra_ivc_write_advance(struct tegra_ivc *ivc)
  */
 int tegra_ivc_channel_notified(struct tegra_ivc *ivc)
 {
-	ulong offset;
 	enum ivc_state peer_state;
 
 	/* Copy the receiver's state out of shared memory. */
-	offset = offsetof(struct tegra_ivc_channel_header, w_count);
-	tegra_ivc_invalidate_counter(ivc, ivc->rx_channel, offset);
 	peer_state = ACCESS_ONCE(ivc->rx_channel->state);
 
 	if (peer_state == ivc_state_sync) {
@@ -387,13 +356,11 @@ int tegra_ivc_channel_notified(struct tegra_ivc *ivc)
 		 * is now safe for the remote end to start using these values.
 		 */
 		ivc->tx_channel->state = ivc_state_ack;
-		offset = offsetof(struct tegra_ivc_channel_header, w_count);
-		tegra_ivc_flush_counter(ivc, ivc->tx_channel, offset);
 
 		/*
 		 * Notify remote end to observe state transition.
 		 */
-		ivc->notify(ivc);
+		ivc->notify(ivc, ivc->notify_token);
 	} else if (ivc->tx_channel->state == ivc_state_sync &&
 			peer_state == ivc_state_ack) {
 		/*
@@ -425,13 +392,11 @@ int tegra_ivc_channel_notified(struct tegra_ivc *ivc)
 		 * writing/reading on this channel.
 		 */
 		ivc->tx_channel->state = ivc_state_established;
-		offset = offsetof(struct tegra_ivc_channel_header, w_count);
-		tegra_ivc_flush_counter(ivc, ivc->tx_channel, offset);
 
 		/*
 		 * Notify remote end to observe state transition.
 		 */
-		ivc->notify(ivc);
+		ivc->notify(ivc, ivc->notify_token);
 	} else if (ivc->tx_channel->state == ivc_state_ack) {
 		/*
 		 * At this point, we have observed the peer to be in either
@@ -447,13 +412,11 @@ int tegra_ivc_channel_notified(struct tegra_ivc *ivc)
 		 * on this channel.
 		 */
 		ivc->tx_channel->state = ivc_state_established;
-		offset = offsetof(struct tegra_ivc_channel_header, w_count);
-		tegra_ivc_flush_counter(ivc, ivc->tx_channel, offset);
 
 		/*
 		 * Notify remote end to observe state transition.
 		 */
-		ivc->notify(ivc);
+		ivc->notify(ivc, ivc->notify_token);
 	} else {
 		/*
 		 * There is no need to handle any further action. Either the
@@ -471,28 +434,25 @@ int tegra_ivc_channel_notified(struct tegra_ivc *ivc)
 
 void tegra_ivc_channel_reset(struct tegra_ivc *ivc)
 {
-	ulong offset;
-
 	ivc->tx_channel->state = ivc_state_sync;
-	offset = offsetof(struct tegra_ivc_channel_header, w_count);
-	tegra_ivc_flush_counter(ivc, ivc->tx_channel, offset);
-	ivc->notify(ivc);
+	ivc->notify(ivc, ivc->notify_token);
 }
 
-static int check_ivc_params(ulong qbase1, ulong qbase2, uint32_t nframes,
+static int check_ivc_params(unsigned long qbase1, unsigned long qbase2, uint32_t nframes,
 			    uint32_t frame_size)
 {
 	int ret = 0;
 
-	BUG_ON(offsetof(struct tegra_ivc_channel_header, w_count) &
-	       (TEGRA_IVC_ALIGN - 1));
-	BUG_ON(offsetof(struct tegra_ivc_channel_header, r_count) &
-	       (TEGRA_IVC_ALIGN - 1));
-	BUG_ON(sizeof(struct tegra_ivc_channel_header) &
-	       (TEGRA_IVC_ALIGN - 1));
+	ZF_LOGF_IF(OFFSETOF(struct tegra_ivc_channel_header, w_count) & (TEGRA_IVC_ALIGN - 1),
+               "w_count is not properly aligned to %d", TEGRA_IVC_ALIGN);
+	ZF_LOGF_IF(OFFSETOF(struct tegra_ivc_channel_header, r_count) & (TEGRA_IVC_ALIGN - 1),
+               "r_count is not properly aligned to %d", TEGRA_IVC_ALIGN);
+	ZF_LOGF_IF(sizeof(struct tegra_ivc_channel_header) & (TEGRA_IVC_ALIGN - 1),
+               "sizeof(struct tegre_ivc_channel_header) = %d is not algined to %d",
+               sizeof(struct tegra_ivc_channel_header), TEGRA_IVC_ALIGN);
 
 	if ((uint64_t)nframes * (uint64_t)frame_size >= 0x100000000) {
-		pr_err("tegra_ivc: nframes * frame_size overflows\n");
+		ZF_LOGE("tegra_ivc: nframes * frame_size overflows\n");
 		return -EINVAL;
 	}
 
@@ -502,12 +462,12 @@ static int check_ivc_params(ulong qbase1, ulong qbase2, uint32_t nframes,
 	 */
 	if ((qbase1 & (TEGRA_IVC_ALIGN - 1)) ||
 	    (qbase2 & (TEGRA_IVC_ALIGN - 1))) {
-		pr_err("tegra_ivc: channel start not aligned\n");
+		ZF_LOGE("tegra_ivc: channel start not aligned\n");
 		return -EINVAL;
 	}
 
 	if (frame_size & (TEGRA_IVC_ALIGN - 1)) {
-		pr_err("tegra_ivc: frame size not adequately aligned\n");
+		ZF_LOGE("tegra_ivc: frame size not adequately aligned\n");
 		return -EINVAL;
 	}
 
@@ -520,16 +480,16 @@ static int check_ivc_params(ulong qbase1, ulong qbase2, uint32_t nframes,
 	}
 
 	if (ret) {
-		pr_err("tegra_ivc: queue regions overlap\n");
+		ZF_LOGE("tegra_ivc: queue regions overlap\n");
 		return ret;
 	}
 
 	return 0;
 }
 
-int tegra_ivc_init(struct tegra_ivc *ivc, ulong rx_base, ulong tx_base,
+int tegra_ivc_init(struct tegra_ivc *ivc, unsigned long rx_base, unsigned long tx_base,
 		   uint32_t nframes, uint32_t frame_size,
-		   void (*notify)(struct tegra_ivc *))
+		   void (*notify)(struct tegra_ivc *, void *), void *notify_token)
 {
 	int ret;
 
@@ -547,6 +507,7 @@ int tegra_ivc_init(struct tegra_ivc *ivc, ulong rx_base, ulong tx_base,
 	ivc->nframes = nframes;
 	ivc->frame_size = frame_size;
 	ivc->notify = notify;
+    ivc->notify_token = notify_token;
 
 	return 0;
 }
