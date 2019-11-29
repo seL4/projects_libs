@@ -55,14 +55,42 @@ struct tx2_bpmp {
     tx2_hsp_t hsp;
     bool hsp_initialised;
     struct tegra_ivc ivc;
-    void *tx_base;
-    void *rx_base;
+    void *tx_base; // Virtual address base of the TX shared memory channel
+    void *rx_base; // Virtual address base of the RX shared memory channel
 };
 
+/*
+ * Initialises the BPMP interfaces.
+ *
+ * @param io_ops Initialised IO ops interface.
+ * @param bpmp Empty tx2_bpmp struct that will be filled in.
+ *
+ * @return 0 on success, otherwise an error code.
+ */
 int tx2_bpmp_init(ps_io_ops_t *io_ops, struct tx2_bpmp *bpmp);
 
+/*
+ * Destroys an initialised BPMP interface.
+ *
+ * @param io_ops The same IO ops interface that was used to initialise the BPMP interface.
+ * @param bpmp Initialise BPMP interface that will be destroyed. 
+ *
+ * @return 0 on success, otherwise an error code.
+ */
 int tx2_bpmp_destroy(ps_io_ops_t *io_ops, struct tx2_bpmp *bpmp);
 
+/*
+ * Sends a request to the BPMP device module and waits for a response.
+ *
+ * @param bpmp An initialised BPMP interface.
+ * @param mrq The Message Request (MRQ) code of the request. See MRQ_Codes below for the valid codes.
+ * @param tx_msg The contents of the request message. See the corresponding mrq_*_request structs for the
+ *               valid request layouts.
+ * @param tx_size Size in bytes of the request message.
+ * @param rx_msg A buffer to hold the response of the request. See the coressponding mrq_*_response structs
+ *               for the valid response layouts.
+ * @param rx_size Size in bytes of the response buffer.
+ */
 int tx2_bpmp_call(struct tx2_bpmp *bpmp, int mrq, void *tx_msg, size_t tx_size, void *rx_msg, size_t rx_size);
 
 /**

@@ -17,10 +17,10 @@
 #define TX2_HSP_PADDR 0x3c00000
 #define TX2_HSP_SIZE 0xa0000
 
-/* 
+/*
  * This is a very basic driver implementation of the TX2 HSP mechanisms. So
  * far, this only supports the doorbell functionality of the HSP mechanisms.
- * 
+ *
  * The doorbells are essentially a signalling mechanism that allows the
  * processor and co-processors to notify one another of incoming requests. The
  * HSP mechanisms also offer more sophisticated synchronisation mechanisms like
@@ -49,10 +49,42 @@ typedef struct tx2_hsp {
     void *doorbell_base;
 } tx2_hsp_t;
 
+/*
+ * Initialises the TX2 HSP interface.
+ *
+ * @param io_ops Initialised IO ops interface.
+ * @param hsp Empty tx2 hsp struct that will be filled in.
+ *
+ * @return 0 on success, otherwise an error code.
+ */
 int tx2_hsp_init(ps_io_ops_t *io_ops, tx2_hsp_t *hsp);
 
+/*
+ * Destroys an initialised TX2 HSP interface.
+ *
+ * @param io_ops The same IO ops interface that was used to initialise the HSP interface.
+ * @param hsp Initialised HSP interface that will be destroyed.
+ *
+ * @return 0 on success, otherwise an error code.
+ */
 int tx2_hsp_destroy(ps_io_ops_t *io_ops, tx2_hsp_t *hsp);
 
+/*
+ * Rings the doorbell of a specific device module.
+ *
+ * @param hsp Initialised HSP interface.
+ * @param db_id The ID of the desired doorbell to ring.
+ *
+ * @return 0 on success, otherwise an error code.
+ */
 int tx2_hsp_doorbell_ring(tx2_hsp_t *hsp, enum tx2_doorbell_id db_id);
 
+/*
+ * Checks if a specific device module has rung our doorbell.
+ *
+ * @param hsp Initialised HSP interface.
+ * @param db_id The ID of the corresponding device module doorbell to check.
+ *
+ * @return 0 on success, otherwise an error code.
+ */
 int tx2_hsp_doorbell_check(tx2_hsp_t *hsp, enum tx2_doorbell_id db_id);
