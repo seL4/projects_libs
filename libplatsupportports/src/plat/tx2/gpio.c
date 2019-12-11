@@ -24,6 +24,8 @@
 #include <utils/attribute.h>
 #include <platsupport/gpio.h>
 
+#include <platsupportports/plat/gpio.h>
+
 #define TX2_GPIO_PIN_STRIDE 0x20
 
 #define TX2_GPIO_ENABLE_CONFIG_ENABLE BIT(0)

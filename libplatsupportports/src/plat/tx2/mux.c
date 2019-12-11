@@ -26,7 +26,9 @@
 #include <platsupport/io.h>
 #include <platsupport/mux.h>
 #include <platsupport/gpio.h>
-#include <platsupport/plat/gpio.h>
+
+#include <platsupportports/plat/gpio.h>
+#include <platsupportports/plat/mux.h>
 
 #define MUX_REG_SCHMT_SHIFT         (12)
 #define MUX_REG_SF_SHIFT            (10)
@@ -326,7 +328,7 @@ static int tx2_mux_set_pin_params(mux_sys_t *mux, struct tx2_mux_pin_desc *desc,
 
 }
 
-static int tx2_mux_feature_enable(mux_sys_t *mux, enum mux_feature feature, enum mux_gpio_dir dir)
+static int tx2_mux_feature_enable(mux_sys_t *mux, mux_feature_t feature, enum mux_gpio_dir dir)
 {
     int error = 0;
 
@@ -380,7 +382,7 @@ static inline void tx2_mux_disable_pin(mux_sys_t *mux, struct tx2_mux_pin_desc *
     assert(*pin_reg == (MUX_REG_TRISTATE_TRISTATE << MUX_REG_TRISTATE_SHIFT));
 }
 
-static int tx2_mux_feature_disable(mux_sys_t *mux, enum mux_feature feature)
+static int tx2_mux_feature_disable(mux_sys_t *mux, mux_feature_t feature)
 {
     int error = 0;
 
