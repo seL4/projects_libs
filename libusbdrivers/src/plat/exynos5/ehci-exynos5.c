@@ -61,7 +61,7 @@
 #define HUBCONNECT_GPIO          XEINT6
 #define NINT_GPIO                XEINT7
 
-static volatile void* _phy_regs = NULL;
+static volatile void *_phy_regs = NULL;
 
 static sysreg_t _sysreg;
 
@@ -83,8 +83,7 @@ static pmic_t pmic;
 /* Hub control */
 static usb3503_t usb3503_hub;
 
-static int
-usb_init_phy(ps_io_ops_t* io_ops)
+static int usb_init_phy(ps_io_ops_t *io_ops)
 {
     /* Map phy regs */
     if (_phy_regs == NULL) {
@@ -116,8 +115,7 @@ usb_init_phy(ps_io_ops_t* io_ops)
 
 /*******************************************/
 
-static void
-hub_pwren(int state)
+static void hub_pwren(int state)
 {
     if (state) {
         usb3503_connect(&usb3503_hub);
@@ -126,8 +124,7 @@ hub_pwren(int state)
     }
 }
 
-static void
-eth_pwren(int state)
+static void eth_pwren(int state)
 {
     if (state) {
         pmic_ldo_cfg(&pmic, LDO_ETH, LDO_ON, 3300);
@@ -137,8 +134,7 @@ eth_pwren(int state)
     }
 }
 
-static void
-board_pwren(int port, int state)
+static void board_pwren(int port, int state)
 {
     switch (port) {
     case 1:
@@ -157,8 +153,7 @@ board_pwren(int port, int state)
     }
 }
 
-static int
-usb_plat_gpio_init(ps_io_ops_t* io_ops)
+static int usb_plat_gpio_init(ps_io_ops_t *io_ops)
 {
     int err;
     err = gpio_sys_init(io_ops, &gpio_sys);
@@ -188,9 +183,8 @@ usb_plat_gpio_init(ps_io_ops_t* io_ops)
     return err;
 }
 
-int
-usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, ps_mutex_ops_t *sync,
-		usb_host_t* hdev)
+int usb_host_init(enum usb_host_id id, ps_io_ops_t *io_ops, ps_mutex_ops_t *sync,
+                  usb_host_t *hdev)
 {
     int err;
     if (id < 0 || id > USB_NHOSTS) {
@@ -229,8 +223,7 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* io_ops, ps_mutex_ops_t *sync,
     return err;
 }
 
-const int*
-usb_host_irqs(usb_host_t* host, int* nirqs)
+const int *usb_host_irqs(usb_host_t *host, int *nirqs)
 {
     if (host->id < 0 || host->id > USB_NHOSTS) {
         return NULL;
@@ -244,8 +237,7 @@ usb_host_irqs(usb_host_t* host, int* nirqs)
     return host->irqs;
 }
 
-int
-usb_plat_otg_init(usb_otg_t odev, ps_io_ops_t* io_ops)
+int usb_plat_otg_init(usb_otg_t odev, ps_io_ops_t *io_ops)
 {
     return -1;
 }
