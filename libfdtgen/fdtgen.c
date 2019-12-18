@@ -114,14 +114,15 @@ static int keep_node_and_parents(fdtgen_context_t *handle,  int offset, int targ
         strcat(handle->string_buf, "/");
         const char *n = fdt_get_name(dtb, child, NULL);
         strcat(handle->string_buf, n);
+        char *curr = strdup(handle->string_buf);
 
         int keep = keep_node_and_parents(handle, child, target);
         if (keep) {
             path_node_t *target_node = NULL;
-            HASH_FIND_STR(handle->nodes_table, handle->string_buf, target_node);
+            HASH_FIND_STR(handle->nodes_table, curr, target_node);
             if (target_node == NULL) {
                 target_node = malloc(sizeof(path_node_t));
-                target_node->name = strdup(handle->string_buf);
+                target_node->name = strdup(curr);
                 target_node->offset = offset;
                 target_node->cnt = 0;
                 target_node->flag = DEVICE_KEEP;
@@ -129,7 +130,7 @@ static int keep_node_and_parents(fdtgen_context_t *handle,  int offset, int targ
             }
 
             dependency_t *dep;
-            HASH_FIND_STR(handle->dep_table, handle->string_buf, dep);
+            HASH_FIND_STR(handle->dep_table, curr, dep);
             if (dep == NULL) {
                 register_node_dependencies(handle, child);
             }
@@ -138,6 +139,7 @@ static int keep_node_and_parents(fdtgen_context_t *handle,  int offset, int targ
         }
 
         handle->string_buf[new_len] = '\0';
+        free(curr);
     }
 
     return 0;
