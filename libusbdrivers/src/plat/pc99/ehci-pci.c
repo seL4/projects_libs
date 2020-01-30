@@ -180,3 +180,7 @@ usb_host_irqs(usb_host_t* host, int* nirqs)
 	return host->irqs;
 }
 
+const int *usb_otg_irqs(usb_otg_t otg, int *nirqs)
+{
+    return NULL;
+}

@@ -35,7 +35,12 @@ int usb_otg_init(int id, usb_otg_t* otg, ps_io_ops_t ioops);
  */
 void otg_handle_irq(usb_otg_t otg);
 
-
+/** Return a list of IRQ numbers handled by the provided host
+ * @param[in]  host   A handle to the USB host device in question
+ * @param[out] nirqs  The number of IRQs handled by this host.
+ * @return            A NULL terminated list of IRQs
+ */
+const int* usb_otg_irqs(usb_otg_t otg, int* nirqs);
 
 typedef void (*otg_setup_cb)(usb_otg_t otg,
                              void* token, struct usbreq* req);

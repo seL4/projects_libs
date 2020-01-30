@@ -371,7 +371,7 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* ioops, ps_mutex_ops_t *sync,
 const int*
 usb_host_irqs(usb_host_t* host, int* nirqs)
 {
-    if (host->id < 0 || host->id > USB_NHOSTS) {
+    if (host->id < 1 || host->id > USB_NHOSTS) {
         return NULL;
     }
 
@@ -381,6 +381,21 @@ usb_host_irqs(usb_host_t* host, int* nirqs)
     host->irqs = &_usb_irqs[host->id];
 
     return host->irqs;
+}
+
+const int *
+usb_otg_irqs(usb_otg_t otg, int *nirqs)
+{
+    if (otg->id != 0) {
+        return NULL;
+    }
+
+    if (nirqs) {
+        *nirqs = 1;
+    }
+    otg->irqs = &_usb_irqs[otg->id];
+
+    return otg->irqs;
 }
 
 int

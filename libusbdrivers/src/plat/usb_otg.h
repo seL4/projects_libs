@@ -31,6 +31,10 @@ struct usb_otg_dev {
     int (*prime)(usb_otg_t otg, int ep, enum usb_xact_type dir,
                  void* vbuf, uintptr_t pbuf, int len,
                  otg_prime_cb cb, void* token);
+
+    /// IRQ numbers tied to this device
+    const int* irqs;
+
     /* Platform private data */
     struct usb_otg_data* pdata;
 };

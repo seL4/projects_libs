@@ -237,6 +237,11 @@ const int *usb_host_irqs(usb_host_t *host, int *nirqs)
     return host->irqs;
 }
 
+const int *usb_otg_irqs(usb_otg_t otg, int *nirqs)
+{
+    return NULL;
+}
+
 int usb_plat_otg_init(usb_otg_t odev, ps_io_ops_t *io_ops)
 {
     return -1;
