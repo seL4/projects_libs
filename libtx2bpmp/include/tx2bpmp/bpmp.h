@@ -51,23 +51,19 @@
 #define TX2_BPMP_RX_SHMEM_PADDR 0x3004f000
 #define TX2_BPMP_RX_SHMEM_SIZE 0x1000
 
-struct tx2_bpmp {
-    tx2_hsp_t hsp;
-    bool hsp_initialised;
-    struct tegra_ivc ivc;
-    void *tx_base; // Virtual address base of the TX shared memory channel
-    void *rx_base; // Virtual address base of the RX shared memory channel
-};
+/* Forward declare the tx2_bpmp struct, this struct is private to the bpmp
+ * source file. */
+struct tx2_bpmp;
 
 /*
  * Initialises the BPMP interfaces.
  *
  * @param io_ops Initialised IO ops interface.
- * @param bpmp Empty tx2_bpmp struct that will be filled in.
+ * @param bpmp Pointer to a BPMP struct pointer that will be filled in.
  *
  * @return 0 on success, otherwise an error code.
  */
-int tx2_bpmp_init(ps_io_ops_t *io_ops, struct tx2_bpmp *bpmp);
+int tx2_bpmp_init(ps_io_ops_t *io_ops, struct tx2_bpmp **bpmp);
 
 /*
  * Destroys an initialised BPMP interface.

@@ -34,7 +34,7 @@ extern uint32_t mrq_gate_id_map[];
 typedef struct tx2_clk {
     ps_io_ops_t *io_ops;
     void *car_vaddr;
-    struct tx2_bpmp bpmp;
+    struct tx2_bpmp *bpmp;
 } tx2_clk_t;
 
 static inline bool check_valid_gate(enum clock_gate gate)
@@ -68,7 +68,7 @@ static int tx2_car_gate_enable(clock_sys_t *clock_sys, enum clock_gate gate, enu
     struct mrq_clk_response res = {0};
     tx2_clk_t *clk = clock_sys->priv;
 
-    int bytes_recvd = tx2_bpmp_call(&clk->bpmp, MRQ_CLK, &req, sizeof(req), &res, sizeof(res));
+    int bytes_recvd = tx2_bpmp_call(clk->bpmp, MRQ_CLK, &req, sizeof(req), &res, sizeof(res));
     if (bytes_recvd < 0) {
         return -EIO;
     }
@@ -82,7 +82,7 @@ static freq_t tx2_car_get_freq(clk_t *clk)
     struct mrq_clk_response res = {0};
     tx2_clk_t *tx2_clk = clk->clk_sys->priv;
 
-    int bytes_recvd = tx2_bpmp_call(&tx2_clk->bpmp, MRQ_CLK, &req, sizeof(req), &res, sizeof(&res));
+    int bytes_recvd = tx2_bpmp_call(tx2_clk->bpmp, MRQ_CLK, &req, sizeof(req), &res, sizeof(&res));
     if (bytes_recvd < 0) {
         return 0;
     }
@@ -97,7 +97,7 @@ static freq_t tx2_car_set_freq(clk_t *clk, freq_t hz)
     struct mrq_clk_response res = {0};
     tx2_clk_t *tx2_clk = clk->clk_sys->priv;
 
-    int bytes_recvd = tx2_bpmp_call(&tx2_clk->bpmp, MRQ_CLK, &req, sizeof(req), &res, sizeof(&res));
+    int bytes_recvd = tx2_bpmp_call(tx2_clk->bpmp, MRQ_CLK, &req, sizeof(req), &res, sizeof(&res));
     if (bytes_recvd < 0) {
         return 0;
     }
@@ -139,7 +139,7 @@ static clk_t *tx2_car_get_clock(clock_sys_t *clock_sys, enum clk_id id)
     struct mrq_clk_request req = { .cmd_and_id = (CMD_CLK_GET_ALL_INFO << 24) | bpmp_clk_id };
     struct mrq_clk_response res = {0};
     char *clock_name = NULL;
-    int bytes_recvd = tx2_bpmp_call(&tx2_clk->bpmp, MRQ_CLK, &req, sizeof(req), &res, sizeof(res));
+    int bytes_recvd = tx2_bpmp_call(tx2_clk->bpmp, MRQ_CLK, &req, sizeof(req), &res, sizeof(res));
     if (bytes_recvd < 0) {
         ZF_LOGE("Failed to initialise the clock");
         goto fail;
@@ -242,7 +242,7 @@ fail:
     }
 
     if (bpmp_initialised) {
-        ZF_LOGF_IF(tx2_bpmp_destroy(io_ops, &clk->bpmp),
+        ZF_LOGF_IF(tx2_bpmp_destroy(io_ops, clk->bpmp),
                    "Failed to cleanup after a failed clock system initialisation");
     }
 
