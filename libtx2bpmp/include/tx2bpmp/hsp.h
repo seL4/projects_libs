@@ -13,9 +13,16 @@
 #pragma once
 
 #include <platsupport/io.h>
+#include <utils/util.h>
 
 #define TX2_HSP_PADDR 0x3c00000
 #define TX2_HSP_SIZE 0xa0000
+
+#define __HSP_CHECK_ARGS(function)                                                                  \
+    do {                                                                                            \
+        if (!hsp) { ZF_LOGE("hsp is NULL"); return -EINVAL; }                                       \
+        if (!hsp->function) { ZF_LOGE(#function " function is not implemented"); return -ENOSYS; }  \
+    } while(0)
 
 /*
  * This is a very basic driver implementation of the TX2 HSP mechanisms. So
@@ -45,8 +52,10 @@ enum tx2_doorbell_id {
 };
 
 typedef struct tx2_hsp {
-    void *hsp_base;
-    void *doorbell_base;
+    void *data;
+    int (*ring)(void *data, enum tx2_doorbell_id db_id);
+    int (*check)(void *data, enum tx2_doorbell_id db_id);
+    int (*destroy)(void *data);
 } tx2_hsp_t;
 
 /*
@@ -62,12 +71,15 @@ int tx2_hsp_init(ps_io_ops_t *io_ops, tx2_hsp_t *hsp);
 /*
  * Destroys an initialised TX2 HSP interface.
  *
- * @param io_ops The same IO ops interface that was used to initialise the HSP interface.
  * @param hsp Initialised HSP interface that will be destroyed.
  *
  * @return 0 on success, otherwise an error code.
  */
-int tx2_hsp_destroy(ps_io_ops_t *io_ops, tx2_hsp_t *hsp);
+static inline int tx2_hsp_destroy(tx2_hsp_t *hsp)
+{
+    __HSP_CHECK_ARGS(destroy);
+    return hsp->destroy(hsp->data);
+}
 
 /*
  * Rings the doorbell of a specific device module.
@@ -77,7 +89,11 @@ int tx2_hsp_destroy(ps_io_ops_t *io_ops, tx2_hsp_t *hsp);
  *
  * @return 0 on success, otherwise an error code.
  */
-int tx2_hsp_doorbell_ring(tx2_hsp_t *hsp, enum tx2_doorbell_id db_id);
+static inline int tx2_hsp_doorbell_ring(tx2_hsp_t *hsp, enum tx2_doorbell_id db_id)
+{
+    __HSP_CHECK_ARGS(ring);
+    return hsp->ring(hsp->data, db_id);
+}
 
 /*
  * Checks if a specific device module has rung our doorbell.
@@ -87,4 +103,8 @@ int tx2_hsp_doorbell_ring(tx2_hsp_t *hsp, enum tx2_doorbell_id db_id);
  *
  * @return 0 on success, otherwise an error code.
  */
-int tx2_hsp_doorbell_check(tx2_hsp_t *hsp, enum tx2_doorbell_id db_id);
+static inline int tx2_hsp_doorbell_check(tx2_hsp_t *hsp, enum tx2_doorbell_id db_id)
+{
+    __HSP_CHECK_ARGS(check);
+    return hsp->check(hsp->check, db_id);
+}
