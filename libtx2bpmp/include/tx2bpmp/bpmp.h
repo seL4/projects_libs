@@ -26,6 +26,7 @@
 #include <platsupport/io.h>
 #include <tx2bpmp/hsp.h>
 #include <tx2bpmp/ivc.h>
+#include <utils/util.h>
 
 #ifndef __ABI_PACKED
 #define __ABI_PACKED __attribute__((packed))
@@ -51,9 +52,17 @@
 #define TX2_BPMP_RX_SHMEM_PADDR 0x3004f000
 #define TX2_BPMP_RX_SHMEM_SIZE 0x1000
 
-/* Forward declare the tx2_bpmp struct, this struct is private to the bpmp
- * source file. */
-struct tx2_bpmp;
+#define __BPMP_CHECK_ARGS(function) \
+    do {                                                                            \
+        if (!bpmp) { ZF_LOGE("bpmp is NULL"); return -EINVAL; }                     \
+        if (!function) { ZF_LOGE(#function " not implemented"); return -ENOSYS; }   \
+    } while(0)
+
+struct tx2_bpmp {
+    void *data;
+    int (*call)(void *data, int mrq, void *tx_msg, size_t tx_size, void *rx_msg, size_t rx_size);
+    int (*destroy)(void *data);
+};
 
 /*
  * Initialises the BPMP interfaces.
@@ -63,17 +72,20 @@ struct tx2_bpmp;
  *
  * @return 0 on success, otherwise an error code.
  */
-int tx2_bpmp_init(ps_io_ops_t *io_ops, struct tx2_bpmp **bpmp);
+int tx2_bpmp_init(ps_io_ops_t *io_ops, struct tx2_bpmp *bpmp);
 
 /*
  * Destroys an initialised BPMP interface.
  *
- * @param io_ops The same IO ops interface that was used to initialise the BPMP interface.
- * @param bpmp Initialise BPMP interface that will be destroyed. 
+ * @param bpmp Initialised BPMP interface that will be destroyed.
  *
  * @return 0 on success, otherwise an error code.
  */
-int tx2_bpmp_destroy(ps_io_ops_t *io_ops, struct tx2_bpmp *bpmp);
+static inline int tx2_bpmp_destroy(struct tx2_bpmp *bpmp)
+{
+    __BPMP_CHECK_ARGS(bpmp->destroy);
+    return bpmp->destroy(bpmp->data);
+}
 
 /*
  * Sends a request to the BPMP device module and waits for a response.
@@ -87,7 +99,12 @@ int tx2_bpmp_destroy(ps_io_ops_t *io_ops, struct tx2_bpmp *bpmp);
  *               for the valid response layouts.
  * @param rx_size Size in bytes of the response buffer.
  */
-int tx2_bpmp_call(struct tx2_bpmp *bpmp, int mrq, void *tx_msg, size_t tx_size, void *rx_msg, size_t rx_size);
+static inline int tx2_bpmp_call(struct tx2_bpmp *bpmp, int mrq, void *tx_msg, size_t tx_size, void *rx_msg,
+                                size_t rx_size)
+{
+    __BPMP_CHECK_ARGS(bpmp->call);
+    return bpmp->call(bpmp->data, mrq, tx_msg, tx_size, rx_msg, rx_size);
+}
 
 /**
  * @defgroup MRQ MRQ Messages
