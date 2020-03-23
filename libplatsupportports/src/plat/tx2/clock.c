@@ -181,6 +181,14 @@ fail:
     return NULL;
 }
 
+static int interface_search_handler(void *handler_data, void *interface_instance, char **properties)
+{
+    /* Select the first one that is registered */
+    tx2_clk_t *clk = handler_data;
+    clk->bpmp = (struct tx2_bpmp *) interface_instance;
+    return PS_INTERFACE_FOUND_MATCH;
+}
+
 int clock_sys_init(ps_io_ops_t *io_ops, clock_sys_t *clock_sys)
 {
     if (!io_ops || !clock_sys) {
@@ -196,7 +204,7 @@ int clock_sys_init(ps_io_ops_t *io_ops, clock_sys_t *clock_sys)
     }
 
     int error = 0;
-    bool bpmp_initialised = false;
+    tx2_clk_t *clk = NULL;
 
     error = ps_calloc(&io_ops->malloc_ops, 1, sizeof(tx2_clk_t), (void **) &clock_sys->priv);
     if (error) {
@@ -205,7 +213,7 @@ int clock_sys_init(ps_io_ops_t *io_ops, clock_sys_t *clock_sys)
         goto fail;
     }
 
-    tx2_clk_t *clk = clock_sys->priv;
+    clk = clock_sys->priv;
 
     void *car_vaddr = NULL;
     car_vaddr = ps_io_map(&io_ops->io_mapper, TX2_CLKCAR_PADDR, TX2_CLKCAR_SIZE, 0, PS_MEM_NORMAL);
@@ -217,12 +225,23 @@ int clock_sys_init(ps_io_ops_t *io_ops, clock_sys_t *clock_sys)
 
     clk->car_vaddr = car_vaddr;
 
-    error = tx2_bpmp_init(io_ops, &clk->bpmp);
+    /* See if there's a registered interface for the BPMP, if not, create one
+     * ourselves */
+    error = ps_interface_find(&io_ops->interface_registration_ops, TX2_BPMP_INTERFACE,
+                              interface_search_handler, clk);
     if (error) {
-        goto fail;
-    }
+        error = ps_calloc(&io_ops->malloc_ops, 1, sizeof(struct tx2_bpmp), (void **) &clk->bpmp);
+        if (error) {
+            ZF_LOGE("Failed to allocate memory for the BPMP structure");
+            goto fail;
+        }
 
-    bpmp_initialised = true;
+        error = tx2_bpmp_init(io_ops, clk->bpmp);
+        if (error) {
+            ZF_LOGE("Failed to initialise BPMP interface");
+            goto fail;
+        }
+    }
 
     clk->io_ops = io_ops;
 
@@ -238,12 +257,12 @@ fail:
     }
 
     if (clock_sys->priv) {
-        ps_free(&io_ops->malloc_ops, sizeof(tx2_clk_t), (void *) clock_sys->priv);
-    }
-
-    if (bpmp_initialised) {
-        ZF_LOGF_IF(tx2_bpmp_destroy(io_ops, clk->bpmp),
-                   "Failed to cleanup after a failed clock system initialisation");
+        if (clk->bpmp) {
+            ZF_LOGF_IF(ps_free(&io_ops->malloc_ops, sizeof(struct tx2_bpmp), (void *) clk->bpmp),
+                       "Failed to free the BPMP structure after failing to initialise");
+        }
+        ZF_LOGF_IF(ps_free(&io_ops->malloc_ops, sizeof(tx2_clk_t), (void *) clock_sys->priv),
+                   "Failed to free the clock private structure after failing to initialise");
     }
 
     return error;

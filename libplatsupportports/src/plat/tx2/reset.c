@@ -62,7 +62,15 @@ static int tx2_reset_deassert(void *data, reset_id_t id)
     return tx2_reset_common(data, id, false);
 }
 
-int reset_sys_init(ps_io_ops_t *io_ops, void *dependecies, reset_sys_t *reset_sys)
+static int interface_search_handler(void *handler_data, void *interface_instance, char **properties)
+{
+    /* Select the first one that is registered */
+    tx2_reset_t *reset = handler_data;
+    reset->bpmp = (struct tx2_bpmp *) interface_instance;
+    return PS_INTERFACE_FOUND_MATCH;
+}
+
+int reset_sys_init(ps_io_ops_t *io_ops, void *dependencies, reset_sys_t *reset_sys)
 {
     if (!io_ops || !reset_sys) {
         if (!io_ops) {
@@ -77,7 +85,8 @@ int reset_sys_init(ps_io_ops_t *io_ops, void *dependecies, reset_sys_t *reset_sy
     }
 
     int error = 0;
-    bool bpmp_initialised = false;
+    bool bpmp_allocated = false;
+    tx2_reset_t *reset = NULL;
     error = ps_calloc(&io_ops->malloc_ops, 1, sizeof(tx2_reset_t), (void **) &reset_sys->data);
     if (error) {
         ZF_LOGE("Failed to allocate memory for reset sys internal structure");
@@ -85,14 +94,29 @@ int reset_sys_init(ps_io_ops_t *io_ops, void *dependecies, reset_sys_t *reset_sy
         goto fail;
     }
 
-    tx2_reset_t *reset = reset_sys->data;
+    reset = reset_sys->data;
 
-    error = tx2_bpmp_init(io_ops, &reset->bpmp);
-    if (error) {
-        goto fail;
+    if (dependencies) {
+        reset->bpmp = (struct tx2_bpmp *) dependencies;
+    } else {
+        /* See if there's a registered interface for the BPMP, if not, then we
+         * initialise one ourselves. */
+        error = ps_interface_find(&io_ops->interface_registration_ops, TX2_BPMP_INTERFACE,
+                                  interface_search_handler, reset);
+        if (error) {
+            error = ps_calloc(&io_ops->malloc_ops, 1, sizeof(struct tx2_bpmp), (void **) &reset->bpmp);
+            if (error) {
+                ZF_LOGE("Failed to allocate memory for the BPMP structure to be initialised");
+                goto fail;
+            }
+
+            error = tx2_bpmp_init(io_ops, reset->bpmp);
+            if (error) {
+                ZF_LOGE("Failed to initialise the BPMP");
+                goto fail;
+            }
+        }
     }
-
-    bpmp_initialised = true;
 
     reset_sys->reset_assert = &tx2_reset_assert;
     reset_sys->reset_deassert = &tx2_reset_deassert;
@@ -101,13 +125,13 @@ int reset_sys_init(ps_io_ops_t *io_ops, void *dependecies, reset_sys_t *reset_sy
 
 fail:
 
-    if (bpmp_initialised) {
-        ZF_LOGF_IF(tx2_bpmp_destroy(io_ops, reset->bpmp),
-                   "Failed to cleanup the BPMP after a failed reset system initialisation");
-    }
-
     if (reset_sys->data) {
-        ps_free(&io_ops->malloc_ops, sizeof(tx2_reset_t), (void *) reset_sys->data);
+        if (reset->bpmp) {
+            ZF_LOGF_IF(ps_free(&io_ops->malloc_ops, sizeof(struct tx2_bpmp), (void *) reset->bpmp),
+                       "Failed to free the BPMP structure after a failed reset subsystem initialisation");
+        }
+        ZF_LOGF_IF(ps_free(&io_ops->malloc_ops, sizeof(tx2_reset_t), (void *) reset_sys->data),
+                   "Failed to free the reset private data after a failed reset subsystem initialisation");
     }
 
     return error;
