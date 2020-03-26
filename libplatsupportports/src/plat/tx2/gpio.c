@@ -110,11 +110,6 @@ static uint32_t *tx2_gpio_get_register(gpio_sys_t *gpio_sys, enum gpio_reg_offse
     return (uint32_t *)(vaddr_base + tx2_ports[port].addr_offset + reg_offset + pin_index * TX2_GPIO_PIN_STRIDE);
 }
 
-static void tx2_gpio_set_next(gpio_t *self, gpio_t *next)
-{
-    self->next = next;
-}
-
 static int tx2_gpio_set_direction(gpio_sys_t *gpio_sys, gpio_id_t gpio, enum gpio_dir dir)
 {
     uint32_t config_val = 0;
@@ -201,9 +196,6 @@ static int tx2_gpio_init(gpio_sys_t *gpio_sys, gpio_id_t id, enum gpio_dir dir, 
 
     gpio->id = id;
     gpio->gpio_sys = gpio_sys;
-    gpio->next = NULL;
-
-    gpio->set_next = &tx2_gpio_set_next;
 
     /* Set the gpio enable bit */
     uint32_t val = 0;
@@ -233,77 +225,36 @@ static int tx2_gpio_init(gpio_sys_t *gpio_sys, gpio_id_t id, enum gpio_dir dir, 
     return 0;
 }
 
-static bool tx2_gpio_get_input(gpio_sys_t *gpio_sys, enum gpio_pin gpio)
+static int tx2_gpio_read_level(gpio_t *gpio)
 {
+    if (!tx2_valid_pin(gpio->id)) {
+        return -EINVAL;
+    }
     /* Maybe check if the pin is configured for output? */
     uint32_t val = 0;
-    volatile uint32_t *reg_vaddr = tx2_gpio_get_register(gpio_sys, GPIO_INPUT, gpio);
+    volatile uint32_t *reg_vaddr = tx2_gpio_get_register(gpio->gpio_sys, GPIO_INPUT, gpio->id);
     val = *reg_vaddr;
-    return !!val;
+    return (!!val) ? GPIO_LEVEL_HIGH : GPIO_LEVEL_LOW;
 }
 
-static int tx2_gpio_read(gpio_t *gpio, char *data, int len)
+static int tx2_gpio_set_level(gpio_t *gpio, enum gpio_level level)
 {
-    /* Assuming 8 bits per byte. This is TX2-specific code, so this is fine.
-     */
-    gpio_t *curr_gpio = gpio;
-    const int nbytes = DIV_ROUND_UP(len, 8);
-
-    for (int i = 0; i < nbytes; i++) {
-        const int nbits = ((len - i * 8) / 8) ? 8 : (len % 8);
-
-        for (int j = 0; j < nbits; j++, curr_gpio = curr_gpio->next) {
-            int val;
-
-            if (curr_gpio == NULL) {
-                ZF_LOGE("Called to write out %d bits, but on bit %d, gpio link was NULL.", len, (i * 8 + j));
-                return -EINVAL;
-            }
-
-            val = tx2_gpio_get_input(gpio->gpio_sys, curr_gpio->id);
-            val <<= j;
-            data[i] &= ~BIT(j);
-            data[i] |= val;
-        }
+    if (!tx2_valid_pin(gpio->id)) {
+        return -EINVAL;
     }
-
-    return len;
-}
-
-static void tx2_gpio_set_level(gpio_sys_t *gpio_sys, enum gpio_pin gpio, int level)
-{
     uint32_t val = 0;
-    volatile uint32_t *reg_vaddr = tx2_gpio_get_register(gpio_sys, GPIO_OUTPUT_VALUE, gpio);
+    volatile uint32_t *reg_vaddr = tx2_gpio_get_register(gpio->gpio_sys, GPIO_OUTPUT_VALUE, gpio->id);
 
     val = *reg_vaddr;
-    if (level) {
+    if (GPIO_LEVEL_HIGH) {
         val |= TX2_GPIO_OUTPUT_VALUE_HIGH;
     } else {
         val &= ~(TX2_GPIO_OUTPUT_VALUE_HIGH);
     }
 
     *reg_vaddr = val;
-}
 
-static int tx2_gpio_write(gpio_t *gpio, const char *data, int len)
-{
-    gpio_t *curr_gpio = gpio;
-    const int nbytes = DIV_ROUND_UP(len, 8);
-
-    for (int i = 0; i < nbytes ; i++) {
-        const int nbits = ((len - i * 8) / 8) ? 8 : (len % 8);
-
-        for (int j = 0; j < nbits; j++, curr_gpio = curr_gpio->next) {
-            if (curr_gpio == NULL) {
-                ZF_LOGE("Called to write out %d bits, but on bit %d, gpio link was NULL.", len, (i * 8 + j));
-                return -EINVAL;
-            }
-
-            tx2_gpio_set_level(gpio->gpio_sys, curr_gpio->id, !!(data[i] & BIT(j)));
-        }
-    }
-
-    return len;
+    return 0;
 }
 
 static void tx2_gpio_int_clear(gpio_sys_t *gpio_sys, enum gpio_pin gpio)
@@ -320,7 +271,7 @@ static bool tx2_gpio_check_pending(gpio_sys_t *gpio_sys, enum gpio_pin gpio)
     return !!val;
 }
 
-static int tx2_gpio_pending_status(gpio_t *gpio, int clear)
+static int tx2_gpio_pending_status(gpio_t *gpio, bool clear)
 {
     int pending = 0;
 
@@ -359,8 +310,8 @@ int gpio_sys_init(ps_io_ops_t *io_ops, gpio_sys_t *gpio_sys)
     }
 
     gpio_sys->init = &tx2_gpio_init;
-    gpio_sys->read = &tx2_gpio_read;
-    gpio_sys->write = &tx2_gpio_write;
+    gpio_sys->set_level = &tx2_gpio_set_level;
+    gpio_sys->read_level = &tx2_gpio_read_level;
     gpio_sys->pending_status = &tx2_gpio_pending_status;
     gpio_sys->irq_enable_disable = &tx2_gpio_irq_enable_disable;
 

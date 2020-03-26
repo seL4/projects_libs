@@ -37,6 +37,14 @@
 
 #define TIMEOUT_THRESHOLD 2000000ul
 
+struct tx2_bpmp {
+    tx2_hsp_t hsp;
+    bool hsp_initialised;
+    struct tegra_ivc ivc;
+    void *tx_base; // Virtual address base of the TX shared memory channel
+    void *rx_base; // Virtual address base of the RX shared memory channel
+};
+
 pmem_region_t bpmp_shmems[NUM_SHMEM] = {
     {
         .type = PMEM_TYPE_DEVICE,
@@ -49,6 +57,10 @@ pmem_region_t bpmp_shmems[NUM_SHMEM] = {
         .length = TX2_BPMP_RX_SHMEM_SIZE
     }
 };
+
+static bool bpmp_initialised = false;
+static unsigned int bpmp_refcount = 0;
+static struct tx2_bpmp bpmp_data = {0};
 
 int tx2_bpmp_call(struct tx2_bpmp *bpmp, int mrq, void *tx_msg, size_t tx_size, void *rx_msg, size_t rx_size)
 {
@@ -125,49 +137,57 @@ static void tx2_bpmp_ivc_notify(struct tegra_ivc *ivc, void *token)
 		ZF_LOGF("Failed to ring BPMP's doorbell in the HSP: %d\n", ret);
 }
 
-int tx2_bpmp_init(ps_io_ops_t *io_ops, struct tx2_bpmp *bpmp)
+int tx2_bpmp_init(ps_io_ops_t *io_ops, struct tx2_bpmp **bpmp)
 {
     if (!io_ops || !bpmp) {
         ZF_LOGE("Arguments are NULL!");
         return -EINVAL;
     }
 
+    if (bpmp_initialised) {
+        /* If we've initialised the BPMP once, just return the initialised
+         * structure */
+        *bpmp = &bpmp_data;
+        bpmp_refcount++;
+        return 0;
+    }
+
     int ret = 0;
     /* Not sure if this is too long or too short. */
     unsigned long timeout = TIMEOUT_THRESHOLD;
 
-    ret = tx2_hsp_init(io_ops, &bpmp->hsp);
+    ret = tx2_hsp_init(io_ops, &bpmp_data.hsp);
     if (ret) {
         ZF_LOGE("Failed to initialise the HSP device for BPMP");
         return ret;
     }
 
-    bpmp->hsp_initialised = true;
+    bpmp_data.hsp_initialised = true;
 
-    bpmp->tx_base = ps_pmem_map(io_ops, bpmp_shmems[TX_SHMEM], false, PS_MEM_NORMAL);
-    if (!bpmp->tx_base) {
+    bpmp_data.tx_base = ps_pmem_map(io_ops, bpmp_shmems[TX_SHMEM], false, PS_MEM_NORMAL);
+    if (!bpmp_data.tx_base) {
         ZF_LOGE("Failed to map the TX BPMP channel");
         ret = -ENOMEM;
         goto fail;
     }
 
-    bpmp->rx_base = ps_pmem_map(io_ops, bpmp_shmems[RX_SHMEM], false, PS_MEM_NORMAL);
-    if (!bpmp->rx_base) {
+    bpmp_data.rx_base = ps_pmem_map(io_ops, bpmp_shmems[RX_SHMEM], false, PS_MEM_NORMAL);
+    if (!bpmp_data.rx_base) {
         ZF_LOGE("Failed to map the RX BPMP channel");
         ret = -ENOMEM;
         goto fail;
     }
 
-    ret = tegra_ivc_init(&bpmp->ivc, (unsigned long) bpmp->rx_base, (unsigned long) bpmp->tx_base,
-                         BPMP_IVC_FRAME_COUNT, BPMP_IVC_FRAME_SIZE, tx2_bpmp_ivc_notify, (void *) bpmp);
+    ret = tegra_ivc_init(&bpmp_data.ivc, (unsigned long) bpmp_data.rx_base, (unsigned long) bpmp_data.tx_base,
+                         BPMP_IVC_FRAME_COUNT, BPMP_IVC_FRAME_SIZE, tx2_bpmp_ivc_notify, (void *) &bpmp_data);
     if (ret) {
         ZF_LOGE("tegra_ivc_init() failed: %d", ret);
         goto fail;
     }
 
-    tegra_ivc_channel_reset(&bpmp->ivc);
+    tegra_ivc_channel_reset(&bpmp_data.ivc);
     for (; timeout > 0; timeout--) {
-        ret = tegra_ivc_channel_notified(&bpmp->ivc);
+        ret = tegra_ivc_channel_notified(&bpmp_data.ivc);
         if (!ret) {
             break;
         }
@@ -179,10 +199,14 @@ int tx2_bpmp_init(ps_io_ops_t *io_ops, struct tx2_bpmp *bpmp)
         goto fail;
     }
 
+    *bpmp = &bpmp_data;
+    bpmp_refcount++;
+    bpmp_initialised = true;
+
     return 0;
 
 fail:
-    ZF_LOGF_IF(tx2_bpmp_destroy(io_ops, bpmp), "Failed to cleanup the BPMP after a failed initialisation");
+    ZF_LOGF_IF(tx2_bpmp_destroy(io_ops, &bpmp_data), "Failed to cleanup the BPMP after a failed initialisation");
     return ret;
 }
 
@@ -193,18 +217,25 @@ int tx2_bpmp_destroy(ps_io_ops_t *io_ops, struct tx2_bpmp *bpmp)
         return -EINVAL;
     }
 
-    if (bpmp->hsp_initialised) {
-        ZF_LOGF_IF(tx2_hsp_destroy(io_ops, &bpmp->hsp),
+    bpmp_refcount--;
+
+    if (bpmp_refcount != 0) {
+        /* Only cleanup the BPMP structure if there are no more references that are valid. */
+        return 0;
+    }
+
+    if (bpmp_data.hsp_initialised) {
+        ZF_LOGF_IF(tx2_hsp_destroy(io_ops, &bpmp_data.hsp),
                    "Failed to clean up after a failed BPMP initialisation process!");
     }
 
     /* Unmapping the shared memory also destroys the IVC */
-    if (bpmp->tx_base) {
-        ps_io_unmap(&io_ops->io_mapper, bpmp->tx_base, bpmp_shmems[TX_SHMEM].length);
+    if (bpmp_data.tx_base) {
+        ps_io_unmap(&io_ops->io_mapper, bpmp_data.tx_base, bpmp_shmems[TX_SHMEM].length);
     }
 
-    if (bpmp->rx_base) {
-        ps_io_unmap(&io_ops->io_mapper, bpmp->tx_base, bpmp_shmems[RX_SHMEM].length);
+    if (bpmp_data.rx_base) {
+        ps_io_unmap(&io_ops->io_mapper, bpmp_data.tx_base, bpmp_shmems[RX_SHMEM].length);
     }
 
     return 0;
