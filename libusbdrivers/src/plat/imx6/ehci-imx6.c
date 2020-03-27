@@ -314,10 +314,13 @@ imx6_usb_generic_init(const int id, ps_io_ops_t* ioops)
     if (id < 0 || id > USB_NHOSTS) {
         ZF_LOGF("Invalid host id\n");
     }
+    ZF_LOGF("1\n");
+
     /* Check device mappings */
     if (_usb_regs == NULL) {
         _usb_regs = GET_RESOURCE(ioops, USB);
     }
+    ZF_LOGF("2\n");
     if (_usb_regs == NULL) {
         ZF_LOGF("Could not map usb hardware, is it defined in camkes?");
         return -1;
@@ -332,6 +335,7 @@ imx6_usb_generic_init(const int id, ps_io_ops_t* ioops)
     *hc_ctrl |= USBCTRL_OVER_CUR_DIS;
     /* Enable the PHY */
     phy_enable(id, ioops);
+    ZF_LOGF("3\n");
     return 0;
 }
 
@@ -383,19 +387,18 @@ usb_host_irqs(usb_host_t* host, int* nirqs)
     return host->irqs;
 }
 
-const int *
-usb_otg_irqs(usb_otg_t otg, int *nirqs)
+const int*
+usb_otg_irqs(int id, int* nirqs)
 {
-    if (otg->id != 0) {
+    if (id < 0 || id > USB_NOTGS) {
         return NULL;
     }
 
     if (nirqs) {
         *nirqs = 1;
     }
-    otg->irqs = &_usb_irqs[otg->id];
 
-    return otg->irqs;
+    return &_usb_irqs[id];
 }
 
 int
@@ -407,13 +410,17 @@ usb_plat_otg_init(usb_otg_t odev, ps_io_ops_t* ioops)
     if (!odev->dman) {
         ZF_LOGF("Invalid arguments\n");
     }
+    ZF_LOGF("1\n");
     err = imx6_usb_generic_init(odev->id, ioops);
+    ZF_LOGF("2\n");
     if (err) {
         return -1;
     }
     otg_regs = (struct usb_otg_regs*)_usb_regs + odev->id;
     otg_regs->usbmode = USBMODE_DEV;
+
     err = ehci_otg_init(odev, (uintptr_t)&otg_regs->caplength);
+    ZF_LOGF("3\n");
     if (otg_regs->usbmode != USBMODE_DEV) {
         ZF_LOGF("Set the hardware to device mode\n");
     }

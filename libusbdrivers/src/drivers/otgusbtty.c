@@ -254,7 +254,7 @@ otg_usbtty_init(usb_otg_t otg, ps_dma_man_t* dman,
     int err;
 
     if (!dman || !usbtty || !otg) {
-        ZF_LOGF("Invalid arguments\n");
+        ZF_LOGF("Invalid arguments %p:%p:%p\n", dman, usbtty, otg);
     }
 
     /* Allocate memory */
