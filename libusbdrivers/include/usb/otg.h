@@ -40,7 +40,7 @@ void otg_handle_irq(usb_otg_t otg);
  * @param[out] nirqs  The number of IRQs handled by this host.
  * @return            A NULL terminated list of IRQs
  */
-const int* usb_otg_irqs(usb_otg_t otg, int* nirqs);
+const int* usb_otg_irqs(int id, int* nirqs);
 
 typedef void (*otg_setup_cb)(usb_otg_t otg,
                              void* token, struct usbreq* req);
