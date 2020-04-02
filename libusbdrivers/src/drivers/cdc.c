@@ -17,7 +17,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <utils/circular_buffer.h>
 #include <platsupport/sync/atomic.h>
 #include "../services.h"
 #include "cdc.h"

@@ -17,6 +17,7 @@
 #include <utils/ansi.h>
 #include <utils/util.h>
 #include <utils/zf_log.h>
+#include <utils/circular_buffer.h>
 #include <usb/usb_host.h>
 
 void otg_irq(void);
