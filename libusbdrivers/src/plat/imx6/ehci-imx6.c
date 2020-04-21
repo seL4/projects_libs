@@ -288,10 +288,10 @@ phy_enable(const int devid, ps_io_ops_t* o)
         if (clk == NULL) {
             ZF_LOGD("Failed to initialise USB PHY clock\n");
         }
-        /* Reset PHY */
-        phy_regs->ctrl.set = PHYCTRL_SFTRST;
         /* Enable clocks */
         phy_regs->ctrl.clr = PHYCTRL_CLKGATE;
+        /* Reset PHY */
+        phy_regs->ctrl.set = PHYCTRL_SFTRST;
         dsb();
         ps_udelay(10);
         phy_regs->ctrl.clr = PHYCTRL_SFTRST;
@@ -326,6 +326,10 @@ imx6_usb_generic_init(const int id, ps_io_ops_t* ioops)
     hc_regs = (struct usb_host_regs*)_usb_regs + id;
     hc_ctrl = &_usb_regs->otg_ctrl + id;
 
+    // reset port sc for otg
+    if (id == USB_OTG_DEFAULT) {
+        hc_regs->portsc1 = IMX6_PORTSC_PTS_UTMI; // this is wrong and should be hc_regs->portsc1 &= 0x3DFFFFFF; // i believe
+    }
     /* Reset the EHCI controller */
     hc_regs->usbcmd |= EHCICMD_HCRESET;
     /* Disable over-current */
@@ -365,7 +369,7 @@ usb_host_init(enum usb_host_id id, ps_io_ops_t* ioops, ps_mutex_ops_t *sync,
     hc_regs->usbmode = USBMODE_HOST;
     err = ehci_host_init(hdev, (uintptr_t)&hc_regs->caplength, NULL);
     /* Configure ports */
-    hc_regs->portsc1 = IMX6_PORTSC_PTS_UTMI | IMX6_PORTSC_PTW;
+    hc_regs->portsc1 = IMX6_PORTSC_PTS_UTMI | IMX6_PORTSC_PTW; // thi is also wrong see above
     return err;
 }
 
