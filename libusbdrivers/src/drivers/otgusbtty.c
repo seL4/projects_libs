@@ -165,40 +165,40 @@ send_desc(otg_usbtty_t tty, enum DescriptorType type, int index,
     }
 
     /* Send the descriptor */
-    ZF_LOGF_IF(d == NULL,"Device Descriptor impossibly null");
+    if (d != NULL) {
+        struct free_token* t = NULL;
+        uintptr_t pbuf;
+        int err;
 
-    struct free_token* t = NULL;
-    uintptr_t pbuf;
-    int err;
+        t = usb_malloc(sizeof(*t));
+        ZF_LOGF_IF(t == NULL, "Out of memory");
 
-    t = usb_malloc(sizeof(*t));
-    ZF_LOGF_IF(t == NULL, "Out of memory");
+        t->dman = tty->dman;
+        ZF_LOGF_IF(t->dman == NULL, "DMA manager not set");
 
-    t->dman = tty->dman;
-    ZF_LOGF_IF(t->dman == NULL, "DMA manager not set");
+        /* limit size to prevent babble */
+        t->size = d->bLength;
+        if (maxlen < t->size) {
+            t->size = maxlen;
+        }
+        /* Copy in */
+        t->vaddr = ps_dma_alloc_pinned(t->dman, t->size, 32, 0, PS_MEM_NORMAL, &pbuf);
+        ZF_LOGF_IF(t->vaddr == NULL, "Out of DMA memory\n");
 
-    /* limit size to prevent babble */
-    t->size = d->bLength;
-    if (maxlen < t->size) {
-        t->size = maxlen;
-    }
-    /* Copy in */
-    t->vaddr = ps_dma_alloc_pinned(t->dman, t->size, 32, 0, PS_MEM_NORMAL, &pbuf);
-    ZF_LOGF_IF(t->vaddr == NULL, "Out of DMA memory\n");
+        memcpy(t->vaddr, d, t->size);
 
-    memcpy(t->vaddr, d, t->size);
-
-    /* Send the packet */
-    err = otg_prime(tty->otg, 0, PID_IN, t->vaddr, pbuf, t->size, freebuf_cb, t);
-    if (err) {
-        ps_dma_free_pinned(tty->dman, t->vaddr, t->size);
-        ZF_LOGF("OTG device error\n");
-    }
-    /* Status phase */
-    err = otg_prime(tty->otg, 0, PID_OUT, NULL, 0, 0, freebuf_cb, t);
-    if (err) {
-        ps_dma_free_pinned(tty->dman, t->vaddr, t->size);
-        ZF_LOGF("OTG device error\n");
+        /* Send the packet */
+        err = otg_prime(tty->otg, 0, PID_IN, t->vaddr, pbuf, t->size, freebuf_cb, t);
+        if (err) {
+            ps_dma_free_pinned(tty->dman, t->vaddr, t->size);
+            ZF_LOGF("OTG device error\n");
+        }
+        /* Status phase */
+        err = otg_prime(tty->otg, 0, PID_OUT, NULL, 0, 0, freebuf_cb, t);
+        if (err) {
+            ps_dma_free_pinned(tty->dman, t->vaddr, t->size);
+            ZF_LOGF("OTG device error\n");
+        }
     }
 }
 
