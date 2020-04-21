@@ -12,6 +12,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#define ZF_LOG_LEVEL ZF_LOG_DEBUG
+
 #include <stdlib.h>
 #include <string.h>
 #include "../../services.h"
@@ -19,7 +21,7 @@
 
 /*
  * The implementation here comes from the imx6 reference manual
- * and is considered proprietry.
+ * and is considered proprietary.
  */
 
 #define MAX_PKT_SIZE 64
@@ -268,6 +270,29 @@ dump_odev(struct ehci_otg* odev)
         printf("\n");
     }
 }
+void
+dump_regs(volatile struct ehci_otg_op* op_regs)
+{
+    uint32_t sts, cmd, intr, portsc1, mode,
+     addr, otsc, epss;
+    cmd = op_regs->usbcmd;
+    sts = op_regs->usbsts;
+    intr = op_regs->usbintr;
+    addr = op_regs->otg_deviceaddr;
+    portsc1 = op_regs->portsc1;
+    mode = op_regs->usbmode;
+    otsc = op_regs->otg_otgsc;
+    epss = op_regs->otg_endptsetupstat;
+    printf("*** regs ***\n");
+    printf("  cmd: 0x%x\n", cmd);
+    printf("  sts: 0x%x\n", sts);
+    printf("  int: 0x%x\n", intr);
+    printf(" addr: 0x%x\n", addr);
+    printf("  sc1: 0x%x\n", portsc1);
+    printf(" mode: 0x%x\n", mode);
+    printf(" otsc: 0x%x\n", otsc);
+    printf(" epss: 0x%x\n", epss);
+}
 
 static void
 dump_dtd(volatile struct dTD* dtd)
@@ -395,12 +420,13 @@ dtd_get_status(volatile struct dTD* dtd)
 
 static struct dTDn*
 otg_dtdn_new(usb_otg_t otg, void* buf, uintptr_t pbuf, int len) {
+    ZF_LOGD("otg_dtdn_new");
     struct dTDn* dtdn;
     volatile struct dTD* dtd;
     int cur_len;
     int i;
 
-    if (!otg) {
+    if (otg == NULL) {
 	    ZF_LOGF("Invalid arguments\n");
     }
 
@@ -413,7 +439,7 @@ otg_dtdn_new(usb_otg_t otg, void* buf, uintptr_t pbuf, int len) {
     dtd = ps_dma_alloc_pinned(otg->dman, sizeof(*dtdn->dtd), 32,
                               0, PS_MEM_NORMAL, &dtdn->pdtd);
     if (dtd == NULL) {
-	ZF_LOGE("OTG: Out of DMA memory\n");
+        ZF_LOGE("OTG: Out of DMA memory\n");
         return NULL;
     }
     dtdn->dtd = dtd;
@@ -447,6 +473,7 @@ otg_dtdn_new(usb_otg_t otg, void* buf, uintptr_t pbuf, int len) {
 static void
 flush_ep(usb_otg_t otg, struct otg_ep* ep)
 {
+    ZF_LOGD("flush_ep");
     struct ehci_otg* odev;
     odev = &otg->pdata->otg;
     odev->op_regs->otg_endptflush = OTGTX(BIT(ep->ep));
@@ -459,6 +486,7 @@ flush_ep(usb_otg_t otg, struct otg_ep* ep)
 static int
 imx6_otg_ep0_setup(usb_otg_t otg, otg_setup_cb cb, void* token)
 {
+    ZF_LOGD("imx6_otg_ep0_setup");
     struct ehci_otg* odev = &otg->pdata->otg;
     odev->setup_cb = cb;
     odev->setup_token = token;
@@ -471,6 +499,7 @@ imx6_otg_prime(usb_otg_t otg, int epno, enum usb_xact_type dir,
                void* buf, uintptr_t pbuf, int len,
                otg_prime_cb cb, void* token)
 {
+    ZF_LOGD("imx6_otg_prime");
     struct otg_ep* ep;
     struct ehci_otg* odev;
     struct dTDn** dtdn_ptr;
@@ -559,6 +588,7 @@ imx6_otg_prime(usb_otg_t otg, int epno, enum usb_xact_type dir,
 static void
 otg_handle_reset(usb_otg_t otg)
 {
+    ZF_LOGD("otg_handle_reset");
     struct ehci_otg* odev;
     uint32_t v;
     int i;
@@ -583,6 +613,7 @@ otg_handle_reset(usb_otg_t otg)
 static void
 otg_handle_setup(usb_otg_t otg, struct otg_ep* ep)
 {
+    ZF_LOGD("otg_handle_setup");
     struct ehci_otg* odev;
     struct usbreq req;
 
@@ -620,6 +651,7 @@ otg_handle_setup(usb_otg_t otg, struct otg_ep* ep)
 static void
 otg_handle_complete(usb_otg_t otg, struct otg_ep* ep)
 {
+    ZF_LOGD("otg_handle_complete");
     struct dTDn* dtdn;
     dtdn = ep->dtdn;
 
@@ -649,6 +681,7 @@ otg_handle_complete(usb_otg_t otg, struct otg_ep* ep)
 static void
 otg_handle_int(usb_otg_t otg)
 {
+    ZF_LOGD("otg_handle_int");
     struct ehci_otg* odev;
     uint32_t v;
     int e;
@@ -672,7 +705,7 @@ otg_handle_int(usb_otg_t otg)
     v = odev->op_regs->otg_endptsetupstat;
     for (e = 0; e < 32; e++) {
         if (v & BIT(e)) {
-            ZF_LOGD("OTG: EP %d Received setup\n", e);
+            ZF_LOGD("OTG: EP %d Received setup", e);
             otg_handle_setup(otg, &odev->ep[e * 2]);
         }
     }
@@ -688,42 +721,43 @@ otg_plat_handle_irq(usb_otg_t otg)
     uint32_t sts;
     odev = &otg->pdata->otg;
     sts = odev->op_regs->usbsts;
-    sts &= odev->op_regs->usbintr;
+    sts &= odev->op_regs->usbintr; // mask the status with the enabled interrupts
     if (sts & EHCISTS_USBINT) {
-        ZF_LOGD("OTG: INT - USB int\n");
+        ZF_LOGD("OTG: INT - USB int");
         odev->op_regs->usbsts = EHCISTS_USBINT;
         sts &= ~EHCISTS_USBINT;
         otg_handle_int(otg);
     }
     if (sts & EHCISTS_USBERRINT) {
-        ZF_LOGD("OTG: INT - USB error\n");
+        ZF_LOGD("OTG: INT - USB error");
         odev->op_regs->usbsts = EHCISTS_USBERRINT;
         sts &= ~EHCISTS_USBERRINT;
     }
     if (sts & EHCISTS_PORTC_DET) {
-        ZF_LOGD("OTG: Port change: connect\n");
+        ZF_LOGD("OTG: Port change: connect");
         odev->op_regs->usbsts = EHCISTS_PORTC_DET;
         sts &= ~EHCISTS_PORTC_DET;
     }
     if (sts & OTGSTS_SLEEP) {
-        ZF_LOGD("OTG: Port change: sleep\n");
+        ZF_LOGD("OTG: Port change: sleep");
         odev->op_regs->usbsts = OTGSTS_SLEEP;
         sts &= ~OTGSTS_SLEEP;
     }
     if (sts & OTGSTS_RESET) {
-        ZF_LOGD("OTG: Reset request\n");
+        ZF_LOGD("OTG: Reset request");
         odev->op_regs->usbsts = OTGSTS_RESET;
         sts &= ~OTGSTS_RESET;
         otg_handle_reset(otg);
     }
     if (sts) {
-        ZF_LOGF("Unhandled USB irq. Status: 0x%x\n", sts);
+        ZF_LOGF("Unhandled USB irq. Status: 0x%x", sts);
     }
 }
 
 int
 ehci_otg_init(usb_otg_t odev, uintptr_t cap_regs)
 {
+    ZF_LOGD("ehci_otg_init");
     struct ehci_otg * otg;
     struct dQH* dqh_list;
     struct otg_ep* ep;
@@ -773,6 +807,11 @@ ehci_otg_init(usb_otg_t odev, uintptr_t cap_regs)
     otg->op_regs->otg_endptcomplete |= 0;
     otg->op_regs->otg_endptsetupstat |= 0;
     otg->op_regs->otg_endptflush = 0xffffffff;
+    // wait for host to stop signalling reset?
+    while(otg->op_regs->portsc1 & 0x100);
+    //! - Clear reset status bit
+    otg->op_regs->usbsts |=  (0x80 | 0x40 | 0x01);
+
     /* Enable EP0 */
     otg->op_regs->otg_endptctrl[0] = OTGEPCTRL_TXE | OTGEPCTRL_RXE;
     /* start the controller */
@@ -781,13 +820,17 @@ ehci_otg_init(usb_otg_t odev, uintptr_t cap_regs)
                             | EHCIINTR_PORTC_DET
                             | OTGINTR_RESET
                             | OTGINTR_SLEEP;
+
     otg->op_regs->otg_otgsc |= OTGSC_DATA_PULSE_IRQEN
                                |  OTGSC_1MS_IRQEN
                                |  OTGSC_BSESSION_END_IRQEN
                                |  OTGSC_BSESSION_VALID_IRQEN
                                |  OTGSC_ASESSION_VALID_IRQEN
                                |  OTGSC_AVBUS_VALID_IRQEN
-                               |  OTGSC_USBID_IRQEN;
+                               |  OTGSC_USBID_IRQEN
+                               |  OTGSC_IDPULLUP
+                               |  OTGSC_OTGTERMINATION;
+
 
     return 0;
 }

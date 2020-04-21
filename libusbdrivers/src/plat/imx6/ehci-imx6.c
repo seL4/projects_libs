@@ -9,6 +9,10 @@
  *
  * @TAG(DATA61_BSD)
  */
+
+#define ZF_LOG_LEVEL ZF_LOG_DEBUG
+
+
 #include <platsupport/clock.h>
 #include <usb/usb_host.h>
 #include "../usb_otg.h"
@@ -288,10 +292,10 @@ phy_enable(const int devid, ps_io_ops_t* o)
         if (clk == NULL) {
             ZF_LOGD("Failed to initialise USB PHY clock\n");
         }
-        /* Enable clocks */
-        phy_regs->ctrl.clr = PHYCTRL_CLKGATE;
         /* Reset PHY */
         phy_regs->ctrl.set = PHYCTRL_SFTRST;
+        /* Enable clocks */
+        phy_regs->ctrl.clr = PHYCTRL_CLKGATE;
         dsb();
         ps_udelay(10);
         phy_regs->ctrl.clr = PHYCTRL_SFTRST;

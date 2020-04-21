@@ -9,6 +9,9 @@
  *
  * @TAG(DATA61_BSD)
  */
+
+#define ZF_LOG_LEVEL ZF_LOG_DEBUG
+
 #include "otgusbtty.h"
 #include <usb/usb.h>
 #include "../services.h"
@@ -124,81 +127,81 @@ send_desc(otg_usbtty_t tty, enum DescriptorType type, int index,
     switch (type) {
     case DEVICE:
         d = (struct anon_desc*)&otg_usbtty_device_desc;
-        printf("device descriptor read/");
         if (maxlen >= d->bLength) {
-            printf("all\n");
+            ZF_LOGD("device descriptor read: all(%d)",  d->bLength);
         } else {
-            printf("%d\n", maxlen);
+            ZF_LOGD("device descriptor read: %d", maxlen);
         }
         break;
     case CONFIGURATION:
-        printf("config\n");
+        ZF_LOGD("config");
         break;
     case STRING:
-        printf("string\n");
+        ZF_LOGD("string");
         break;
     case INTERFACE:
-        printf("interface\n");
+        ZF_LOGD("interface");
         break;
     case ENDPOINT:
-        printf("endpoint\n");
+        ZF_LOGD("endpoint");
         break;
     case DEVICE_QUALIFIER:
-        printf("device qualifier\n");
+        ZF_LOGD("device qualifier");
         break;
     case OTHER_SPEED_CONFIGURATION:
-        printf("other speed\n");
+        ZF_LOGD("other speed");
         break;
     case INTERFACE_POWER:
-        printf("interface power\n");
+        ZF_LOGD("interface power");
         break;
     case HID:
-        printf("hid\n");
+        ZF_LOGD("hid");
         break;
     case HUB:
-        printf("Hub\n");
+        ZF_LOGD("Hub");
         break;
     default:
-        printf("Unhandled descriptor request\n");
+        ZF_LOGD("Unhandled descriptor request");
     }
+
     /* Send the descriptor */
-    if (d != NULL) {
-        struct free_token* t;
-        uintptr_t pbuf;
-        int err;
+    ZF_LOGF_IF(d == NULL,"Device Descriptor impossibly null");
 
-        t = usb_malloc(sizeof(*t));
-	if (!t) {
-		ZF_LOGF("Out of memory\n");
-	}
-        t->dman = tty->dman;
+    struct free_token* t = NULL;
+    uintptr_t pbuf;
+    int err;
 
-        /* limit size to prevent babble */
-        t->size = d->bLength;
-        if (maxlen < t->size) {
-            t->size = maxlen;
-        }
-        /* Copy in */
-        t->vaddr = ps_dma_alloc_pinned(tty->dman, t->size, 32, 0, PS_MEM_NORMAL, &pbuf);
-        if (t->vaddr == NULL) {
-            ZF_LOGF("Out of DMA memory\n");
-        }
-        memcpy(t->vaddr, d, t->size);
+    t = usb_malloc(sizeof(*t));
+    ZF_LOGF_IF(t == NULL, "Out of memory");
 
-        /* Send the packet */
-        err = otg_prime(tty->otg, 0, PID_IN, t->vaddr, pbuf, t->size, freebuf_cb, t);
-        if (err) {
-            ps_dma_free_pinned(tty->dman, t->vaddr, t->size);
-            ZF_LOGF("OTG device error\n");
-        }
-        /* Status phase */
-        err = otg_prime(tty->otg, 0, PID_OUT, NULL, 0, 0, freebuf_cb, t);
-        if (err) {
-            ps_dma_free_pinned(tty->dman, t->vaddr, t->size);
-            ZF_LOGF("OTG device error\n");
-        }
+    t->dman = tty->dman;
+    ZF_LOGF_IF(t->dman == NULL, "DMA manager not set");
+
+    /* limit size to prevent babble */
+    t->size = d->bLength;
+    if (maxlen < t->size) {
+        t->size = maxlen;
+    }
+    /* Copy in */
+    t->vaddr = ps_dma_alloc_pinned(t->dman, t->size, 32, 0, PS_MEM_NORMAL, &pbuf);
+    ZF_LOGF_IF(t->vaddr == NULL, "Out of DMA memory\n");
+
+    memcpy(t->vaddr, d, t->size);
+
+    /* Send the packet */
+    err = otg_prime(tty->otg, 0, PID_IN, t->vaddr, pbuf, t->size, freebuf_cb, t);
+    if (err) {
+        ps_dma_free_pinned(tty->dman, t->vaddr, t->size);
+        ZF_LOGF("OTG device error\n");
+    }
+    /* Status phase */
+    err = otg_prime(tty->otg, 0, PID_OUT, NULL, 0, 0, freebuf_cb, t);
+    if (err) {
+        ps_dma_free_pinned(tty->dman, t->vaddr, t->size);
+        ZF_LOGF("OTG device error\n");
     }
 }
+
 
 static void
 usbtty_setup_cb(usb_otg_t otg, void* token, struct usbreq* req)
@@ -211,38 +214,39 @@ usbtty_setup_cb(usb_otg_t otg, void* token, struct usbreq* req)
     (void)otg_usbtty_ep3_desc;
     switch (req->bRequest) {
     case GET_DESCRIPTOR:
+        ZF_LOGD("get desc");
         send_desc(tty, req->wValue >> 8, req->wValue & 0xff,
                   req->wLength);
         break;
     case GET_CONFIGURATION:
-        printf("get conf\n");
+        ZF_LOGD("get conf");
         break;
     case GET_STATUS:
-        printf("get stat\n");
+        ZF_LOGD("get stat");
         break;
     case CLR_FEATURE:
-        printf("Clear feat\n");
+        ZF_LOGD("Clear feat");
         break;
     case SET_FEATURE:
-        printf("Set feature\n");
+        ZF_LOGD("Set feature");
         break;
     case SET_ADDRESS:
-        printf("Set address\n");
+        ZF_LOGD("Set address");
         break;
     case SET_DESCRIPTOR:
-        printf("Set descriptor\n");
+        ZF_LOGD("Set descriptor");
         break;
     case SET_CONFIGURATION:
-        printf("Set config\n");
+        ZF_LOGD("Set config");
         break;
     case GET_INTERFACE:
-        printf("Get interface\n");
+        ZF_LOGD("Get interface");
         break;
     case SET_INTERFACE:
-        printf("Set interface\n");
+        ZF_LOGD("Set interface");
         break;
     default:
-        printf("Unhandled request %d\n", req->bRequest);
+        ZF_LOGD("Unhandled request %d", req->bRequest);
     }
 }
 

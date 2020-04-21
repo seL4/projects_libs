@@ -14,6 +14,8 @@
 #include "services.h"
 #include <stdio.h>
 
+extern ps_malloc_ops_t *ps_malloc_ops;
+
 int usb_otg_init(int id, usb_otg_t * otg_ptr, ps_io_ops_t ioops)
 {
 	usb_otg_t otg;
@@ -22,6 +24,10 @@ int usb_otg_init(int id, usb_otg_t * otg_ptr, ps_io_ops_t ioops)
 	if (id < 0 || id > USB_NOTGS) {
 		return -1;
 	}
+
+	// mirror usb.c allocators
+	ps_malloc_ops = &ioops.malloc_ops;
+
 	/* Allocate host memory */
 	otg = usb_malloc(sizeof(*otg));
 	if (otg == NULL) {
@@ -46,9 +52,7 @@ void otg_handle_irq(usb_otg_t otg)
 
 int otg_ep0_setup(usb_otg_t otg, otg_setup_cb cb, void *token)
 {
-	if (!otg || !otg->ep0_setup) {
-		ZF_LOGF("OTG: Invalid arguments\n");
-	}
+	ZF_LOGF_IF(!otg || !otg->ep0_setup, "OTG: Invalid arguments");
 	return otg->ep0_setup(otg, cb, token);
 }
 
@@ -56,5 +60,6 @@ int
 otg_prime(usb_otg_t otg, int ep, enum usb_xact_type dir,
 	  void *vbuf, uintptr_t pbuf, int len, otg_prime_cb cb, void *token)
 {
+	ZF_LOGF_IF(otg->prime == NULL, "OTG: Cannot prime null");
 	return otg->prime(otg, ep, dir, vbuf, pbuf, len, cb, token);
 }
