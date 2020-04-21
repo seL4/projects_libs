@@ -29,21 +29,23 @@ extern ps_malloc_ops_t *ps_malloc_ops;
 static inline void *usb_malloc(size_t size)
 {
 	int ret;
+	void *ptr;
 
 	if (ps_malloc_ops && ps_malloc_ops->calloc) {
-		void *ptr;
 		ret = ps_calloc(ps_malloc_ops, 1, size, &ptr);
 		if (0 != ret) {
 			ZF_LOGF("Malloc error\n");
 		}
-		return ptr;
 	} else {
-		return calloc(1, size);
+		ptr =  calloc(1, size);
+    	ZF_LOGD("usb_malloc(%d) - calloc %p", size, ptr);
 	}
+	return ptr;
 }
 
 static inline void usb_free(void *ptr)
 {
+	ZF_LOGD("usb_free %p", ptr);
 	int ret;
 
 	if (ps_malloc_ops && ps_malloc_ops->free) {
@@ -74,9 +76,12 @@ static inline void *ps_dma_alloc_pinned(ps_dma_man_t * dma_man, size_t size,
 		ZF_LOGF("Invalid arguments\n");
 	}
 	addr = ps_dma_alloc(dma_man, size, align, cache, flags);
-	if (addr != NULL) {
-		*paddr = ps_dma_pin(dma_man, addr, size);
-	}
+	if (addr != NULL){
+    	*paddr = ps_dma_pin(dma_man, addr, size);
+    }
+    else {
+        ZF_LOGE("Failed to alloc");
+    }
 	return addr;
 }
 
@@ -84,7 +89,7 @@ static inline void
 ps_dma_free_pinned(ps_dma_man_t * dma_man, void *addr, size_t size)
 {
 	if (!dma_man) {
-		ZF_LOGF("Invalid arguments\n");
+		ZF_LOGF("Invalid arguments");
 	}
 	ps_dma_unpin(dma_man, addr, size);
 	ps_dma_free(dma_man, addr, size);

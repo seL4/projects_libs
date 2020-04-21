@@ -433,7 +433,7 @@ otg_dtdn_new(usb_otg_t otg, void* buf, uintptr_t pbuf, int len) {
     /* Allocate a descriptor */
     dtdn = usb_malloc(sizeof(*dtdn));
     if (dtdn == NULL) {
-	ZF_LOGE("OTG: Out of memory\n");
+        ZF_LOGE("OTG: Out of memory\n");
         return NULL;
     }
     dtd = ps_dma_alloc_pinned(otg->dman, sizeof(*dtdn->dtd), 32,

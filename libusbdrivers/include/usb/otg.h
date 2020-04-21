@@ -27,7 +27,7 @@ int usb_default_otg_id(void);
  */
 int usb_notgs(void);
 
-int usb_otg_init(int id, usb_otg_t* otg, ps_io_ops_t ioops);
+int usb_otg_init(int id, usb_otg_t* otg, ps_io_ops_t *ioops);
 
 /** Pass control to the devices IRQ handler
  * @param[in] host    The USB host that triggered

@@ -16,7 +16,7 @@
 
 extern ps_malloc_ops_t *ps_malloc_ops;
 
-int usb_otg_init(int id, usb_otg_t * otg_ptr, ps_io_ops_t ioops)
+int usb_otg_init(int id, usb_otg_t * otg_ptr, ps_io_ops_t *ioops)
 {
 	usb_otg_t otg;
 	int err;
@@ -26,7 +26,7 @@ int usb_otg_init(int id, usb_otg_t * otg_ptr, ps_io_ops_t ioops)
 	}
 
 	// mirror usb.c allocators
-	ps_malloc_ops = &ioops.malloc_ops;
+	//ps_malloc_ops = &ioops->malloc_ops;
 
 	/* Allocate host memory */
 	otg = usb_malloc(sizeof(*otg));
@@ -34,11 +34,12 @@ int usb_otg_init(int id, usb_otg_t * otg_ptr, ps_io_ops_t ioops)
 		ZF_LOGE("OTG: Out of memory\n");
 		return -1;
 	}
-	otg->dman = &ioops.dma_manager;
+	otg->dman = &ioops->dma_manager;
+    ZF_LOGD("dma manager %p", otg->dman);
 	otg->id = id;
 	otg->ep0_setup = NULL;
 	otg->prime = NULL;
-	err = usb_plat_otg_init(otg, &ioops);
+	err = usb_plat_otg_init(otg, ioops);
 	if (!err) {
 		*otg_ptr = otg;
 	}
