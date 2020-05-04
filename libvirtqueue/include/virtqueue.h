@@ -14,8 +14,8 @@
 
 #include <stdint.h>
 
-#define RING_SIZE       128
-#define DESC_TABLE_SIZE 128
+#define RING_SIZE       256
+#define DESC_TABLE_SIZE 256
 
 #define VQ_DEV_POLL(vq) ((((vq)->a_ring_last_seen + 1) & (RING_SIZE - 1)) != (vq)->avail_ring->idx)
 #define VQ_DRV_POLL(vq) ((((vq)->u_ring_last_seen + 1) & (RING_SIZE - 1)) != (vq)->used_ring->idx)
