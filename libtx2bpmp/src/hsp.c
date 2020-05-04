@@ -16,6 +16,7 @@
 #include <stdbool.h>
 
 #include <platsupport/pmem.h>
+#include <platsupport/fdt.h>
 #include <tx2bpmp/hsp.h>
 #include <utils/util.h>
 
@@ -36,6 +37,7 @@ typedef struct tx2_hsp_priv {
     ps_io_ops_t *io_ops;
     void *hsp_base;
     void *doorbell_base;
+    pmem_region_t tx2_hsp_region;
 } tx2_hsp_priv_t;
 
 enum dbell_reg_offset {
@@ -60,11 +62,6 @@ enum dbell_bitmap_offset {
     APE_BIT = BIT(11)
 };
 
-static pmem_region_t tx2_hsp_region = {
-    .type = PMEM_TYPE_DEVICE,
-    .base_addr = TX2_HSP_PADDR,
-    .length = TX2_HSP_SIZE
-};
 
 static bool check_doorbell_id_is_valid(enum tx2_doorbell_id db_id)
 {
@@ -89,7 +86,7 @@ static int hsp_destroy(void *data)
     /* The doorbell base is just an offset from the hsp base, so we only need
      * to deallocate the hsp base */
     if (hsp_priv->hsp_base) {
-        ps_io_unmap(&hsp_priv->io_ops->io_mapper, hsp_priv->hsp_base, tx2_hsp_region.length);
+        ps_io_unmap(&hsp_priv->io_ops->io_mapper, hsp_priv->hsp_base, hsp_priv->tx2_hsp_region.length);
     }
 
     ps_io_ops_t *temp_ops = hsp_priv->io_ops;
@@ -164,7 +161,22 @@ static int hsp_doorbell_check(void *data, enum tx2_doorbell_id db_id)
     return (is_pending != 0);
 }
 
-int tx2_hsp_init(ps_io_ops_t *io_ops, tx2_hsp_t *hsp)
+static int allocate_register_callback(pmem_region_t pmem, unsigned curr_num, size_t num_regs, void *token)
+{
+    assert(token != NULL);
+    tx2_hsp_priv_t *hsp_priv = token;
+    /* There's only one register region to map, map it in */
+    assert(num_regs == 1 && curr_num == 0);
+    hsp_priv->hsp_base = ps_pmem_map(hsp_priv->io_ops, pmem, false, PS_MEM_NORMAL);
+    if (hsp_priv->hsp_base == NULL) {
+        return -EIO;
+    }
+    hsp_priv->tx2_hsp_region = pmem;
+    return 0;
+}
+
+
+int tx2_hsp_init(ps_io_ops_t *io_ops, tx2_hsp_t *hsp, const char *path)
 {
     if (!io_ops || !hsp) {
         ZF_LOGE("Arguments are NULL!");
@@ -179,14 +191,34 @@ int tx2_hsp_init(ps_io_ops_t *io_ops, tx2_hsp_t *hsp)
         ZF_LOGE("Failed to allocate memory for private data for the HSP");
         return -ENOMEM;
     }
+    hsp_priv->io_ops = io_ops;
 
-    hsp_priv->hsp_base = ps_pmem_map(io_ops, tx2_hsp_region, false, PS_MEM_NORMAL);
+    ps_fdt_cookie_t *cookie = NULL;
+    error = ps_fdt_read_path(&io_ops->io_fdt, &io_ops->malloc_ops, path, &cookie);
+    if (error) {
+        ZF_LOGE("Failed to find %s in device tree", path);
+        return -ENODEV;
+    }
+
+    /* walk the registers and allocate them */
+    error = ps_fdt_walk_registers(&io_ops->io_fdt, cookie, allocate_register_callback, hsp_priv);
+    if (error) {
+        ZF_LOGE("Failed to walk fdt node");
+        return -ENODEV;
+    }
+
     if (!hsp_priv->hsp_base) {
         ZF_LOGE("Failed to map tx2 HSP module");
         ZF_LOGF_IF(ps_free(&io_ops->malloc_ops, sizeof(*hsp_priv), hsp_priv),
                    "Failed to clean-up after a failed initialisation for the HSP");
         return -ENOMEM;
     }
+
+    error = ps_fdt_cleanup_cookie(&io_ops->malloc_ops, cookie);
+    if (error) {
+        return -ENODEV;
+    }
+
 
     /* Get the base addr of the doorbell
      * Section 14.8.5: All doorbell registers are in a single page, doorbell
@@ -202,7 +234,6 @@ int tx2_hsp_init(ps_io_ops_t *io_ops, tx2_hsp_t *hsp)
     num_as = (*int_dim_reg >> HSP_INT_DIMENSION_AS_SHIFT) & HSP_INT_DIMENSION_NUM_MASK;
 
     hsp_priv->doorbell_base = hsp_priv->hsp_base + (1 + (num_sm / 2) + num_ss + num_as) * 0x10000;
-    hsp_priv->io_ops = io_ops;
 
     hsp->data = hsp_priv;
     hsp->ring = hsp_doorbell_ring;

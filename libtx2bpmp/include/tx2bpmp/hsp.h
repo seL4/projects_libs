@@ -15,9 +15,6 @@
 #include <platsupport/io.h>
 #include <utils/util.h>
 
-#define TX2_HSP_PADDR 0x3c00000
-#define TX2_HSP_SIZE 0xa0000
-
 #define __HSP_CHECK_ARGS(function)                                                                  \
     do {                                                                                            \
         if (!hsp) { ZF_LOGE("hsp is NULL"); return -EINVAL; }                                       \
@@ -66,7 +63,7 @@ typedef struct tx2_hsp {
  *
  * @return 0 on success, otherwise an error code.
  */
-int tx2_hsp_init(ps_io_ops_t *io_ops, tx2_hsp_t *hsp);
+int tx2_hsp_init(ps_io_ops_t *io_ops, tx2_hsp_t *hsp, const char *fdt_path);
 
 /*
  * Destroys an initialised TX2 HSP interface.

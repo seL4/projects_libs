@@ -47,11 +47,6 @@
  * @file
  */
 
-#define TX2_BPMP_TX_SHMEM_PADDR 0x3004e000
-#define TX2_BPMP_TX_SHMEM_SIZE 0x1000
-#define TX2_BPMP_RX_SHMEM_PADDR 0x3004f000
-#define TX2_BPMP_RX_SHMEM_SIZE 0x1000
-
 #define __BPMP_CHECK_ARGS(function) \
     do {                                                                            \
         if (!bpmp) { ZF_LOGE("bpmp is NULL"); return -EINVAL; }                     \

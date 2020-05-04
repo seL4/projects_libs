@@ -20,6 +20,8 @@
 #include <string.h>
 
 #include <platsupport/pmem.h>
+#include <platsupport/fdt.h>
+#include <platsupport/driver_module.h>
 #include <tx2bpmp/bpmp.h>
 #include <tx2bpmp/hsp.h>
 #include <tx2bpmp/ivc.h>
@@ -44,20 +46,9 @@ struct tx2_bpmp_priv {
     struct tegra_ivc ivc;
     void *tx_base; // Virtual address base of the TX shared memory channel
     void *rx_base; // Virtual address base of the RX shared memory channel
+    pmem_region_t bpmp_shmems[NUM_SHMEM];
 };
 
-pmem_region_t bpmp_shmems[NUM_SHMEM] = {
-    {
-        .type = PMEM_TYPE_DEVICE,
-        .base_addr = TX2_BPMP_TX_SHMEM_PADDR,
-        .length = TX2_BPMP_TX_SHMEM_SIZE
-    },
-    {
-        .type = PMEM_TYPE_DEVICE,
-        .base_addr = TX2_BPMP_RX_SHMEM_PADDR,
-        .length = TX2_BPMP_RX_SHMEM_SIZE
-    }
-};
 
 static bool bpmp_initialised = false;
 static unsigned int bpmp_refcount = 0;
@@ -158,15 +149,38 @@ static int bpmp_destroy(void *data)
 
     /* Unmapping the shared memory also destroys the IVC */
     if (bpmp_priv->tx_base) {
-        ps_io_unmap(&bpmp_priv->io_ops->io_mapper, bpmp_priv->tx_base, bpmp_shmems[TX_SHMEM].length);
+        ps_io_unmap(&bpmp_priv->io_ops->io_mapper, bpmp_priv->tx_base, bpmp_data.bpmp_shmems[TX_SHMEM].length);
     }
 
     if (bpmp_priv->rx_base) {
-        ps_io_unmap(&bpmp_priv->io_ops->io_mapper, bpmp_priv->rx_base, bpmp_shmems[RX_SHMEM].length);
+        ps_io_unmap(&bpmp_priv->io_ops->io_mapper, bpmp_priv->rx_base, bpmp_data.bpmp_shmems[RX_SHMEM].length);
     }
 
     return 0;
 }
+
+static int allocate_register_callback(pmem_region_t pmem, unsigned curr_num, size_t num_regs, void *token)
+{
+    if (curr_num == 1) {
+        bpmp_data.tx_base = ps_pmem_map(bpmp_data.io_ops, pmem, false, PS_MEM_NORMAL);
+        if (!bpmp_data.tx_base) {
+            ZF_LOGE("Failed to map the TX BPMP channel");
+            return -EIO;
+        }
+        bpmp_data.bpmp_shmems[TX_SHMEM] = pmem;
+
+    } else if (curr_num == 2) {
+        bpmp_data.rx_base = ps_pmem_map(bpmp_data.io_ops, pmem, false, PS_MEM_NORMAL);
+        if (!bpmp_data.rx_base) {
+            ZF_LOGE("Failed to map the RX BPMP channel");
+            return -EIO;
+        }
+        bpmp_data.bpmp_shmems[RX_SHMEM] = pmem;
+
+    }
+    return 0;
+}
+
 
 int tx2_bpmp_init(ps_io_ops_t *io_ops, struct tx2_bpmp *bpmp)
 {
@@ -185,7 +199,7 @@ int tx2_bpmp_init(ps_io_ops_t *io_ops, struct tx2_bpmp *bpmp)
     /* Not sure if this is too long or too short. */
     unsigned long timeout = TIMEOUT_THRESHOLD;
 
-    ret = tx2_hsp_init(io_ops, &bpmp_data.hsp);
+    ret = tx2_hsp_init(io_ops, &bpmp_data.hsp, "/tegra-hsp@3c00000");
     if (ret) {
         ZF_LOGE("Failed to initialise the HSP device for BPMP");
         return ret;
@@ -194,19 +208,23 @@ int tx2_bpmp_init(ps_io_ops_t *io_ops, struct tx2_bpmp *bpmp)
     bpmp_data.io_ops = io_ops;
 
     bpmp_data.hsp_initialised = true;
+    ps_fdt_cookie_t *cookie = NULL;
 
-    bpmp_data.tx_base = ps_pmem_map(io_ops, bpmp_shmems[TX_SHMEM], false, PS_MEM_NORMAL);
-    if (!bpmp_data.tx_base) {
-        ZF_LOGE("Failed to map the TX BPMP channel");
-        ret = -ENOMEM;
-        goto fail;
+    ret = ps_fdt_read_path(&io_ops->io_fdt, &io_ops->malloc_ops, "/bpmp", &cookie);
+    if (ret) {
+        ZF_LOGE("Failed to find %s in device tree", "/bpmp");
+        return -ENODEV;
     }
 
-    bpmp_data.rx_base = ps_pmem_map(io_ops, bpmp_shmems[RX_SHMEM], false, PS_MEM_NORMAL);
-    if (!bpmp_data.rx_base) {
-        ZF_LOGE("Failed to map the RX BPMP channel");
-        ret = -ENOMEM;
-        goto fail;
+    /* walk the registers and allocate them */
+    ret = ps_fdt_walk_registers(&io_ops->io_fdt, cookie, allocate_register_callback, NULL);
+    if (ret) {
+        ZF_LOGE("Failed to walk fdt node");
+        return -ENODEV;
+    }
+    ret = ps_fdt_cleanup_cookie(&io_ops->malloc_ops, cookie);
+    if (ret) {
+        return -ENODEV;
     }
 
     ret = tegra_ivc_init(&bpmp_data.ivc, (unsigned long) bpmp_data.rx_base, (unsigned long) bpmp_data.tx_base,
@@ -229,6 +247,12 @@ int tx2_bpmp_init(ps_io_ops_t *io_ops, struct tx2_bpmp *bpmp)
         ret = -ETIMEDOUT;
         goto fail;
     }
+    ret = ps_interface_register(&io_ops->interface_registration_ops, TX2_BPMP_INTERFACE,
+                                  bpmp, NULL);
+    if (ret) {
+        ZF_LOGE("Failed to register the BPMP interface");
+        goto fail;
+    }
 
 success:
     bpmp_refcount++;
@@ -237,6 +261,7 @@ success:
     bpmp->call = bpmp_call;
     bpmp->destroy = bpmp_destroy;
     bpmp_initialised = true;
+    /* Register this BPMP interface so that the reset driver can access it */
 
     return 0;
 
@@ -246,3 +271,27 @@ fail:
 }
 
 
+
+int tx2_bpmp_init_module(ps_io_ops_t *io_ops, const char *device_path) {
+    struct tx2_bpmp *bpmp;
+    int error = ps_calloc(&io_ops->malloc_ops, 1, sizeof(*bpmp), (void **)&bpmp);
+    if (error) {
+        ZF_LOGE("Failed to allocate struct for tx2_bpmp");
+        return -1;
+    }
+    error =  tx2_bpmp_init(io_ops, bpmp);
+    if (error) {
+        ZF_LOGE("Failed to initialize bpmp driver");
+        return -1;
+    }
+    return 0;
+
+}
+
+static const char*compatible_strings[] = {
+    "nvidia,tegra186-bpmp",
+    NULL
+};
+
+
+PS_DRIVER_MODULE_DEFINE(bpmp, compatible_strings, tx2_bpmp_init_module);

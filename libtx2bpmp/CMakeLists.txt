@@ -19,4 +19,4 @@ file(GLOB deps src/*.c)
 add_library(tx2bpmp STATIC EXCLUDE_FROM_ALL ${deps})
 
 target_include_directories(tx2bpmp PUBLIC include)
-target_link_libraries(tx2bpmp muslc platsupport)
+target_link_libraries(tx2bpmp muslc platsupport "-Wl,--undefined=bpmp_ptr")
