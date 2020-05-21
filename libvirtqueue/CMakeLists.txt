@@ -19,4 +19,4 @@ add_compile_options(-std=gnu99)
 add_library(virtqueue STATIC EXCLUDE_FROM_ALL src/virtqueue.c)
 
 target_include_directories(virtqueue PUBLIC include)
-target_link_libraries(virtqueue muslc)
+target_link_libraries(virtqueue PUBLIC muslc PRIVATE utils)

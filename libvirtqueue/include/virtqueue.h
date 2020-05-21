@@ -14,11 +14,9 @@
 
 #include <stdint.h>
 
-#define RING_SIZE       256
-#define DESC_TABLE_SIZE 256
 
-#define VQ_DEV_POLL(vq) ((((vq)->a_ring_last_seen + 1) & (RING_SIZE - 1)) != (vq)->avail_ring->idx)
-#define VQ_DRV_POLL(vq) ((((vq)->u_ring_last_seen + 1) & (RING_SIZE - 1)) != (vq)->used_ring->idx)
+#define VQ_DEV_POLL(vq) ((((vq)->a_ring_last_seen + 1) & ((vq)->queue_len - 1)) != (vq)->avail_ring->idx)
+#define VQ_DRV_POLL(vq) ((((vq)->u_ring_last_seen + 1) & ((vq)->queue_len - 1)) != (vq)->used_ring->idx)
 
 /* Flags for the buffers in the descriptor table */
 typedef enum vq_flags {
@@ -31,7 +29,7 @@ typedef enum vq_flags {
 typedef struct vq_vring_avail {
     uint16_t flags;             /* Interrupt suppression flag */
     uint16_t idx;               /* Index of the next free entry in the ring */
-    uint16_t ring[RING_SIZE];   /* The ring of descriptor table entries */
+    uint16_t ring[];   /* The ring of descriptor table entries */
 } vq_vring_avail_t;
 
 /* Element of a used ring buffer */
@@ -44,7 +42,7 @@ typedef struct vq_vring_used_elem {
 typedef struct vq_vring_used {
     uint16_t flags;                             /* Interrupt suppression flag */
     uint16_t idx;                               /* Index of the next free entry in the ring */
-    struct vq_vring_used_elem ring[RING_SIZE];  /* The ring of descriptor table entries */
+    struct vq_vring_used_elem ring[];  /* The ring of descriptor table entries */
 } vq_vring_used_t;
 
 /* Entry in the descriptor table */
@@ -66,6 +64,7 @@ typedef struct virtqueue_device {
     void (*notify)(void);       /* Notify function to wake-up driver side */
     void *cookie;               /* User-defined cookie */
 
+    unsigned queue_len;         /* The number of entries in rings and descriptor table */
     unsigned a_ring_last_seen;  /* Index of the last seen element in the available ring */
 
     struct vq_vring_avail *avail_ring; /* The available ring */
@@ -78,6 +77,7 @@ typedef struct virtqueue_driver {
     void (*notify)(void);       /* Notify function to wake-up device side */
     void *cookie;               /* User-defined cookie */
 
+    unsigned queue_len;         /* The number of entries in rings and descriptor table */
     unsigned free_desc_head;    /* The head of the free list in the descriptor table */
     unsigned u_ring_last_seen;  /* Index of the last seen element in the used ring */
 
@@ -88,30 +88,32 @@ typedef struct virtqueue_driver {
 
 /* Initialise a driver-side virtqueue.
  * @param vq the driver virtqueue
+ * @param queue_len the length of rings and descriptor table
  * @param avail_ring pointer to the shared available ring
  * @param used_ring pointer to the shared used ring
  * @param desc pointer to the shared descriptor table
  * @param notify the notify function to wake up device side
  * @param cookie user's cookie
  */
-void virtqueue_init_driver(virtqueue_driver_t *vq, vq_vring_avail_t *avail_ring,
+void virtqueue_init_driver(virtqueue_driver_t *vq, unsigned queue_len, vq_vring_avail_t *avail_ring,
                            vq_vring_used_t *used_ring, vq_vring_desc_t *desc, void (*notify)(void),
                            void *cookie);
 
 /* Initialise a device-side virtqueue.
  * @param vq the device virtqueue
+ * @param queue_len the length of rings and descriptor table
  * @param avail_ring pointer to the shared available ring
  * @param used_ring pointer to the shared used ring
  * @param desc pointer to the shared descriptor table
  * @param notify the notify function to wake up driver side
  * @param cookie user's cookie
  */
-void virtqueue_init_device(virtqueue_device_t *vq, vq_vring_avail_t *avail_ring,
+void virtqueue_init_device(virtqueue_device_t *vq, unsigned queue_len, vq_vring_avail_t *avail_ring,
                            vq_vring_used_t *used_ring, vq_vring_desc_t *desc, void (*notify)(void),
                            void *cookie);
 
 /* Initialise the descriptor table (create the free list) */
-void virtqueue_init_desc_table(vq_vring_desc_t *table);
+void virtqueue_init_desc_table(vq_vring_desc_t *table, unsigned queue_len);
 
 /* Initialise the available ring */
 void virtqueue_init_avail_ring(vq_vring_avail_t *ring);
