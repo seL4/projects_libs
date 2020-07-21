@@ -25,8 +25,7 @@ struct ether_addr bcast_macaddr = { .ether_addr_octet = {
     }
 };
 
-static int
-vswitch_find_free_slot(vswitch_t *lib)
+static int vswitch_find_free_slot(vswitch_t *lib)
 {
     for (int i = 0; i < VSWITCH_NUM_NODES; i++) {
         if (mac802_addr_eq((void *)&lib->nodes[i].addr, &null_macaddr)) {
@@ -37,18 +36,16 @@ vswitch_find_free_slot(vswitch_t *lib)
     return -1;
 }
 
-int
-vswitch_init(vswitch_t *lib)
+int vswitch_init(vswitch_t *lib)
 {
     memset((void *)lib, 0, sizeof(*lib));
     return 0;
 }
 
-int
-vswitch_connect(vswitch_t *lib,
-                struct ether_addr *guest_macaddr,
-                virtqueue_driver_t *send_virtqueue,
-                virtqueue_device_t *recv_virtqueue)
+int vswitch_connect(vswitch_t *lib,
+                    struct ether_addr *guest_macaddr,
+                    virtqueue_driver_t *send_virtqueue,
+                    virtqueue_device_t *recv_virtqueue)
 {
     int slot;
 
@@ -82,9 +79,8 @@ vswitch_connect(vswitch_t *lib,
     return 0;
 }
 
-int
-vswitch_get_destnode_index_by_macaddr(vswitch_t *lib,
-                                      struct ether_addr *mac)
+int vswitch_get_destnode_index_by_macaddr(vswitch_t *lib,
+                                          struct ether_addr *mac)
 {
     for (int i = 0; i < VSWITCH_NUM_NODES; i++) {
         if (mac802_addr_eq((void *)&lib->nodes[i].addr, mac)) {
@@ -95,8 +91,7 @@ vswitch_get_destnode_index_by_macaddr(vswitch_t *lib,
     return -1;
 }
 
-vswitch_node_t *
-vswitch_get_destnode_by_index(vswitch_t *lib, size_t index)
+vswitch_node_t *vswitch_get_destnode_by_index(vswitch_t *lib, size_t index)
 {
     if (mac802_addr_eq((void *)&lib->nodes[index].addr, &null_macaddr)) {
         /* If the index requested is has a NULL mac addr in it, return
