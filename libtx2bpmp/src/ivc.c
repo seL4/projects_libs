@@ -29,7 +29,7 @@
 #define TEGRA_IVC_ALIGN 64
 
 #define __ACCESS_ONCE(x) ({ \
-      UNUSED typeof(x) __var = (__attribute__((force)) typeof(x)) 0; \
+      UNUSED typeof(x) __var = (typeof(x)) 0; \
      (volatile typeof(x) *)&(x); })     
 #define ACCESS_ONCE(x) (*__ACCESS_ONCE(x))
 
@@ -448,7 +448,7 @@ static int check_ivc_params(unsigned long qbase1, unsigned long qbase2, uint32_t
 	ZF_LOGF_IF(OFFSETOF(struct tegra_ivc_channel_header, r_count) & (TEGRA_IVC_ALIGN - 1),
                "r_count is not properly aligned to %d", TEGRA_IVC_ALIGN);
 	ZF_LOGF_IF(sizeof(struct tegra_ivc_channel_header) & (TEGRA_IVC_ALIGN - 1),
-               "sizeof(struct tegre_ivc_channel_header) = %d is not algined to %d",
+               "sizeof(struct tegre_ivc_channel_header) = %zd is not algined to %d",
                sizeof(struct tegra_ivc_channel_header), TEGRA_IVC_ALIGN);
 
 	if ((uint64_t)nframes * (uint64_t)frame_size >= 0x100000000) {

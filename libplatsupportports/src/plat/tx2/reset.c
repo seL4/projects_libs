@@ -85,7 +85,6 @@ int reset_sys_init(ps_io_ops_t *io_ops, void *dependencies, reset_sys_t *reset_s
     }
 
     int error = 0;
-    bool bpmp_allocated = false;
     tx2_reset_t *reset = NULL;
     error = ps_calloc(&io_ops->malloc_ops, 1, sizeof(tx2_reset_t), (void **) &reset_sys->data);
     if (error) {

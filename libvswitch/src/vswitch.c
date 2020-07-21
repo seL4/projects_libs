@@ -50,7 +50,7 @@ vswitch_connect(vswitch_t *lib,
                 virtqueue_driver_t *send_virtqueue,
                 virtqueue_device_t *recv_virtqueue)
 {
-    int slot, err;
+    int slot;
 
     assert(lib->n_connected <= VSWITCH_NUM_NODES);
 

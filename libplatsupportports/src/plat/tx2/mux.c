@@ -223,7 +223,7 @@ static inline volatile uint32_t *tx2_mux_get_register(void *mux_base, uint16_t m
     return (volatile uint32_t *)(regs + mux_reg_offset + offset);
 }
 
-static int tx2_mux_set_pin_params(mux_sys_t *mux, struct tx2_mux_pin_desc *desc, enum mux_gpio_dir dir)
+static int tx2_mux_set_pin_params(const mux_sys_t *mux, struct tx2_mux_pin_desc *desc, enum mux_gpio_dir dir)
 {
     volatile uint32_t *pin_reg = tx2_mux_get_register(mux->priv, desc->mux_reg_offset, CONTROL_REGISTER);
 
@@ -328,7 +328,7 @@ static int tx2_mux_set_pin_params(mux_sys_t *mux, struct tx2_mux_pin_desc *desc,
 
 }
 
-static int tx2_mux_feature_enable(mux_sys_t *mux, mux_feature_t feature, enum mux_gpio_dir dir)
+static int tx2_mux_feature_enable(const mux_sys_t *mux, mux_feature_t feature, enum mux_gpio_dir dir)
 {
     int error = 0;
 
@@ -356,7 +356,7 @@ static int tx2_mux_feature_enable(mux_sys_t *mux, mux_feature_t feature, enum mu
 
         error = tx2_mux_set_pin_params(mux, &map->pins[i], dir);
         if (error) {
-            ZF_LOGE("Failed to set pinmux params for pin %d of feature %d", i, feature);
+            ZF_LOGE("Failed to set pinmux params for pin %d of feature %zd", i, feature);
             return error;
         }
     }
@@ -364,7 +364,7 @@ static int tx2_mux_feature_enable(mux_sys_t *mux, mux_feature_t feature, enum mu
     return 0;
 }
 
-static inline void tx2_mux_disable_pin(mux_sys_t *mux, struct tx2_mux_pin_desc *desc)
+static inline void tx2_mux_disable_pin(const mux_sys_t *mux, struct tx2_mux_pin_desc *desc)
 {
     /* 8.29.3 of the TRM:
      * For each unused MPIO, assert its tristate (TRISTATE_CONTROL) bit and
@@ -382,10 +382,8 @@ static inline void tx2_mux_disable_pin(mux_sys_t *mux, struct tx2_mux_pin_desc *
     assert(*pin_reg == (MUX_REG_TRISTATE_TRISTATE << MUX_REG_TRISTATE_SHIFT));
 }
 
-static int tx2_mux_feature_disable(mux_sys_t *mux, mux_feature_t feature)
+static int tx2_mux_feature_disable(const mux_sys_t *mux, mux_feature_t feature)
 {
-    int error = 0;
-
     if (!is_valid_feature(feature)) {
         return -EINVAL;
     }

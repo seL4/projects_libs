@@ -116,7 +116,7 @@ static clk_t *tx2_car_get_clock(clock_sys_t *clock_sys, enum clk_id id)
 
     clk_t *ret_clk = NULL;
     tx2_clk_t *tx2_clk = clock_sys->priv;
-
+    size_t clk_name_len = 0;
     int error = ps_calloc(&tx2_clk->io_ops->malloc_ops, 1, sizeof(*ret_clk), (void **) &ret_clk);
     if (error) {
         ZF_LOGE("Failed to allocate memory for the clock structure");
@@ -144,7 +144,7 @@ static clk_t *tx2_car_get_clock(clock_sys_t *clock_sys, enum clk_id id)
         ZF_LOGE("Failed to initialise the clock");
         goto fail;
     }
-    size_t clk_name_len = strlen((char *) res.clk_get_all_info.name) + 1;
+    clk_name_len = strlen((char *) res.clk_get_all_info.name) + 1;
     error = ps_calloc(&tx2_clk->io_ops->malloc_ops, 1, sizeof(char) * clk_name_len, (void **) &clock_name);
     if (error) {
         ZF_LOGE("Failed to allocate memory for the name of the clock");
@@ -205,6 +205,7 @@ int clock_sys_init(ps_io_ops_t *io_ops, clock_sys_t *clock_sys)
 
     int error = 0;
     tx2_clk_t *clk = NULL;
+    void *car_vaddr = NULL;
 
     error = ps_calloc(&io_ops->malloc_ops, 1, sizeof(tx2_clk_t), (void **) &clock_sys->priv);
     if (error) {
@@ -215,7 +216,6 @@ int clock_sys_init(ps_io_ops_t *io_ops, clock_sys_t *clock_sys)
 
     clk = clock_sys->priv;
 
-    void *car_vaddr = NULL;
     car_vaddr = ps_io_map(&io_ops->io_mapper, TX2_CLKCAR_PADDR, TX2_CLKCAR_SIZE, 0, PS_MEM_NORMAL);
     if (car_vaddr == NULL) {
         ZF_LOGE("Failed to map tx2 CAR registers");

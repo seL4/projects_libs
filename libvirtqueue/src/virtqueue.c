@@ -118,15 +118,6 @@ static unsigned vq_pop_desc(virtqueue_driver_t *vq, unsigned idx,
     return next;
 }
 
-static void vq_free_chain(virtqueue_driver_t *vq, unsigned head)
-{
-    while (head != vq->queue_len) {
-        vq->desc_table[head].next = vq->free_desc_head;
-        vq->free_desc_head = head;
-        head = vq->desc_table[head].next;
-    }
-}
-
 int virtqueue_add_available_buf(virtqueue_driver_t *vq, virtqueue_ring_object_t *obj,
                                 void *buf, unsigned len, vq_flags_t flag)
 {
