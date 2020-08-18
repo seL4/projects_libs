@@ -260,6 +260,15 @@ static int mmc_card_registry(mmc_card_t card)
     host_send_command(card, &cmd, NULL, NULL);
     cmd.index = SD_SET_BUS_WIDTH;
     host_send_command(card, &cmd, NULL, NULL);
+
+    /* Set read/write block length for byte addressed standard capacity cards */
+    if (!card->high_capacity) {
+        cmd.index = MMC_SET_BLOCKLEN;
+        cmd.arg = mmc_block_size(card);
+        cmd.rsp_type = MMC_RSP_TYPE_R1;
+        ret = host_send_command(card, &cmd, NULL, NULL);
+    }
+
     return 0;
 }
 
@@ -425,7 +434,7 @@ long mmc_block_read(mmc_card_t mmc_card, unsigned long start,
     if (mmc_card->high_capacity) {
         arg = start;
     } else {
-        arg = start + bs;
+        arg = start * bs;
     }
     /* Allocate command structure */
     cmd = mmc_cmd_new(MMC_READ_SINGLE_BLOCK, arg, MMC_RSP_TYPE_R1);
@@ -472,7 +481,7 @@ long mmc_block_write(mmc_card_t mmc_card, unsigned long start, int nblocks,
     if (mmc_card->high_capacity) {
         arg = start;
     } else {
-        arg = start + bs;
+        arg = start * bs;
     }
     /* Allocate command structure */
     cmd = mmc_cmd_new(MMC_WRITE_BLOCK, arg, MMC_RSP_TYPE_R1);
