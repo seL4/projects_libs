@@ -29,34 +29,34 @@
 #define D(...) do{}while(0)
 #endif
 
-#define DS_ADDR               0x00 //DMA System Address 
-#define BLK_ATT               0x04 //Block Attributes 
-#define CMD_ARG               0x08 //Command Argument 
-#define CMD_XFR_TYP           0x0C //Command Transfer Type 
-#define CMD_RSP0              0x10 //Command Response0 
-#define CMD_RSP1              0x14 //Command Response1 
-#define CMD_RSP2              0x18 //Command Response2  
-#define CMD_RSP3              0x1C //Command Response3 
-#define DATA_BUFF_ACC_PORT    0x20 //Data Buffer Access Port  
-#define PRES_STATE            0x24 //Present State  
-#define PROT_CTRL             0x28 //Protocol Control  
-#define SYS_CTRL              0x2C //System Control 
-#define INT_STATUS            0x30 //Interrupt Status 
-#define INT_STATUS_EN         0x34 //Interrupt Status Enable 
-#define INT_SIGNAL_EN         0x38 //Interrupt Signal Enable 
-#define AUTOCMD12_ERR_STATUS  0x3C //Auto CMD12 Error Status 
-#define HOST_CTRL_CAP         0x40 //Host Controller Capabilities 
-#define WTMK_LVL              0x44 //Watermark Level 
-#define MIX_CTRL              0x48 //Mixer Control 
-#define FORCE_EVENT           0x50 //Force Event 
-#define ADMA_ERR_STATUS       0x54 //ADMA Error Status Register 
-#define ADMA_SYS_ADDR         0x58 //ADMA System Address 
-#define DLL_CTRL              0x60 //DLL (Delay Line) Control 
-#define DLL_STATUS            0x64 //DLL Status 
-#define CLK_TUNE_CTRL_STATUS  0x68 //CLK Tuning Control and Status 
-#define VEND_SPEC             0xC0 //Vendor Specific Register 
-#define MMC_BOOT              0xC4 //MMC Boot Register 
-#define VEND_SPEC2            0xC8 //Vendor Specific 2 Register  
+#define DS_ADDR               0x00 //DMA System Address
+#define BLK_ATT               0x04 //Block Attributes
+#define CMD_ARG               0x08 //Command Argument
+#define CMD_XFR_TYP           0x0C //Command Transfer Type
+#define CMD_RSP0              0x10 //Command Response0
+#define CMD_RSP1              0x14 //Command Response1
+#define CMD_RSP2              0x18 //Command Response2
+#define CMD_RSP3              0x1C //Command Response3
+#define DATA_BUFF_ACC_PORT    0x20 //Data Buffer Access Port
+#define PRES_STATE            0x24 //Present State
+#define PROT_CTRL             0x28 //Protocol Control
+#define SYS_CTRL              0x2C //System Control
+#define INT_STATUS            0x30 //Interrupt Status
+#define INT_STATUS_EN         0x34 //Interrupt Status Enable
+#define INT_SIGNAL_EN         0x38 //Interrupt Signal Enable
+#define AUTOCMD12_ERR_STATUS  0x3C //Auto CMD12 Error Status
+#define HOST_CTRL_CAP         0x40 //Host Controller Capabilities
+#define WTMK_LVL              0x44 //Watermark Level
+#define MIX_CTRL              0x48 //Mixer Control
+#define FORCE_EVENT           0x50 //Force Event
+#define ADMA_ERR_STATUS       0x54 //ADMA Error Status Register
+#define ADMA_SYS_ADDR         0x58 //ADMA System Address
+#define DLL_CTRL              0x60 //DLL (Delay Line) Control
+#define DLL_STATUS            0x64 //DLL Status
+#define CLK_TUNE_CTRL_STATUS  0x68 //CLK Tuning Control and Status
+#define VEND_SPEC             0xC0 //Vendor Specific Register
+#define MMC_BOOT              0xC4 //MMC Boot Register
+#define VEND_SPEC2            0xC8 //Vendor Specific 2 Register
 #define HOST_VERSION          0xFC //Host Version (0xFE adjusted for alignment)
 
 
@@ -78,7 +78,7 @@
 #define CMD_XFR_TYP_RSPTYP_MASK 0x3       //Response Type Select
 
 /* System Control Register */
-#define SYS_CTRL_INITA          (1 << 27) //Initialization Active 
+#define SYS_CTRL_INITA          (1 << 27) //Initialization Active
 #define SYS_CTRL_RSTD           (1 << 26) //Software Reset for DAT Line
 #define SYS_CTRL_RSTC           (1 << 25) //Software Reset for CMD Line
 #define SYS_CTRL_RSTA           (1 << 24) //Software Reset for ALL
