@@ -477,6 +477,7 @@ long transfer_data(
     } else {
         unsigned long ret;
         ret = host_send_command(mmc_card, cmd, NULL, NULL);
+        mmc_cmd_destroy(cmd);
         return (ret) ? ret : bs * nblocks;
     }
 }
