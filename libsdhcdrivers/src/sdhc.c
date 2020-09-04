@@ -180,13 +180,12 @@ UNUSED static void print_sdhc_regs(struct sdhc *host)
     }
 }
 
-static inline enum dma_mode get_dma_mode(struct sdhc *host, struct mmc_cmd *cmd) {
-    if (cmd->data == NULL)
-    {
+static inline enum dma_mode get_dma_mode(struct sdhc *host, struct mmc_cmd *cmd)
+{
+    if (cmd->data == NULL) {
         return DMA_MODE_NONE;
     }
-    if (cmd->data->pbuf == 0)
-    {
+    if (cmd->data->pbuf == 0) {
         return DMA_MODE_NONE;
     }
     /* Currently only SDMA supported */
@@ -661,6 +660,10 @@ static int sdhc_get_nth_irq(sdio_host_dev_t *sdio, int n)
     }
 }
 
+static uint32_t sdhc_get_present_state_register(sdio_host_dev_t *sdio)
+{
+    return readl(sdio_get_sdhc(sdio)->base + PRES_STATE);
+}
 
 int sdhc_init(void *iobase, const int *irq_table, int nirqs, ps_io_ops_t *io_ops,
               sdio_host_dev_t *dev)
@@ -687,6 +690,7 @@ int sdhc_init(void *iobase, const int *irq_table, int nirqs, ps_io_ops_t *io_ops
     dev->send_command = &sdhc_send_cmd;
     dev->is_voltage_compatible = &sdhc_is_voltage_compatible;
     dev->reset = &sdhc_reset;
+    dev->get_present_state = &sdhc_get_present_state_register;
     dev->priv = sdhc;
     /* Clear IRQs */
     writel(0, sdhc->base + INT_STATUS_EN);

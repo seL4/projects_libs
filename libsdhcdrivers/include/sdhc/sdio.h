@@ -27,6 +27,8 @@ struct sdio_host_dev {
     int (*handle_irq)(struct sdio_host_dev *sdio, int irq);
     int (*is_voltage_compatible)(struct sdio_host_dev *sdio, int mv);
     int (*nth_irq)(struct sdio_host_dev *sdio, int n);
+    uint32_t (*get_present_state)(struct sdio_host_dev *sdio);
+
     void *priv;
 };
 typedef struct sdio_host_dev sdio_host_dev_t;
@@ -77,6 +79,19 @@ static inline int sdio_reset(sdio_host_dev_t *sdio)
 static inline int sdio_nth_irq(sdio_host_dev_t *sdio, int n)
 {
     return sdio->nth_irq(sdio, n);
+}
+
+/**
+ * @brief   Returns Present State Register's value
+ *
+ * @return  Value of the Present State Register, see SD specification for more
+ *          details.
+ */
+static inline uint32_t sdio_get_present_state(
+    sdio_host_dev_t *sdio //!< [in] Sdio handle.
+)
+{
+    return sdio->get_present_state(sdio);
 }
 
 /**
