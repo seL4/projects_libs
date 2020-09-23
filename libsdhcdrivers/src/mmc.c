@@ -538,7 +538,6 @@ long mmc_block_write(mmc_card_t mmc_card, unsigned long start, int nblocks,
 long long mmc_card_capacity(mmc_card_t mmc_card)
 {
     int ret;
-    long long capacity;
     struct csd csd;
 
     ret = mmc_decode_csd(mmc_card, &csd);
@@ -546,16 +545,19 @@ long long mmc_card_capacity(mmc_card_t mmc_card)
         return -1;
     }
 
-    if (csd.structure == CSD_VERSION_1) {
-        capacity = (csd.c_size + 1) * (1U << (csd.c_size_mult + 2));
-        capacity *= (1U << csd.read_bl_len);
-    } else if (csd.structure == CSD_VERSION_2_AND_3) {
-        capacity = (csd.c_size + 1) * 512 * 1024;
-    } else {
+    long long c_size = (long long)csd.c_size;
+    switch (csd.structure) {
+    case CSD_VERSION_1: {
+        return (c_size + 1) * (1U << (csd.c_size_mult + 2))
+               * (1U << csd.read_bl_len);
+    }
+    case CSD_VERSION_2_AND_3: {
+        return (c_size + 1) * 512 * 1024;
+    }
+    default: {
         return -1;
     }
-
-    return capacity;
+    }
 }
 
 
