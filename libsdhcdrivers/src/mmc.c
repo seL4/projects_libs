@@ -26,6 +26,9 @@
 #define D(...) do{}while(0)
 #endif
 
+#define CSD_VERSION_1       0
+#define CSD_VERSION_2_AND_3 1
+
 struct mmc_completion_token {
     struct mmc_card *card;
     mmc_cb cb;
@@ -108,13 +111,13 @@ static int mmc_decode_csd(mmc_card_t mmc_card, struct csd *csd)
 
     csd->structure = CSD_BITS(126, 2);
 
-    if (csd->structure == 0) {
+    if (csd->structure == CSD_VERSION_1) {
         printf("CSD Version 1.0\n");
         csd->c_size      = CSD_BITS(62, 12);
         csd->c_size_mult = CSD_BITS(47,  3);
         csd->read_bl_len = CSD_BITS(80,  4);
         csd->tran_speed  = CSD_BITS(96,  8);
-    } else if (csd->structure == 1) {
+    } else if (csd->structure == CSD_VERSION_2_AND_3) {
         printf("CSD Version 2.0\n");
         csd->c_size      = CSD_BITS(48, 22);
         csd->c_size_mult = 0;
@@ -543,10 +546,10 @@ long long mmc_card_capacity(mmc_card_t mmc_card)
         return -1;
     }
 
-    if (csd.structure == 0) {
+    if (csd.structure == CSD_VERSION_1) {
         capacity = (csd.c_size + 1) * (1U << (csd.c_size_mult + 2));
         capacity *= (1U << csd.read_bl_len);
-    } else if (csd.structure == 1) {
+    } else if (csd.structure == CSD_VERSION_2_AND_3) {
         capacity = (csd.c_size + 1) * 512 * 1024;
     } else {
         return -1;
