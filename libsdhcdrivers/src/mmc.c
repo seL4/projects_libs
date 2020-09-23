@@ -532,10 +532,10 @@ long mmc_block_write(mmc_card_t mmc_card, unsigned long start, int nblocks,
                MMC_WRITE_BLOCK);
 }
 
-unsigned long long mmc_card_capacity(mmc_card_t mmc_card)
+long long mmc_card_capacity(mmc_card_t mmc_card)
 {
     int ret;
-    unsigned long long capacity;
+    long long capacity;
     struct csd csd;
 
     ret = mmc_decode_csd(mmc_card, &csd);

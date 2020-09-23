@@ -91,6 +91,6 @@ int mmc_handle_irq(mmc_card_t mmc, int irq);
 
 /** Get card capacity
  * @param[in] mmc_card  A handle to an initialised MMC card
- * @return              Card capacity in bytes
+ * @return              Card capacity in bytes, negative on failure.
  */
-unsigned long long mmc_card_capacity(mmc_card_t mmc_card);
+long long mmc_card_capacity(mmc_card_t mmc_card);
