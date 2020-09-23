@@ -21,7 +21,7 @@ typedef struct mmc_card *mmc_card_t;
 typedef void (*mmc_cb)(mmc_card_t mmc_card, int status, size_t bytes_transferred, void *token);
 
 
-static inline int mmc_block_size(mmc_card_t mmc_card)
+static inline size_t mmc_block_size(mmc_card_t mmc_card)
 {
     return 512;
 }
