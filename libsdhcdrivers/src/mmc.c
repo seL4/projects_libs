@@ -435,16 +435,11 @@ long transfer_data(
     uint32_t command)
 {
     struct mmc_cmd *cmd;
-    uint32_t arg;
     int bs;
     bs = mmc_block_size(mmc_card);
 
     /* Determine command argument */
-    if (mmc_card->high_capacity) {
-        arg = start;
-    } else {
-        arg = start * bs;
-    }
+    const uint32_t arg = (mmc_card->high_capacity) ? start : (start * bs);
 
     /* Allocate command structure
      *
