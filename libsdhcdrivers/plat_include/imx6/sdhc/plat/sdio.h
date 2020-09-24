@@ -28,7 +28,7 @@
 #define SDHC4_IRQ   57
 
 enum sdio_id {
-    SDHC1,
+    SDHC1 = 1,
     SDHC2,
     SDHC3,
     SDHC4,

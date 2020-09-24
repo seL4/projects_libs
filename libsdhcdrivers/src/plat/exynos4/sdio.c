@@ -55,7 +55,7 @@ int sdio_init(enum sdio_id id, ps_io_ops_t *io_ops, sdio_host_dev_t *dev)
         return -1;
     }
 
-    ret = sdhc_init(iobase, &_sdhc_irq_table[id], 1, io_ops, dev);
+    ret = sdhc_init(iobase, _sdhc_irq_table, NSDHC, io_ops, dev);
     if (ret) {
         LOG_ERROR("Failed to initialise SDHC\n");
         return -1;
