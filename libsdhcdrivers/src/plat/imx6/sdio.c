@@ -13,21 +13,6 @@
 #include "../../sdhc.h"
 #include "../../services.h"
 
-#define SDHC1_PADDR 0x02190000
-#define SDHC2_PADDR 0x02194000
-#define SDHC3_PADDR 0x02198000
-#define SDHC4_PADDR 0x0219C000
-
-#define SDHC1_SIZE  0x1000
-#define SDHC2_SIZE  0x1000
-#define SDHC3_SIZE  0x1000
-#define SDHC4_SIZE  0x1000
-
-#define SDHC1_IRQ   54
-#define SDHC2_IRQ   55
-#define SDHC3_IRQ   56
-#define SDHC4_IRQ   57
-
 static const int
 _sdhc_irq_table[] = {
     [SDHC1] = SDHC1_IRQ,
@@ -36,7 +21,8 @@ _sdhc_irq_table[] = {
     [SDHC4] = SDHC4_IRQ
 };
 
-enum sdio_id sdio_default_id(void) {
+enum sdio_id sdio_default_id(void)
+{
     return SDHC_DEFAULT;
 }
 
