@@ -446,40 +446,63 @@ long transfer_data(
         arg = start * bs;
     }
 
-    /* Allocate command structure */
+    /* Allocate command structure
+     *
+     * Please note that `cmd` is dynamically allocated, so it must be destroyed.
+     *
+     * Clean up will be done prior to exiting this function OR in the
+     * `mmc_blockop_completion_cb` if callback was given.
+     *
+     * In case of an unexpected error, there will be a jump to
+     * `exit_transfer_data` label, so that memory leak can be avoided.
+     */
     cmd = mmc_cmd_new(command, arg, MMC_RSP_TYPE_R1);
     if (cmd == NULL) {
+        // `cmd` was NOT allocated, so we are exiting without destroying it.
         return -1;
     }
+
+    long ret = -1;
+    struct mmc_completion_token *mmc_token = NULL;
 
     /* Add a data segment */
-    if (mmc_cmd_add_data(cmd, vbuf, pbuf, start, bs, nblocks)) {
-        mmc_cmd_destroy(cmd);
-        return -1;
+    ret = mmc_cmd_add_data(cmd, vbuf, pbuf, start, bs, nblocks);
+    if (ret < 0) {
+        goto exit_transfer_data;
     }
 
-    /* Send the command */
     if (cb) {
-        struct mmc_completion_token *mmc_token;
-        unsigned long ret;
         mmc_token = mmc_new_completion_token(mmc_card, cb, token);
-        if (mmc_token == NULL) {
-            mmc_cmd_destroy(cmd);
-            return -1;
+
+        if (NULL == mmc_token) {
+            ret = -1;
+            goto exit_transfer_data;
         }
-        ret = host_send_command(mmc_card, cmd, &mmc_blockop_completion_cb,
-                                mmc_token);
-        if (ret) {
-            mmc_completion_token_destroy(mmc_token);
-            mmc_cmd_destroy(cmd);
-        }
-        return ret;
-    } else {
-        unsigned long ret;
-        ret = host_send_command(mmc_card, cmd, NULL, NULL);
-        mmc_cmd_destroy(cmd);
-        return (ret) ? ret : bs * nblocks;
     }
+
+    ret = host_send_command(
+              mmc_card,
+              cmd,
+              cb ? &mmc_blockop_completion_cb : NULL,
+              cb ? mmc_token : NULL);
+
+exit_transfer_data:
+    ;
+    const bool is_success = (0 == ret);
+
+    // Clean up usually will happen during the callback, so we only clean up
+    // here if no callback was given or failure has been encountered.
+    if (!cb || !is_success) {
+        if (mmc_token) {
+            mmc_completion_token_destroy(mmc_token);
+        }
+        if (cmd)       {
+            mmc_cmd_destroy(cmd);
+        }
+    }
+
+    const size_t bytes_transferred = cb ? 0 : (bs * nblocks);
+    return is_success ? bytes_transferred : ret;
 }
 
 long mmc_block_read(mmc_card_t mmc_card, unsigned long start,
