@@ -75,6 +75,10 @@
 #define MMC_VDD_30_31             (1 << 18)
 #define MMC_VDD_29_30             (1 << 17)
 
+/* Bus width */
+#define MMC_MODE_8BIT       0x04
+#define MMC_MODE_4BIT       0x02
+
 
 enum mmc_rsp_type {
     MMC_RSP_TYPE_NONE = 0,

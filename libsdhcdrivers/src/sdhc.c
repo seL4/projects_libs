@@ -625,6 +625,11 @@ static int sdhc_reset(sdio_host_dev_t *sdio)
 
     /* TODO: Select Voltage Level */
 
+    /* Set bus width */
+    val = readl(host->base + PROT_CTRL);
+    val |= MMC_MODE_4BIT;
+    writel(val, host->base + PROT_CTRL);
+
     /* Wait until the Command and Data Lines are ready. */
     while ((readl(host->base + PRES_STATE) & PRES_STATE_CDIHB) ||
            (readl(host->base + PRES_STATE) & PRES_STATE_CIHB));
