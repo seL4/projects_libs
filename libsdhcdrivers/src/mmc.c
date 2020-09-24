@@ -423,29 +423,41 @@ int mmc_init(sdio_host_dev_t *sdio, ps_io_ops_t *io_ops, mmc_card_t *mmc_card)
     return 0;
 }
 
-long mmc_block_read(mmc_card_t mmc_card, unsigned long start,
-                    int nblocks, void *vbuf, uintptr_t pbuf, mmc_cb cb, void *token)
+static
+long transfer_data(
+    mmc_card_t mmc_card,
+    unsigned long start,
+    int nblocks,
+    void *vbuf,
+    uintptr_t pbuf,
+    mmc_cb cb,
+    void *token,
+    uint32_t command)
 {
     struct mmc_cmd *cmd;
     uint32_t arg;
     int bs;
     bs = mmc_block_size(mmc_card);
+
     /* Determine command argument */
     if (mmc_card->high_capacity) {
         arg = start;
     } else {
         arg = start * bs;
     }
+
     /* Allocate command structure */
-    cmd = mmc_cmd_new(MMC_READ_SINGLE_BLOCK, arg, MMC_RSP_TYPE_R1);
+    cmd = mmc_cmd_new(command, arg, MMC_RSP_TYPE_R1);
     if (cmd == NULL) {
         return -1;
     }
+
     /* Add a data segment */
     if (mmc_cmd_add_data(cmd, vbuf, pbuf, start, bs, nblocks)) {
         mmc_cmd_destroy(cmd);
         return -1;
     }
+
     /* Send the command */
     if (cb) {
         struct mmc_completion_token *mmc_token;
@@ -469,54 +481,35 @@ long mmc_block_read(mmc_card_t mmc_card, unsigned long start,
     }
 }
 
+long mmc_block_read(mmc_card_t mmc_card, unsigned long start,
+                    int nblocks, void *vbuf, uintptr_t pbuf, mmc_cb cb, void *token)
+{
+    return transfer_data(
+               mmc_card,
+               start,
+               nblocks,
+               vbuf,
+               pbuf,
+               cb,
+               token,
+               MMC_READ_SINGLE_BLOCK);
+}
 
 long mmc_block_write(mmc_card_t mmc_card, unsigned long start, int nblocks,
                      const void *vbuf, uintptr_t pbuf, mmc_cb cb, void *token)
 {
-    struct mmc_cmd *cmd;
-    uint32_t arg;
-    int bs;
-    bs = mmc_block_size(mmc_card);
-    /* Determine command argument */
-    if (mmc_card->high_capacity) {
-        arg = start;
-    } else {
-        arg = start * bs;
-    }
-    /* Allocate command structure */
-    cmd = mmc_cmd_new(MMC_WRITE_BLOCK, arg, MMC_RSP_TYPE_R1);
-    if (cmd == NULL) {
-        return -1;
-    }
-
-    /* Add a data segment */
-    if (mmc_cmd_add_data(cmd, (void *)vbuf, pbuf, start, bs, nblocks)) {
-        mmc_cmd_destroy(cmd);
-        return -1;
-    }
-
-    /* Send the command */
-    if (cb) {
-        struct mmc_completion_token *mmc_token;
-        unsigned long ret;
-        mmc_token = mmc_new_completion_token(mmc_card, cb, token);
-        if (mmc_token == NULL) {
-            mmc_cmd_destroy(cmd);
-            return -1;
-        }
-        ret = host_send_command(mmc_card, cmd, &mmc_blockop_completion_cb,
-                                mmc_token);
-        if (ret) {
-            mmc_completion_token_destroy(mmc_token);
-            mmc_cmd_destroy(cmd);
-        }
-        return ret;
-    } else {
-        unsigned long ret;
-        ret = host_send_command(mmc_card, cmd, NULL, NULL);
-        mmc_cmd_destroy(cmd);
-        return (ret) ? ret : bs * nblocks;
-    }
+    // vbuf's `const` gets dropped during the cast as the underlying layer
+    // accepts only non-const buffer, however it is ok, as we are sending the
+    // write command, what quarantees that the buffer won't be overwritten.
+    return transfer_data(
+               mmc_card,
+               start,
+               nblocks,
+               (void *)vbuf,
+               pbuf,
+               cb,
+               token,
+               MMC_WRITE_BLOCK);
 }
 
 unsigned long long mmc_card_capacity(mmc_card_t mmc_card)
