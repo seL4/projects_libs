@@ -92,22 +92,6 @@
 #define SYS_CTRL_CLK_INT_STABLE (1 << 1)  //Internal clock stable (exl. IMX6)
 #define SYS_CTRL_CLK_CARD_EN    (1 << 2)  //SD clock enable       (exl. IMX6)
 
-/* Present State Register */
-#define PRES_STATE_DAT3         (1 << 23)
-#define PRES_STATE_DAT2         (1 << 22)
-#define PRES_STATE_DAT1         (1 << 21)
-#define PRES_STATE_DAT0         (1 << 20)
-#define PRES_STATE_WPSPL        (1 << 19) //Write Protect Switch Pin Level
-#define PRES_STATE_CDPL         (1 << 18) //Card Detect Pin Level
-#define PRES_STATE_CINST        (1 << 16) //Card Inserted
-#define PRES_STATE_BWEN         (1 << 10) //Buffer Write Enable
-#define PRES_STATE_RTA          (1 << 9)  //Read Transfer Active
-#define PRES_STATE_WTA          (1 << 8)  //Write Transfer Active
-#define PRES_STATE_SDSTB        (1 << 3)  //SD Clock Stable
-#define PRES_STATE_DLA          (1 << 2)  //Data Line Active
-#define PRES_STATE_CDIHB        (1 << 1)  //Command Inhibit(DATA)
-#define PRES_STATE_CIHB         (1 << 0)  //Command Inhibit(CMD)
-
 /* Interrupt Status Register */
 #define INT_STATUS_DMAE         (1 << 28) //DMA Error            (only IMX6)
 #define INT_STATUS_TNE          (1 << 26) //Tuning Error
@@ -270,8 +254,8 @@ static int sdhc_next_cmd(sdhc_dev_t host)
     writel(val, host->base + INT_STATUS_EN);
 
     /* Check if the Host is ready for transit. */
-    while (readl(host->base + PRES_STATE) & (PRES_STATE_CIHB | PRES_STATE_CDIHB));
-    while (readl(host->base + PRES_STATE) & PRES_STATE_DLA);
+    while (readl(host->base + PRES_STATE) & (SDHC_PRES_STATE_CIHB | SDHC_PRES_STATE_CDIHB));
+    while (readl(host->base + PRES_STATE) & SDHC_PRES_STATE_DLA);
 
     /* Two commands need to have at least 8 clock cycles in between.
      * Lets assume that the hcd will enforce this. */
@@ -634,7 +618,7 @@ static int sdhc_set_clock_div(
     data_timeout_counter_val dtocv)
 {
     /* make sure the clock state is stable. */
-    if (readl(base_addr + PRES_STATE) & PRES_STATE_SDSTB) {
+    if (readl(base_addr + PRES_STATE) & SDHC_PRES_STATE_SDSTB) {
         uint32_t val = readl(base_addr + SYS_CTRL);
 
         /* The SDCLK bit varies with Data Rate Mode. */
@@ -731,8 +715,8 @@ static int sdhc_reset(sdio_host_dev_t *sdio)
     writel(val, host->base + PROT_CTRL);
 
     /* Wait until the Command and Data Lines are ready. */
-    while ((readl(host->base + PRES_STATE) & PRES_STATE_CDIHB) ||
-           (readl(host->base + PRES_STATE) & PRES_STATE_CIHB));
+    while ((readl(host->base + PRES_STATE) & SDHC_PRES_STATE_CDIHB) ||
+           (readl(host->base + PRES_STATE) & SDHC_PRES_STATE_CIHB));
 
     /* Send 80 clock ticks to card to power up. */
     val = readl(host->base + SYS_CTRL);
@@ -742,9 +726,9 @@ static int sdhc_reset(sdio_host_dev_t *sdio)
 
     /* Check if a SD card is inserted. */
     val = readl(host->base + PRES_STATE);
-    if (val & PRES_STATE_CINST) {
+    if (val & SDHC_PRES_STATE_CINST) {
         printf("Card Inserted");
-        if (!(val & PRES_STATE_WPSPL)) {
+        if (!(val & SDHC_PRES_STATE_WPSPL)) {
             printf("(Read Only)");
         }
         printf("...\n");

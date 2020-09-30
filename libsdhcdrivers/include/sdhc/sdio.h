@@ -16,6 +16,22 @@
 
 #include <sdhc/plat/sdio.h>
 
+/* Present State Register */
+#define SDHC_PRES_STATE_DAT3         (1 << 23)
+#define SDHC_PRES_STATE_DAT2         (1 << 22)
+#define SDHC_PRES_STATE_DAT1         (1 << 21)
+#define SDHC_PRES_STATE_DAT0         (1 << 20)
+#define SDHC_PRES_STATE_WPSPL        (1 << 19) //Write Protect Switch Pin Level
+#define SDHC_PRES_STATE_CDPL         (1 << 18) //Card Detect Pin Level
+#define SDHC_PRES_STATE_CINST        (1 << 16) //Card Inserted
+#define SDHC_PRES_STATE_BWEN         (1 << 10) //Buffer Write Enable
+#define SDHC_PRES_STATE_RTA          (1 << 9)  //Read Transfer Active
+#define SDHC_PRES_STATE_WTA          (1 << 8)  //Write Transfer Active
+#define SDHC_PRES_STATE_SDSTB        (1 << 3)  //SD Clock Stable
+#define SDHC_PRES_STATE_DLA          (1 << 2)  //Data Line Active
+#define SDHC_PRES_STATE_CDIHB        (1 << 1)  //Command Inhibit(DATA)
+#define SDHC_PRES_STATE_CIHB         (1 << 0)  //Command Inhibit(CMD)
+
 /* TODO turn this into sdio_cmd */
 struct mmc_cmd;
 struct sdio_host_dev;
