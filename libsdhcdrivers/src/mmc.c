@@ -435,11 +435,12 @@ long transfer_data(
     uint32_t command)
 {
     struct mmc_cmd *cmd;
-    int bs;
-    bs = mmc_block_size(mmc_card);
+    const int block_size = mmc_block_size(mmc_card);
 
     /* Determine command argument */
-    const uint32_t arg = (mmc_card->high_capacity) ? start : (start * bs);
+    const uint32_t arg = (mmc_card->high_capacity)
+                         ? start
+                         : (start * block_size);
 
     /* Allocate command structure
      *
@@ -461,7 +462,7 @@ long transfer_data(
     struct mmc_completion_token *mmc_token = NULL;
 
     /* Add a data segment */
-    ret = mmc_cmd_add_data(cmd, vbuf, pbuf, start, bs, nblocks);
+    ret = mmc_cmd_add_data(cmd, vbuf, pbuf, start, block_size, nblocks);
     if (ret < 0) {
         goto exit_transfer_data;
     }
@@ -496,7 +497,7 @@ exit_transfer_data:
         }
     }
 
-    const size_t bytes_transferred = cb ? 0 : (bs * nblocks);
+    const size_t bytes_transferred = cb ? 0 : (block_size * nblocks);
     return is_success ? bytes_transferred : ret;
 }
 
