@@ -10,8 +10,7 @@
  * @TAG(DATA61_BSD)
  */
 
-#ifndef _MMC_H
-#define _MMC_H
+#pragma once
 
 #include <sdhc/mmc.h>
 #include "sdhc.h"
@@ -104,7 +103,7 @@ enum mmc_card_status {
 
 struct mmc_data {
     uintptr_t  pbuf;
-    void*      vbuf;
+    void      *vbuf;
     uint32_t   data_addr;
     uint32_t   block_size;
     uint32_t   blocks;
@@ -120,9 +119,9 @@ struct mmc_cmd {
     enum mmc_rsp_type rsp_type;
     /* For async handling */
     sdio_cb         cb;
-    void*           token;
+    void           *token;
     /* For queueing */
-    struct mmc_cmd* next;
+    struct mmc_cmd *next;
     int complete;
 };
 
@@ -167,37 +166,32 @@ struct mmc_card {
     uint32_t version;
     uint32_t high_capacity;
     uint32_t status;
-    ps_dma_man_t* dalloc;
-    sdio_host_dev_t* sdio;
+    ps_dma_man_t *dalloc;
+    sdio_host_dev_t *sdio;
 };
 
-static inline int
-host_send_command(struct mmc_card* card, struct mmc_cmd *cmd, sdio_cb cb, void* token)
+static inline int host_send_command(struct mmc_card *card, struct mmc_cmd *cmd, sdio_cb cb, void *token)
 {
     return sdio_send_command(card->sdio, cmd, cb, token);
 }
 
-static inline int
-host_nth_irq(mmc_card_t card, int n)
+static inline int host_nth_irq(mmc_card_t card, int n)
 {
     return sdio_nth_irq(card->sdio, n);
 }
 
-static inline int
-host_handle_irq(struct mmc_card* card, int irq)
+static inline int host_handle_irq(struct mmc_card *card, int irq)
 {
     return sdio_handle_irq(card->sdio, irq);
 }
 
-static inline int
-host_is_voltage_compatible(struct mmc_card* card, int mv)
+static inline int host_is_voltage_compatible(struct mmc_card *card, int mv)
 {
     return sdio_is_voltage_compatible(card->sdio, mv);
 }
 
 
-static inline int
-host_reset(struct mmc_card* card)
+static inline int host_reset(struct mmc_card *card)
 {
     return sdio_reset(card->sdio);
 }
@@ -207,4 +201,3 @@ host_reset(struct mmc_card* card)
 
 
 /* void card_data(...) */
-#endif //_MMC_H

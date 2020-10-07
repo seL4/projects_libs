@@ -27,9 +27,9 @@
 #endif
 
 struct mmc_completion_token {
-    struct mmc_card* card;
+    struct mmc_card *card;
     mmc_cb cb;
-    void* token;
+    void *token;
 };
 
 
@@ -128,9 +128,9 @@ static int mmc_decode_csd(mmc_card_t mmc_card, struct csd *csd)
     return 0;
 }
 
-static struct mmc_cmd*
-mmc_cmd_new(uint32_t index, uint32_t arg, int rsp_type) {
-    struct mmc_cmd* cmd;
+static struct mmc_cmd *mmc_cmd_new(uint32_t index, uint32_t arg, int rsp_type)
+{
+    struct mmc_cmd *cmd;
     cmd = malloc(sizeof(*cmd));
     if (cmd) {
         /* Command */
@@ -147,13 +147,12 @@ mmc_cmd_new(uint32_t index, uint32_t arg, int rsp_type) {
     return cmd;
 }
 
-static int
-mmc_cmd_add_data(struct mmc_cmd* cmd, void* vbuf, uintptr_t pbuf, uint32_t addr,
-                 uint32_t block_size, uint32_t blocks)
+static int mmc_cmd_add_data(struct mmc_cmd *cmd, void *vbuf, uintptr_t pbuf, uint32_t addr,
+                            uint32_t block_size, uint32_t blocks)
 {
-    struct mmc_data* d;
+    struct mmc_data *d;
     assert(cmd->data == NULL);
-    d = (struct mmc_data*)malloc(sizeof(*d));
+    d = (struct mmc_data *)malloc(sizeof(*d));
     if (d) {
         d->pbuf = pbuf;
         d->vbuf = vbuf;
@@ -167,8 +166,7 @@ mmc_cmd_add_data(struct mmc_cmd* cmd, void* vbuf, uintptr_t pbuf, uint32_t addr,
     }
 }
 
-static void
-mmc_cmd_destroy(struct mmc_cmd* cmd)
+static void mmc_cmd_destroy(struct mmc_cmd *cmd)
 {
     if (cmd->data) {
         free(cmd->data);
@@ -176,10 +174,10 @@ mmc_cmd_destroy(struct mmc_cmd* cmd)
     free(cmd);
 }
 
-static struct mmc_completion_token*
-mmc_new_completion_token(mmc_card_t mmc_card, mmc_cb cb, void* token) {
-    struct mmc_completion_token* t;
-    t = (struct mmc_completion_token*)malloc(sizeof(*t));
+static struct mmc_completion_token *mmc_new_completion_token(mmc_card_t mmc_card, mmc_cb cb, void *token)
+{
+    struct mmc_completion_token *t;
+    t = (struct mmc_completion_token *)malloc(sizeof(*t));
     if (t) {
         t->card = mmc_card;
         t->cb = cb;
@@ -188,8 +186,7 @@ mmc_new_completion_token(mmc_card_t mmc_card, mmc_cb cb, void* token) {
     return t;
 }
 
-static void
-mmc_completion_token_destroy(struct mmc_completion_token* t)
+static void mmc_completion_token_destroy(struct mmc_completion_token *t)
 {
     free(t);
 }
@@ -197,8 +194,7 @@ mmc_completion_token_destroy(struct mmc_completion_token* t)
 /**
  * MMC/SD/SDIO card registry.
  */
-static int
-mmc_card_registry(mmc_card_t card)
+static int mmc_card_registry(mmc_card_t card)
 {
     struct mmc_cmd cmd = {.data = NULL};
     int ret;
@@ -271,8 +267,7 @@ mmc_card_registry(mmc_card_t card)
 /**
  * Card voltage validation.
  */
-static int
-mmc_voltage_validation(mmc_card_t card)
+static int mmc_voltage_validation(mmc_card_t card)
 {
     struct mmc_cmd cmd = {.data = NULL};
     int voltage;
@@ -342,8 +337,7 @@ mmc_voltage_validation(mmc_card_t card)
 }
 
 
-static int
-mmc_reset(mmc_card_t card)
+static int mmc_reset(mmc_card_t card)
 {
     /* Reset the card with CMD0 */
     struct mmc_cmd cmd = {.data = NULL};
@@ -360,14 +354,13 @@ mmc_reset(mmc_card_t card)
     return 0;
 }
 
-static void
-mmc_blockop_completion_cb(struct sdio_host_dev* sdio, int stat, struct mmc_cmd* cmd,
-                          void* token)
+static void mmc_blockop_completion_cb(struct sdio_host_dev *sdio, int stat, struct mmc_cmd *cmd,
+                                      void *token)
 {
     struct mmc_completion_token *t;
     size_t bytes;
 
-    t = (struct mmc_completion_token*)token;
+    t = (struct mmc_completion_token *)token;
     if (stat == 0) {
         bytes = cmd->data->block_size * cmd->data->blocks;
     } else {
@@ -380,8 +373,7 @@ mmc_blockop_completion_cb(struct sdio_host_dev* sdio, int stat, struct mmc_cmd* 
     mmc_completion_token_destroy(t);
 }
 
-int
-mmc_init(sdio_host_dev_t* sdio, ps_io_ops_t *io_ops, mmc_card_t* mmc_card)
+int mmc_init(sdio_host_dev_t *sdio, ps_io_ops_t *io_ops, mmc_card_t *mmc_card)
 {
     mmc_card_t mmc;
 
@@ -422,11 +414,10 @@ mmc_init(sdio_host_dev_t* sdio, ps_io_ops_t *io_ops, mmc_card_t* mmc_card)
     return 0;
 }
 
-long
-mmc_block_read(mmc_card_t mmc_card, unsigned long start,
-               int nblocks, void* vbuf, uintptr_t pbuf, mmc_cb cb, void* token)
+long mmc_block_read(mmc_card_t mmc_card, unsigned long start,
+                    int nblocks, void *vbuf, uintptr_t pbuf, mmc_cb cb, void *token)
 {
-    struct mmc_cmd* cmd;
+    struct mmc_cmd *cmd;
     uint32_t arg;
     int bs;
     bs = mmc_block_size(mmc_card);
@@ -448,7 +439,7 @@ mmc_block_read(mmc_card_t mmc_card, unsigned long start,
     }
     /* Send the command */
     if (cb) {
-        struct mmc_completion_token* mmc_token;
+        struct mmc_completion_token *mmc_token;
         unsigned long ret;
         mmc_token = mmc_new_completion_token(mmc_card, cb, token);
         if (mmc_token == NULL) {
@@ -470,11 +461,10 @@ mmc_block_read(mmc_card_t mmc_card, unsigned long start,
 }
 
 
-long
-mmc_block_write(mmc_card_t mmc_card, unsigned long start, int nblocks,
-                const void* vbuf, uintptr_t pbuf, mmc_cb cb, void* token)
+long mmc_block_write(mmc_card_t mmc_card, unsigned long start, int nblocks,
+                     const void *vbuf, uintptr_t pbuf, mmc_cb cb, void *token)
 {
-    struct mmc_cmd* cmd;
+    struct mmc_cmd *cmd;
     uint32_t arg;
     int bs;
     bs = mmc_block_size(mmc_card);
@@ -491,14 +481,14 @@ mmc_block_write(mmc_card_t mmc_card, unsigned long start, int nblocks,
     }
 
     /* Add a data segment */
-    if (mmc_cmd_add_data(cmd, (void*)vbuf, pbuf, start, bs, nblocks)) {
+    if (mmc_cmd_add_data(cmd, (void *)vbuf, pbuf, start, bs, nblocks)) {
         mmc_cmd_destroy(cmd);
         return -1;
     }
 
     /* Send the command */
     if (cb) {
-        struct mmc_completion_token* mmc_token;
+        struct mmc_completion_token *mmc_token;
         unsigned long ret;
         mmc_token = mmc_new_completion_token(mmc_card, cb, token);
         if (mmc_token == NULL) {
@@ -520,8 +510,7 @@ mmc_block_write(mmc_card_t mmc_card, unsigned long start, int nblocks,
     }
 }
 
-unsigned long long
-mmc_card_capacity(mmc_card_t mmc_card)
+unsigned long long mmc_card_capacity(mmc_card_t mmc_card)
 {
     int ret;
     unsigned long long capacity;
@@ -545,14 +534,12 @@ mmc_card_capacity(mmc_card_t mmc_card)
 }
 
 
-int
-mmc_nth_irq(mmc_card_t mmc, int n)
+int mmc_nth_irq(mmc_card_t mmc, int n)
 {
     return host_nth_irq(mmc, n);
 }
 
-int
-mmc_handle_irq(mmc_card_t mmc, int irq)
+int mmc_handle_irq(mmc_card_t mmc, int irq)
 {
     return host_handle_irq(mmc, irq);
 }

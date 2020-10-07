@@ -10,8 +10,7 @@
  * @TAG(DATA61_BSD)
  */
 
-#ifndef SDIO_H
-#define SDIO_H
+#pragma once
 
 /* NOT to be confused with SDHC. This API is universal */
 
@@ -20,15 +19,15 @@
 /* TODO turn this into sdio_cmd */
 struct mmc_cmd;
 struct sdio_host_dev;
-typedef void (*sdio_cb)(struct sdio_host_dev* sdio, int status, struct mmc_cmd* cmd, void* token);
+typedef void (*sdio_cb)(struct sdio_host_dev *sdio, int status, struct mmc_cmd *cmd, void *token);
 
 struct sdio_host_dev {
-    int (*reset)(struct sdio_host_dev* sdio);
-    int (*send_command)(struct sdio_host_dev* sdio, struct mmc_cmd *cmd, sdio_cb cb, void* token);
-    int (*handle_irq)(struct sdio_host_dev* sdio, int irq);
-    int (*is_voltage_compatible)(struct sdio_host_dev* sdio, int mv);
-    int (*nth_irq)(struct sdio_host_dev* sdio, int n);
-    void* priv;
+    int (*reset)(struct sdio_host_dev *sdio);
+    int (*send_command)(struct sdio_host_dev *sdio, struct mmc_cmd *cmd, sdio_cb cb, void *token);
+    int (*handle_irq)(struct sdio_host_dev *sdio, int irq);
+    int (*is_voltage_compatible)(struct sdio_host_dev *sdio, int mv);
+    int (*nth_irq)(struct sdio_host_dev *sdio, int n);
+    void *priv;
 };
 typedef struct sdio_host_dev sdio_host_dev_t;
 
@@ -43,8 +42,7 @@ typedef struct sdio_host_dev sdio_host_dev_t;
  * @param[in] token A token to pass, unmodified, to the provided callback function.
  * @return          1 if the provided voltage level is supported
  */
-static inline int
-sdio_send_command(sdio_host_dev_t* sdio, struct mmc_cmd *cmd, sdio_cb cb, void* token)
+static inline int sdio_send_command(sdio_host_dev_t *sdio, struct mmc_cmd *cmd, sdio_cb cb, void *token)
 {
     return sdio->send_command(sdio, cmd, cb, token);
 }
@@ -55,8 +53,7 @@ sdio_send_command(sdio_host_dev_t* sdio, struct mmc_cmd *cmd, sdio_cb cb, void* 
  * @param[in] mv   The voltage to be queried, in millivolts
  * @return         1 if the provided voltage level is supported
  */
-static inline int
-sdio_is_voltage_compatible(sdio_host_dev_t* sdio, int mv)
+static inline int sdio_is_voltage_compatible(sdio_host_dev_t *sdio, int mv)
 {
     return sdio->is_voltage_compatible(sdio, mv);
 }
@@ -66,8 +63,7 @@ sdio_is_voltage_compatible(sdio_host_dev_t* sdio, int mv)
  * @param[in] sdio A handle to an initialised SDIO driver
  * @return         0 on success
  */
-static inline int
-sdio_reset(sdio_host_dev_t* sdio)
+static inline int sdio_reset(sdio_host_dev_t *sdio)
 {
     return sdio->reset(sdio);
 }
@@ -78,8 +74,7 @@ sdio_reset(sdio_host_dev_t* sdio)
  * @param[in] n    Index of the desired IRQ.
  * @return         The IRQ number, or -1 if n is invalid
  */
-static inline int
-sdio_nth_irq(sdio_host_dev_t* sdio, int n)
+static inline int sdio_nth_irq(sdio_host_dev_t *sdio, int n)
 {
     return sdio->nth_irq(sdio, n);
 }
@@ -90,8 +85,7 @@ sdio_nth_irq(sdio_host_dev_t* sdio, int n)
  * @param[in] irq  The IRQ number that was triggered.
  * @return         0 if an IRQ was handled
  */
-static inline int
-sdio_handle_irq(sdio_host_dev_t* sdio, int irq)
+static inline int sdio_handle_irq(sdio_host_dev_t *sdio, int irq)
 {
     return sdio->handle_irq(sdio, irq);
 }
@@ -109,6 +103,4 @@ enum sdio_id sdio_default_id(void);
  * @param[out] dev    An sdio structure to populate.
  * @return            0 on success
  */
-int sdio_init(enum sdio_id id, ps_io_ops_t *io_ops, sdio_host_dev_t* dev);
-
-#endif /* SDIO_H */
+int sdio_init(enum sdio_id id, ps_io_ops_t *io_ops, sdio_host_dev_t *dev);

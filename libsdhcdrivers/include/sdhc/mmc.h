@@ -10,16 +10,15 @@
  * @TAG(DATA61_BSD)
  */
 
-#ifndef _SDHC_MMC_H_
-#define _SDHC_MMC_H_
+#pragma once
 
 #include <platsupport/io.h>
 #include <sdhc/sdio.h>
 
-typedef struct mmc_card* mmc_card_t;
+typedef struct mmc_card *mmc_card_t;
 
 
-typedef void (*mmc_cb)(mmc_card_t mmc_card, int status, size_t bytes_transferred, void* token);
+typedef void (*mmc_cb)(mmc_card_t mmc_card, int status, size_t bytes_transferred, void *token);
 
 
 static inline int mmc_block_size(mmc_card_t mmc_card)
@@ -37,7 +36,7 @@ static inline int mmc_block_size(mmc_card_t mmc_card)
  *                           associated with the provided id.
  * @return                   0 on success.
  */
-int mmc_init(sdio_host_dev_t* sdio, ps_io_ops_t *io_ops, mmc_card_t* mmc_card);
+int mmc_init(sdio_host_dev_t *sdio, ps_io_ops_t *io_ops, mmc_card_t *mmc_card);
 
 /** Read blocks from the MMC
  * The client may use either physical or virtual address for the transfer depending
@@ -55,7 +54,7 @@ int mmc_init(sdio_host_dev_t* sdio, ps_io_ops_t *io_ops, mmc_card_t* mmc_card);
  * @return              The number of bytes read, negative on failure.
  */
 long mmc_block_read(mmc_card_t mmc_card, unsigned long start_block, int nblocks,
-                    void* vbuf, uintptr_t pbuf, mmc_cb cb, void* token);
+                    void *vbuf, uintptr_t pbuf, mmc_cb cb, void *token);
 
 /** Write blocks to the MMC
  * The client may use either physical or virtual address for the transfer depending
@@ -72,7 +71,7 @@ long mmc_block_read(mmc_card_t mmc_card, unsigned long start_block, int nblocks,
  * @return              The number of bytes read, negative on failure.
  */
 long mmc_block_write(mmc_card_t mmc_card, unsigned long start_block, int nblocks,
-                     const void* vbuf, uintptr_t pbuf, mmc_cb cb, void* token);
+                     const void *vbuf, uintptr_t pbuf, mmc_cb cb, void *token);
 
 /**
  * Returns the nth IRQ that this underlying device generates
@@ -95,5 +94,3 @@ int mmc_handle_irq(mmc_card_t mmc, int irq);
  * @return              Card capacity in bytes
  */
 unsigned long long mmc_card_capacity(mmc_card_t mmc_card);
-
-#endif /* _SDHC_MMC_H_ */

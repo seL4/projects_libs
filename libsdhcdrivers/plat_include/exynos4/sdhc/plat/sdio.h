@@ -10,8 +10,7 @@
  * @TAG(DATA61_BSD)
  */
 
-#ifndef _PLAT_SDIO_H_
-#define _PLAT_SDIO_H_
+#pragma once
 
 enum sdio_id {
     SDHC0,
@@ -22,6 +21,3 @@ enum sdio_id {
     NSDHC,
     SDHC_DEFAULT = SDHC2
 };
-
-#endif /* _PLAT_SDIO_H_ */
-

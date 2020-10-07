@@ -166,15 +166,13 @@ enum dma_mode {
     DMA_MODE_ADMA
 };
 
-static inline sdhc_dev_t
-sdio_get_sdhc(sdio_host_dev_t* sdio)
+static inline sdhc_dev_t sdio_get_sdhc(sdio_host_dev_t *sdio)
 {
     return (sdhc_dev_t)sdio->priv;
 }
 
 /** Print uSDHC registers. */
-UNUSED static void
-print_sdhc_regs(struct sdhc *host)
+UNUSED static void print_sdhc_regs(struct sdhc *host)
 {
     int i;
     for (i = DS_ADDR; i <= HOST_VERSION; i += 0x4) {
@@ -182,29 +180,27 @@ print_sdhc_regs(struct sdhc *host)
     }
 }
 
-static inline enum dma_mode
-get_dma_mode(struct sdhc* host, struct mmc_cmd* cmd)
-{
-    if (cmd->data == NULL) {
+static inline enum dma_mode get_dma_mode(struct sdhc *host, struct mmc_cmd *cmd) {
+    if (cmd->data == NULL)
+    {
         return DMA_MODE_NONE;
     }
-    if (cmd->data->pbuf == 0) {
+    if (cmd->data->pbuf == 0)
+    {
         return DMA_MODE_NONE;
     }
     /* Currently only SDMA supported */
     return DMA_MODE_SDMA;
 }
 
-static inline int
-cap_sdma_supported(struct sdhc *host)
+static inline int cap_sdma_supported(struct sdhc *host)
 {
     uint32_t v;
     v = readl(host->base + HOST_CTRL_CAP);
     return !!(v & HOST_CTRL_CAP_DMAS);
 }
 
-static inline int
-cap_max_buffer_size(struct sdhc *host)
+static inline int cap_max_buffer_size(struct sdhc *host)
 {
     uint32_t v;
     v = readl(host->base + HOST_CTRL_CAP);
@@ -212,19 +208,18 @@ cap_max_buffer_size(struct sdhc *host)
     return 512 << v;
 }
 
-static int
-sdhc_next_cmd(sdhc_dev_t host)
+static int sdhc_next_cmd(sdhc_dev_t host)
 {
-    struct mmc_cmd* cmd = host->cmd_list_head;
+    struct mmc_cmd *cmd = host->cmd_list_head;
     uint32_t val;
     uint32_t mix_ctrl;
 
     /* Enable IRQs */
-    val = ( INT_STATUS_ADMAE | INT_STATUS_OVRCURE | INT_STATUS_DEBE
-            | INT_STATUS_DCE   | INT_STATUS_DTOE    | INT_STATUS_CRM
-            | INT_STATUS_CINS  | INT_STATUS_CIE     | INT_STATUS_CEBE
-            | INT_STATUS_CCE   | INT_STATUS_CTOE    | INT_STATUS_TC
-            | INT_STATUS_CC);
+    val = (INT_STATUS_ADMAE | INT_STATUS_OVRCURE | INT_STATUS_DEBE
+           | INT_STATUS_DCE   | INT_STATUS_DTOE    | INT_STATUS_CRM
+           | INT_STATUS_CINS  | INT_STATUS_CIE     | INT_STATUS_CEBE
+           | INT_STATUS_CCE   | INT_STATUS_CTOE    | INT_STATUS_TC
+           | INT_STATUS_CC);
     if (get_dma_mode(host, cmd) == DMA_MODE_NONE) {
         val |= INT_STATUS_BRR | INT_STATUS_BWR;
     }
@@ -343,15 +338,14 @@ sdhc_next_cmd(sdhc_dev_t host)
  * @param[in] sd_dev  The sdhc interface device that triggered
  *                    the interrupt event.
  */
-static int
-sdhc_handle_irq(sdio_host_dev_t* sdio, int irq UNUSED)
+static int sdhc_handle_irq(sdio_host_dev_t *sdio, int irq UNUSED)
 {
     sdhc_dev_t host = sdio_get_sdhc(sdio);
-    struct mmc_cmd* cmd = host->cmd_list_head;
+    struct mmc_cmd *cmd = host->cmd_list_head;
     uint32_t int_status;
 
     int_status = readl(host->base + INT_STATUS);
-    if(!cmd){
+    if (!cmd) {
         /* Clear flags */
         writel(int_status, host->base + INT_STATUS);
         return 0;
@@ -471,7 +465,7 @@ sdhc_handle_irq(sdio_host_dev_t* sdio, int irq UNUSED)
         assert(cmd->data->vbuf);
         assert(cmd->complete == 0);
         if (host->blocks_remaining) {
-            io_buf = (volatile uint32_t*)((void*)host->base + DATA_BUFF_ACC_PORT);
+            io_buf = (volatile uint32_t *)((void *)host->base + DATA_BUFF_ACC_PORT);
             usr_buf = (uint32_t *)cmd->data->vbuf;
             if (int_status & INT_STATUS_BRR) {
                 /* Buffer Read Ready */
@@ -518,8 +512,7 @@ sdhc_handle_irq(sdio_host_dev_t* sdio, int irq UNUSED)
     return 0;
 }
 
-static int
-sdhc_is_voltage_compatible(sdio_host_dev_t* sdio, int mv)
+static int sdhc_is_voltage_compatible(sdio_host_dev_t *sdio, int mv)
 {
     uint32_t val;
     sdhc_dev_t host = sdio_get_sdhc(sdio);
@@ -531,8 +524,7 @@ sdhc_is_voltage_compatible(sdio_host_dev_t* sdio, int mv)
     }
 }
 
-static int
-sdhc_send_cmd(sdio_host_dev_t* sdio, struct mmc_cmd *cmd, sdio_cb cb, void* token)
+static int sdhc_send_cmd(sdio_host_dev_t *sdio, struct mmc_cmd *cmd, sdio_cb cb, void *token)
 {
     sdhc_dev_t host = sdio_get_sdhc(sdio);
     int ret;
@@ -573,8 +565,7 @@ sdhc_send_cmd(sdio_host_dev_t* sdio, struct mmc_cmd *cmd, sdio_cb cb, void* toke
 }
 
 /** Software Reset */
-static int
-sdhc_reset(sdio_host_dev_t* sdio)
+static int sdhc_reset(sdio_host_dev_t *sdio)
 {
     sdhc_dev_t host = sdio_get_sdhc(sdio);
     uint32_t val;
@@ -588,11 +579,11 @@ sdhc_reset(sdio_host_dev_t* sdio)
     } while (val & SYS_CTRL_RSTA);
 
     /* Enable IRQs */
-    val = ( INT_STATUS_ADMAE | INT_STATUS_OVRCURE | INT_STATUS_DEBE
-            | INT_STATUS_DCE   | INT_STATUS_DTOE    | INT_STATUS_CRM
-            | INT_STATUS_CINS  | INT_STATUS_BRR     | INT_STATUS_BWR
-            | INT_STATUS_CIE   | INT_STATUS_CEBE    | INT_STATUS_CCE
-            | INT_STATUS_CTOE  | INT_STATUS_TC      | INT_STATUS_CC);
+    val = (INT_STATUS_ADMAE | INT_STATUS_OVRCURE | INT_STATUS_DEBE
+           | INT_STATUS_DCE   | INT_STATUS_DTOE    | INT_STATUS_CRM
+           | INT_STATUS_CINS  | INT_STATUS_BRR     | INT_STATUS_BWR
+           | INT_STATUS_CIE   | INT_STATUS_CEBE    | INT_STATUS_CCE
+           | INT_STATUS_CTOE  | INT_STATUS_TC      | INT_STATUS_CC);
     writel(val, host->base + INT_STATUS_EN);
     writel(val, host->base + INT_SIGNAL_EN);
 
@@ -637,7 +628,7 @@ sdhc_reset(sdio_host_dev_t* sdio)
 
     /* Wait until the Command and Data Lines are ready. */
     while ((readl(host->base + PRES_STATE) & PRES_STATE_CDIHB) ||
-            (readl(host->base + PRES_STATE) & PRES_STATE_CIHB));
+           (readl(host->base + PRES_STATE) & PRES_STATE_CIHB));
 
     /* Send 80 clock ticks to card to power up. */
     val = readl(host->base + SYS_CTRL);
@@ -660,8 +651,7 @@ sdhc_reset(sdio_host_dev_t* sdio)
     return 0;
 }
 
-static int
-sdhc_get_nth_irq(sdio_host_dev_t* sdio, int n)
+static int sdhc_get_nth_irq(sdio_host_dev_t *sdio, int n)
 {
     sdhc_dev_t host = sdio_get_sdhc(sdio);
     if (n < 0 || n >= host->nirqs) {
@@ -672,9 +662,8 @@ sdhc_get_nth_irq(sdio_host_dev_t* sdio, int n)
 }
 
 
-int
-sdhc_init(void* iobase, const int* irq_table, int nirqs, ps_io_ops_t* io_ops,
-          sdio_host_dev_t* dev)
+int sdhc_init(void *iobase, const int *irq_table, int nirqs, ps_io_ops_t *io_ops,
+              sdio_host_dev_t *dev)
 {
     sdhc_dev_t sdhc;
     /* Allocate memory for SDHC structure */
