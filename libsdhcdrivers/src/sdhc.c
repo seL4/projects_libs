@@ -155,7 +155,7 @@
 
 /* Watermark Level register */
 #define WTMK_LVL_WR_WML_SHF     16        //Write Watermark Level
-#define WTMK_LVL_RD_WML_SHF     0         //Write Watermark Level
+#define WTMK_LVL_RD_WML_SHF     0         //Read  Watermark Level
 
 #define writel(v, a)  (*(volatile uint32_t*)(a) = (v))
 #define readl(a)      (*(volatile uint32_t*)(a))
