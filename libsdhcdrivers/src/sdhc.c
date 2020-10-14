@@ -705,6 +705,7 @@ static int sdhc_reset(sdio_host_dev_t *sdio)
     /* Reset the host */
     val = readl(host->base + SYS_CTRL);
     val |= SYS_CTRL_RSTA;
+    /* Wait until the controller is ready */
     writel(val, host->base + SYS_CTRL);
     do {
         val = readl(host->base + SYS_CTRL);
