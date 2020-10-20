@@ -161,7 +161,7 @@
 #define readl(a)      (*(volatile uint32_t*)(a))
 
 enum dma_mode {
-    DMA_MODE_NONE,
+    DMA_MODE_NONE = 0,
     DMA_MODE_SDMA,
     DMA_MODE_ADMA
 };
@@ -201,7 +201,7 @@ typedef enum {
 } sdclk_frequency_select;
 
 typedef enum {
-    CLOCK_INITIAL,
+    CLOCK_INITIAL = 0,
     CLOCK_OPERATIONAL
 } clock_mode;
 

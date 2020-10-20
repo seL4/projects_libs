@@ -31,7 +31,7 @@
 #define SDHC4_IRQ   109
 
 enum sdio_id {
-    SDHC0,
+    SDHC0 = 0,
     SDHC1,
     SDHC2,
     SDHC3,
