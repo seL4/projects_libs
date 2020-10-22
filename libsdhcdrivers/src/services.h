@@ -23,8 +23,7 @@
 #define RESOURCE(o, id) sdhc_map_device(&o->io_mapper, id##_PADDR, id##_SIZE)
 #endif
 
-static inline void
-udelay(long us)
+static inline void udelay(long us)
 {
     ps_udelay(us);
 }
@@ -37,17 +36,15 @@ udelay(long us)
  * @return          the virtual address of the mapping.
  *                  NULL on failure.
  */
-static inline void*
-sdhc_map_device(struct ps_io_mapper* o, uintptr_t paddr, int size)
+static inline void *sdhc_map_device(struct ps_io_mapper *o, uintptr_t paddr, int size)
 {
     return ps_io_map(o, paddr, size, 0, PS_MEM_NORMAL);
 }
 
-static inline void*
-ps_dma_alloc_pinned(ps_dma_man_t *dma_man, size_t size, int align, int cache, ps_mem_flags_t flags,
-                    uintptr_t* paddr)
+static inline void *ps_dma_alloc_pinned(ps_dma_man_t *dma_man, size_t size, int align, int cache, ps_mem_flags_t flags,
+                                        uintptr_t *paddr)
 {
-    void* addr;
+    void *addr;
     assert(dma_man);
     addr = ps_dma_alloc(dma_man, size, align, cache, flags);
     if (addr != NULL) {
@@ -56,8 +53,7 @@ ps_dma_alloc_pinned(ps_dma_man_t *dma_man, size_t size, int align, int cache, ps
     return addr;
 }
 
-static inline void
-ps_dma_free_pinned(ps_dma_man_t *dma_man, void* addr, size_t size)
+static inline void ps_dma_free_pinned(ps_dma_man_t *dma_man, void *addr, size_t size)
 {
     assert(dma_man);
     ps_dma_unpin(dma_man, addr, size);

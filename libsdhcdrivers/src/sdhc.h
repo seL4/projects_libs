@@ -10,8 +10,7 @@
  * @TAG(DATA61_BSD)
  */
 
-#ifndef _SDHC_H_
-#define _SDHC_H_
+#pragma once
 
 #include <platsupport/io.h>
 #include <sdhc/sdio.h>
@@ -21,17 +20,15 @@ struct sdhc {
     volatile void *base;
     int version;
     int nirqs;
-    const int* irq_table;
+    const int *irq_table;
     /* Transaction queue */
-    struct mmc_cmd* cmd_list_head;
-    struct mmc_cmd** cmd_list_tail;
+    struct mmc_cmd *cmd_list_head;
+    struct mmc_cmd **cmd_list_tail;
     int blocks_remaining;
     /* DMA allocator */
-    ps_dma_man_t* dalloc;
+    ps_dma_man_t *dalloc;
 };
-typedef struct sdhc* sdhc_dev_t;
+typedef struct sdhc *sdhc_dev_t;
 
-int sdhc_init(void* iobase, const int* irq_table, int nirqs, ps_io_ops_t* io_ops,
-              sdio_host_dev_t* dev);
-
-#endif /* _SDHC_H_ */
+int sdhc_init(void *iobase, const int *irq_table, int nirqs, ps_io_ops_t *io_ops,
+              sdio_host_dev_t *dev);
