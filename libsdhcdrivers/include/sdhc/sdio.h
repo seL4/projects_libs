@@ -23,6 +23,7 @@ typedef void (*sdio_cb)(struct sdio_host_dev *sdio, int status, struct mmc_cmd *
 
 struct sdio_host_dev {
     int (*reset)(struct sdio_host_dev *sdio);
+    int (*set_operational)(struct sdio_host_dev *sdio);
     int (*send_command)(struct sdio_host_dev *sdio, struct mmc_cmd *cmd, sdio_cb cb, void *token);
     int (*handle_irq)(struct sdio_host_dev *sdio, int irq);
     int (*is_voltage_compatible)(struct sdio_host_dev *sdio, int mv);
@@ -68,6 +69,16 @@ static inline int sdio_is_voltage_compatible(sdio_host_dev_t *sdio, int mv)
 static inline int sdio_reset(sdio_host_dev_t *sdio)
 {
     return sdio->reset(sdio);
+}
+
+/**
+ * Set the SDIO device to an operational state
+ * @param[in] sdio A handle to an initialised SDIO driver
+ * @return         0 on success
+ */
+static inline int sdio_set_operational(sdio_host_dev_t *sdio)
+{
+    return sdio->set_operational(sdio);
 }
 
 /**

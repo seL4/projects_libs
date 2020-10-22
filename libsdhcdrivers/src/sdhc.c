@@ -166,6 +166,51 @@ enum dma_mode {
     DMA_MODE_ADMA
 };
 
+typedef enum {
+    DIV_1   = 0x0,
+    DIV_2   = 0x1,
+    DIV_3   = 0x2,
+    DIV_4   = 0x3,
+    DIV_5   = 0x4,
+    DIV_6   = 0x5,
+    DIV_7   = 0x6,
+    DIV_8   = 0x7,
+    DIV_9   = 0x8,
+    DIV_10  = 0x9,
+    DIV_11  = 0xa,
+    DIV_12  = 0xb,
+    DIV_13  = 0xc,
+    DIV_14  = 0xd,
+    DIV_15  = 0xe,
+    DIV_16  = 0xf,
+} divisor;
+
+/* Selecting the prescaler value varies between SDR and DDR mode. When the
+ * value is set, this is accounted for with a bitshift (PRESCALER_X >> 1) */
+typedef enum {
+    PRESCALER_1   = 0x0, //Only available in SDR mode
+    PRESCALER_2   = 0x1,
+    PRESCALER_4   = 0x2,
+    PRESCALER_8   = 0x4,
+    PRESCALER_16  = 0x8,
+    PRESCALER_32  = 0x10,
+    PRESCALER_64  = 0x20,
+    PRESCALER_128 = 0x40,
+    PRESCALER_256 = 0x80,
+    PRESCALER_512 = 0x100, //Only available in DDR mode
+} sdclk_frequency_select;
+
+typedef enum {
+    CLOCK_INITIAL,
+    CLOCK_OPERATIONAL
+} clock_mode;
+
+typedef enum {
+    SDCLK_TIMES_2_POW_29 = 0xf,
+    SDCLK_TIMES_2_POW_28 = 0xe,
+    SDCLK_TIMES_2_POW_14 = 0x0,
+} data_timeout_counter_val;
+
 static inline sdhc_dev_t sdio_get_sdhc(sdio_host_dev_t *sdio)
 {
     return (sdhc_dev_t)sdio->priv;
@@ -563,6 +608,94 @@ static int sdhc_send_cmd(sdio_host_dev_t *sdio, struct mmc_cmd *cmd, sdio_cb cb,
     }
 }
 
+static void sdhc_enable_clock(volatile void *base_addr)
+{
+    uint32_t val;
+
+    val = readl(base_addr + SYS_CTRL);
+    val |= SYS_CTRL_CLK_INT_EN;
+    writel(val, base_addr + SYS_CTRL);
+
+    do {
+        val = readl(base_addr + SYS_CTRL);
+    } while (!(val & SYS_CTRL_CLK_INT_STABLE));
+
+    val |= SYS_CTRL_CLK_CARD_EN;
+    writel(val, base_addr + SYS_CTRL);
+
+    return;
+}
+
+/* Set the clock divider and timeout */
+static int sdhc_set_clock_div(
+    volatile void *base_addr,
+    divisor dvs_div,
+    sdclk_frequency_select sdclks_div,
+    data_timeout_counter_val dtocv)
+{
+    /* make sure the clock state is stable. */
+    if (readl(base_addr + PRES_STATE) & PRES_STATE_SDSTB) {
+        uint32_t val = readl(base_addr + SYS_CTRL);
+
+        /* The SDCLK bit varies with Data Rate Mode. */
+        if (readl(base_addr + MIX_CTRL) & MIX_CTRL_DDR_EN) {
+            val &= ~(SYS_CTRL_SDCLKS_MASK << SYS_CTRL_SDCLKS_SHF);
+            val |= ((sdclks_div >> 1) << SYS_CTRL_SDCLKS_SHF);
+
+        } else {
+            val &= ~(SYS_CTRL_SDCLKS_MASK << SYS_CTRL_SDCLKS_SHF);
+            val |= (sdclks_div << SYS_CTRL_SDCLKS_SHF);
+        }
+        val &= ~(SYS_CTRL_DVS_MASK << SYS_CTRL_DVS_SHF);
+        val |= (dvs_div << SYS_CTRL_DVS_SHF);
+
+        /* Set data timeout value */
+        val |= (dtocv << SYS_CTRL_DTOCV_SHF);
+        writel(val, base_addr + SYS_CTRL);
+    } else {
+        LOG_ERROR("The clock is unstable, unable to change it!\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+static int sdhc_set_clock(volatile void *base_addr, clock_mode clk_mode)
+{
+    int rslt = -1;
+
+    const bool isClkEnabled = readl(base_addr + SYS_CTRL) & SYS_CTRL_CLK_INT_EN;
+    if (!isClkEnabled) {
+        sdhc_enable_clock(base_addr);
+    }
+
+    /* TODO: Relate the clock rate settings to the actual capabilities of the
+     * card and the host controller. The conservative settings chosen should
+     * work with most setups, but this is not an ideal solution. According to
+     * the RM, the default freq. of the base clock should be at around 200MHz.
+     */
+    switch (clk_mode) {
+    case CLOCK_INITIAL:
+        /* Divide the base clock by 512 */
+        rslt = sdhc_set_clock_div(base_addr, DIV_16, PRESCALER_32, SDCLK_TIMES_2_POW_14);
+        break;
+    case CLOCK_OPERATIONAL:
+        /* Divide the base clock by 8 */
+        rslt = sdhc_set_clock_div(base_addr, DIV_4, PRESCALER_2, SDCLK_TIMES_2_POW_29);
+        break;
+    default:
+        LOG_ERROR("Unsupported clock mode setting\n");
+        rslt = -1;
+        break;
+    }
+
+    if (rslt < 0) {
+        LOG_ERROR("Failed to change the clock settings\n");
+    }
+
+    return rslt;
+}
+
 /** Software Reset */
 static int sdhc_reset(sdio_host_dev_t *sdio)
 {
@@ -586,42 +719,8 @@ static int sdhc_reset(sdio_host_dev_t *sdio)
     writel(val, host->base + INT_STATUS_EN);
     writel(val, host->base + INT_SIGNAL_EN);
 
-    /* Set clock */
-    val = readl(host->base + SYS_CTRL);
-    val |= SYS_CTRL_CLK_INT_EN;
-    writel(val, host->base + SYS_CTRL);
-    do {
-        val = readl(host->base + SYS_CTRL);
-    } while (!(val & SYS_CTRL_CLK_INT_STABLE));
-    val |= SYS_CTRL_CLK_CARD_EN;
-    writel(val, host->base + SYS_CTRL);
-
-    /* Set Clock
-     * TODO: Hard-coded clock freq based on a *198MHz* default input.
-     */
-    /* make sure the clock state is stable. */
-    if (readl(host->base + PRES_STATE) & PRES_STATE_SDSTB) {
-        val = readl(host->base + SYS_CTRL);
-
-        /* The SDCLK bit varies with Data Rate Mode. */
-        if (readl(host->base + MIX_CTRL) & MIX_CTRL_DDR_EN) {
-            val &= ~(SYS_CTRL_SDCLKS_MASK << SYS_CTRL_SDCLKS_SHF);
-            val |= (0x80 << SYS_CTRL_SDCLKS_SHF);
-            val &= ~(SYS_CTRL_DVS_MASK << SYS_CTRL_DVS_SHF);
-            val |= (0x0 << SYS_CTRL_DVS_SHF);
-        } else {
-            val &= ~(SYS_CTRL_SDCLKS_MASK << SYS_CTRL_SDCLKS_SHF);
-            val |= (0x80 << SYS_CTRL_SDCLKS_SHF);
-            val &= ~(SYS_CTRL_DVS_MASK << SYS_CTRL_DVS_SHF);
-            val |= (0x1 << SYS_CTRL_DVS_SHF);
-        }
-
-        /* Set data timeout value */
-        val |= (0xE << SYS_CTRL_DTOCV_SHF);
-        writel(val, host->base + SYS_CTRL);
-    } else {
-        D(DBG_ERR, "The clock is unstable, unable to change it!\n");
-    }
+    /* Configure clock for initialization */
+    sdhc_set_clock(host->base, CLOCK_INITIAL);
 
     /* TODO: Select Voltage Level */
 
@@ -670,6 +769,19 @@ static uint32_t sdhc_get_present_state_register(sdio_host_dev_t *sdio)
     return readl(sdio_get_sdhc(sdio)->base + PRES_STATE);
 }
 
+static int sdhc_set_operational(struct sdio_host_dev *sdio)
+{
+    /*
+     * Set the clock to a higher frequency for the operational state.
+     *
+     * As of now, there are no further checks to validate if the card and the
+     * host controller could be driven with a higher rate, therefore the
+     * operational clock settings are chosen rather conservative.
+     */
+    sdhc_dev_t host = sdio_get_sdhc(sdio);
+    return sdhc_set_clock(host->base, CLOCK_OPERATIONAL);
+}
+
 int sdhc_init(void *iobase, const int *irq_table, int nirqs, ps_io_ops_t *io_ops,
               sdio_host_dev_t *dev)
 {
@@ -695,6 +807,7 @@ int sdhc_init(void *iobase, const int *irq_table, int nirqs, ps_io_ops_t *io_ops
     dev->send_command = &sdhc_send_cmd;
     dev->is_voltage_compatible = &sdhc_is_voltage_compatible;
     dev->reset = &sdhc_reset;
+    dev->set_operational = &sdhc_set_operational;
     dev->get_present_state = &sdhc_get_present_state_register;
     dev->priv = sdhc;
     /* Clear IRQs */

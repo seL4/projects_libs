@@ -200,6 +200,11 @@ static inline int host_reset(struct mmc_card *card)
     return sdio_reset(card->sdio);
 }
 
+static inline int host_set_operational(struct mmc_card *card)
+{
+    return sdio_set_operational(card->sdio);
+}
+
 
 
 

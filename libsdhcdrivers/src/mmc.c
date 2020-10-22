@@ -426,6 +426,13 @@ int mmc_init(sdio_host_dev_t *sdio, ps_io_ops_t *io_ops, mmc_card_t *mmc_card)
         return -1;
     }
 
+    /* Switch host controller to operational settings */
+    if (host_set_operational(mmc)) {
+        LOG_ERROR("Failed to switch the host controller to the operational mode\n");
+        free(mmc);
+        return -1;
+    }
+
     *mmc_card = mmc;
     assert(mmc);
     return 0;
