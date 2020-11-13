@@ -77,10 +77,10 @@ static int mmc_decode_cid(mmc_card_t mmc_card, struct cid *cid)
         cid->sd_cid.date    = slice_bits(mmc_card->raw_cid,   8, 12);
 
         ZF_LOGD("manfid(%x), oemid(%x), name(%c%c%c%c%c), rev(%x), serial(%x), date(%x)",
-               cid->manfid, cid->sd_cid.oemid,
-               cid->sd_cid.name[0], cid->sd_cid.name[1], cid->sd_cid.name[2],
-               cid->sd_cid.name[3], cid->sd_cid.name[4],
-               cid->sd_cid.rev, cid->sd_cid.serial, cid->sd_cid.date);
+                cid->manfid, cid->sd_cid.oemid,
+                cid->sd_cid.name[0], cid->sd_cid.name[1], cid->sd_cid.name[2],
+                cid->sd_cid.name[3], cid->sd_cid.name[4],
+                cid->sd_cid.rev, cid->sd_cid.serial, cid->sd_cid.date);
     } else {
         ZF_LOGD("Not Implemented!");
         return -1;
