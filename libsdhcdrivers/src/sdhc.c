@@ -19,16 +19,6 @@
 #include "services.h"
 #include "mmc.h"
 
-#define DBG_INFO "info:"
-
-//#define DEBUG
-#undef DEBUG
-#ifdef DEBUG
-#define D(x, ...) printf(__VA_ARGS__)
-#else
-#define D(...) do{}while(0)
-#endif
-
 #define DS_ADDR               0x00 //DMA System Address
 #define BLK_ATT               0x04 //Block Attributes
 #define CMD_ARG               0x08 //Command Argument
@@ -205,7 +195,7 @@ UNUSED static void print_sdhc_regs(struct sdhc *host)
 {
     int i;
     for (i = DS_ADDR; i <= HOST_VERSION; i += 0x4) {
-        printf("%x: %X\n", i, readl(host->base + i));
+        ZF_LOGD("%x: %X", i, readl(host->base + i));
     }
 }
 
@@ -262,7 +252,7 @@ static int sdhc_next_cmd(sdhc_dev_t host)
     //udelay(1000);
 
     /* Write to the argument register. */
-    D(DBG_INFO, "CMD: %d with arg %x ", cmd->index, cmd->arg);
+    ZF_LOGD("CMD: %d with arg %x ", cmd->index, cmd->arg);
     writel(cmd->arg, host->base + CMD_ARG);
 
     if (cmd->data) {
@@ -380,80 +370,80 @@ static int sdhc_handle_irq(sdio_host_dev_t *sdio, int irq UNUSED)
     }
     /** Handle errors **/
     if (int_status & INT_STATUS_TNE) {
-        LOG_ERROR("Tuning error");
+        ZF_LOGE("Tuning error");
     }
     if (int_status & INT_STATUS_OVRCURE) {
-        LOG_ERROR("Bus overcurrent"); /* (exl. IMX6) */
+        ZF_LOGE("Bus overcurrent"); /* (exl. IMX6) */
     }
     if (int_status & INT_STATUS_ERR) {
-        LOG_ERROR("CMD/DATA transfer error"); /* (exl. IMX6) */
+        ZF_LOGE("CMD/DATA transfer error"); /* (exl. IMX6) */
         cmd->complete = -1;
     }
     if (int_status & INT_STATUS_AC12E) {
-        LOG_ERROR("Auto CMD12 Error");
+        ZF_LOGE("Auto CMD12 Error");
         cmd->complete = -1;
     }
     /** DMA errors **/
     if (int_status & INT_STATUS_DMAE) {
-        LOG_ERROR("DMA Error");
+        ZF_LOGE("DMA Error");
         cmd->complete = -1;
     }
     if (int_status & INT_STATUS_ADMAE) {
-        LOG_ERROR("ADMA error");       /*  (exl. IMX6) */
+        ZF_LOGE("ADMA error");       /*  (exl. IMX6) */
         cmd->complete = -1;
     }
     /** DATA errors **/
     if (int_status & INT_STATUS_DEBE) {
-        LOG_ERROR("Data end bit error");
+        ZF_LOGE("Data end bit error");
         cmd->complete = -1;
     }
     if (int_status & INT_STATUS_DCE) {
-        LOG_ERROR("Data CRC error");
+        ZF_LOGE("Data CRC error");
         cmd->complete = -1;
     }
     if (int_status & INT_STATUS_DTOE) {
-        LOG_ERROR("Data transfer error");
+        ZF_LOGE("Data transfer error");
         cmd->complete = -1;
     }
     /** CMD errors **/
     if (int_status & INT_STATUS_CIE) {
-        LOG_ERROR("Command index error");
+        ZF_LOGE("Command index error");
         cmd->complete = -1;
     }
     if (int_status & INT_STATUS_CEBE) {
-        LOG_ERROR("Command end bit error");
+        ZF_LOGE("Command end bit error");
         cmd->complete = -1;
     }
     if (int_status & INT_STATUS_CCE) {
-        LOG_ERROR("Command CRC error");
+        ZF_LOGE("Command CRC error");
         cmd->complete = -1;
     }
     if (int_status & INT_STATUS_CTOE) {
-        LOG_ERROR("CMD Timeout...");
+        ZF_LOGE("CMD Timeout...");
         cmd->complete = -1;
     }
 
     if (int_status & INT_STATUS_TP) {
-        LOG_INFO("Tuning pass");
+        ZF_LOGD("Tuning pass");
     }
     if (int_status & INT_STATUS_RTE) {
-        LOG_INFO("Retuning event");
+        ZF_LOGD("Retuning event");
     }
     if (int_status & INT_STATUS_CINT) {
-        LOG_INFO("Card interrupt");
+        ZF_LOGD("Card interrupt");
     }
     if (int_status & INT_STATUS_CRM) {
-        LOG_INFO("Card removal");
+        ZF_LOGD("Card removal");
         cmd->complete = -1;
     }
     if (int_status & INT_STATUS_CINS) {
-        LOG_INFO("Card insertion");
+        ZF_LOGD("Card insertion");
     }
     if (int_status & INT_STATUS_DINT) {
-        LOG_INFO("DMA interrupt");
+        ZF_LOGD("DMA interrupt");
     }
     if (int_status & INT_STATUS_BGE) {
-        LOG_INFO("Block gap event");
+        ZF_LOGD("Block gap event");
     }
 
     /* Command complete */
@@ -637,7 +627,7 @@ static int sdhc_set_clock_div(
         val |= (dtocv << SYS_CTRL_DTOCV_SHF);
         writel(val, base_addr + SYS_CTRL);
     } else {
-        LOG_ERROR("The clock is unstable, unable to change it!\n");
+        ZF_LOGE("The clock is unstable, unable to change it!");
         return -1;
     }
 
@@ -668,13 +658,13 @@ static int sdhc_set_clock(volatile void *base_addr, clock_mode clk_mode)
         rslt = sdhc_set_clock_div(base_addr, DIV_4, PRESCALER_2, SDCLK_TIMES_2_POW_29);
         break;
     default:
-        LOG_ERROR("Unsupported clock mode setting\n");
+        ZF_LOGE("Unsupported clock mode setting");
         rslt = -1;
         break;
     }
 
     if (rslt < 0) {
-        LOG_ERROR("Failed to change the clock settings\n");
+        ZF_LOGE("Failed to change the clock settings");
     }
 
     return rslt;
@@ -727,13 +717,12 @@ static int sdhc_reset(sdio_host_dev_t *sdio)
     /* Check if a SD card is inserted. */
     val = readl(host->base + PRES_STATE);
     if (val & SDHC_PRES_STATE_CINST) {
-        printf("Card Inserted");
+        ZF_LOGD("Card Inserted");
         if (!(val & SDHC_PRES_STATE_WPSPL)) {
-            printf("(Read Only)");
+            ZF_LOGD("(Read Only)");
         }
-        printf("...\n");
     } else {
-        printf("Card Not Present...\n");
+        ZF_LOGE("Card Not Present...");
     }
 
     return 0;
@@ -774,7 +763,7 @@ int sdhc_init(void *iobase, const int *irq_table, int nirqs, ps_io_ops_t *io_ops
     /* Allocate memory for SDHC structure */
     sdhc = (sdhc_dev_t)malloc(sizeof(*sdhc));
     if (!sdhc) {
-        LOG_ERROR("Not enough memory!\n");
+        ZF_LOGE("Not enough memory!");
         return -1;
     }
     /* Complete the initialisation of the SDHC structure */
@@ -785,7 +774,7 @@ int sdhc_init(void *iobase, const int *irq_table, int nirqs, ps_io_ops_t *io_ops
     sdhc->cmd_list_head = NULL;
     sdhc->cmd_list_tail = &sdhc->cmd_list_head;
     sdhc->version = ((readl(sdhc->base + HOST_VERSION) >> 16) & 0xff) + 1;
-    printf("SDHC version %d.00\n", sdhc->version);
+    ZF_LOGD("SDHC version %d.00", sdhc->version);
     /* Initialise SDIO structure */
     dev->handle_irq = &sdhc_handle_irq;
     dev->nth_irq = &sdhc_get_nth_irq;

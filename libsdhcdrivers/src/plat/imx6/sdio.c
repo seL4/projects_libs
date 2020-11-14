@@ -47,13 +47,13 @@ int sdio_init(enum sdio_id id, ps_io_ops_t *io_ops, sdio_host_dev_t *dev)
         return -1;
     }
     if (iobase == NULL) {
-        LOG_ERROR("Failed to map device memory for SDHC\n");
+        ZF_LOGE("Failed to map device memory for SDHC");
         return -1;
     }
 
     ret = sdhc_init(iobase, _sdhc_irq_table, NSDHC, io_ops, dev);
     if (ret) {
-        LOG_ERROR("Failed to initialise SDHC\n");
+        ZF_LOGE("Failed to initialise SDHC");
         return -1;
     }
     return 0;

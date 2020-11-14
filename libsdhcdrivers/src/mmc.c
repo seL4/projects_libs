@@ -16,16 +16,6 @@
 #include <assert.h>
 #include <stdio.h>
 
-#define DBG_INFO "info:"
-
-//#define DEBUG
-#undef DEBUG
-#ifdef DEBUG
-#define D(x, ...) printf(__VA_ARGS__)
-#else
-#define D(...) do{}while(0)
-#endif
-
 #define CSD_VERSION_1       0
 #define CSD_VERSION_2_AND_3 1
 
@@ -86,13 +76,13 @@ static int mmc_decode_cid(mmc_card_t mmc_card, struct cid *cid)
         cid->sd_cid.serial  = slice_bits(mmc_card->raw_cid,  24, 32);
         cid->sd_cid.date    = slice_bits(mmc_card->raw_cid,   8, 12);
 
-        printf("manfid(%x), oemid(%x), name(%c%c%c%c%c), rev(%x), serial(%x), date(%x)\n",
+        ZF_LOGD("manfid(%x), oemid(%x), name(%c%c%c%c%c), rev(%x), serial(%x), date(%x)",
                cid->manfid, cid->sd_cid.oemid,
                cid->sd_cid.name[0], cid->sd_cid.name[1], cid->sd_cid.name[2],
                cid->sd_cid.name[3], cid->sd_cid.name[4],
                cid->sd_cid.rev, cid->sd_cid.serial, cid->sd_cid.date);
     } else {
-        printf("Not Implemented!\n");
+        ZF_LOGD("Not Implemented!");
         return -1;
     }
 
@@ -112,19 +102,19 @@ static int mmc_decode_csd(mmc_card_t mmc_card, struct csd *csd)
     csd->structure = CSD_BITS(126, 2);
 
     if (csd->structure == CSD_VERSION_1) {
-        printf("CSD Version 1.0\n");
+        ZF_LOGD("CSD Version 1.0");
         csd->c_size      = CSD_BITS(62, 12);
         csd->c_size_mult = CSD_BITS(47,  3);
         csd->read_bl_len = CSD_BITS(80,  4);
         csd->tran_speed  = CSD_BITS(96,  8);
     } else if (csd->structure == CSD_VERSION_2_AND_3) {
-        printf("CSD Version 2.0\n");
+        ZF_LOGD("CSD Version 2.0");
         csd->c_size      = CSD_BITS(48, 22);
         csd->c_size_mult = 0;
         csd->read_bl_len = CSD_BITS(80,  4);
         csd->tran_speed  = CSD_BITS(96,  8);
     } else {
-        printf("Unknown CSD version!\n");
+        ZF_LOGE("Unknown CSD version!");
         return -1;
     }
 
@@ -202,15 +192,13 @@ static int mmc_card_registry(mmc_card_t card)
     struct mmc_cmd cmd = {.data = NULL};
     int ret;
 
-    D(DBG_INFO, "\n");
-
     /* Get card ID */
     cmd.index = MMC_ALL_SEND_CID;
     cmd.arg = 0;
     cmd.rsp_type = MMC_RSP_TYPE_R2;
     ret = host_send_command(card, &cmd, NULL, NULL);
     if (ret) {
-        D(DBG_ERR, "No response!\n");
+        ZF_LOGE("No response!");
         card->status = CARD_STS_INACTIVE;
         return -1;
     } else {
@@ -231,7 +219,7 @@ static int mmc_card_registry(mmc_card_t card)
     cmd.rsp_type = MMC_RSP_TYPE_R6;
     host_send_command(card, &cmd, NULL, NULL);
     card->raw_rca = (cmd.response[0] >> 16);
-    D(DBG_INFO, "New Card RCA: %x\n", card->raw_rca);
+    ZF_LOGD("New Card RCA: %x", card->raw_rca);
 
     /* Read CSD, Status */
     cmd.index = MMC_SEND_CSD;
@@ -349,7 +337,8 @@ static int mmc_voltage_validation(mmc_card_t card)
         card->high_capacity = 0;
     }
 
-    D(DBG_INFO, "Voltage set!\n");
+    ZF_LOGD("Voltage set!");
+
     return 0;
 }
 
@@ -404,31 +393,31 @@ int mmc_init(sdio_host_dev_t *sdio, ps_io_ops_t *io_ops, mmc_card_t *mmc_card)
     mmc->sdio = sdio;
     /* Reset the host controller */
     if (host_reset(mmc)) {
-        LOG_ERROR("Failed to reset host controller\n");
+        ZF_LOGE("Failed to reset host controller");
         free(mmc);
         return -1;
     }
     /* Initialise the card */
     if (mmc_reset(mmc)) {
-        LOG_ERROR("Failed to reset SD/MMC card\n");
+        ZF_LOGE("Failed to reset SD/MMC card");
         free(mmc);
         return -1;
     }
     if (mmc_voltage_validation(mmc)) {
-        LOG_ERROR("Failed to perform voltage validation\n");
+        ZF_LOGE("Failed to perform voltage validation");
         free(mmc);
         return -1;
     }
     /* Register the card */
     if (mmc_card_registry(mmc)) {
-        LOG_ERROR("Failed to register card\n");
+        ZF_LOGE("Failed to register card");
         free(mmc);
         return -1;
     }
 
     /* Switch host controller to operational settings */
     if (host_set_operational(mmc)) {
-        LOG_ERROR("Failed to switch the host controller to the operational mode\n");
+        ZF_LOGE("Failed to switch the host controller to the operational mode");
         free(mmc);
         return -1;
     }
