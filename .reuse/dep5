@@ -1,0 +1,12 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: projects_libs
+Upstream-Contact: seL4 team <support@sel4.systems>
+Source: http://sel4.systems
+
+Files: libmsgpack/msgpack-c/*
+Copyright: 2008-2015 FURUHASHI Sadayuki
+License: BSL-1.0
+
+Files: libjansson/jansson-2.7/*
+Copyright: 2009-2014 Petri Lehtinen <petri@digip.org>
+License: MIT
