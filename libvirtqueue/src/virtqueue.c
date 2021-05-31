@@ -3,16 +3,19 @@
  *
  * SPDX-License-Identifier: BSD-2-Clause
  */
+#include <stdio.h>
 
-#include <utils/util.h>
 #include <virtqueue.h>
+
+#define IS_POWER_OF_2(x) (!((x) & ((x) - 1)))
+#define ZF_LOGE(...) fprintf(stderr, __VA_ARGS__)
 
 void virtqueue_init_driver(virtqueue_driver_t *vq, unsigned queue_len, vq_vring_avail_t *avail_ring,
                            vq_vring_used_t *used_ring, vq_vring_desc_t *desc, void (*notify)(void),
                            void *cookie)
 {
     if (!IS_POWER_OF_2(queue_len)) {
-        ZF_LOGE("Invalid queue_len: %d, must be a power of 2.", queue_len);
+        ZF_LOGE("Invalid queue_len: %u, must be a power of 2.", queue_len);
     }
     vq->free_desc_head = 0;
     vq->queue_len = queue_len;
@@ -33,7 +36,7 @@ void virtqueue_init_device(virtqueue_device_t *vq, unsigned queue_len, vq_vring_
                            void *cookie)
 {
     if (!IS_POWER_OF_2(queue_len)) {
-        ZF_LOGE("Invalid queue_len: %d, must be a power of 2.", queue_len);
+        ZF_LOGE("Invalid queue_len: %u, must be a power of 2.", queue_len);
     }
     vq->queue_len = queue_len;
     vq->a_ring_last_seen = vq->queue_len - 1;
