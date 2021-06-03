@@ -13,5 +13,6 @@ int main() {
     virtqueue_driver_t drv;
     virtqueue_device_t dev;
 
-    virtqueue_init_driver(&drv, VQ_LEN, (void*) avail, (void*) used, desc, NULL, NULL);
+    virtqueue_init_driver(&drv, VQ_LEN, (vq_vring_avail_t*) avail, (vq_vring_used_t*) used, desc, NULL, NULL);
+    virtqueue_init_device(&dev, VQ_LEN, (vq_vring_avail_t*) avail, (vq_vring_used_t*) used, desc, NULL, NULL);
 }

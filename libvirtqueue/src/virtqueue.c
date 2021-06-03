@@ -8,15 +8,11 @@
 #include <virtqueue.h>
 
 #define IS_POWER_OF_2(x) (!((x) & ((x) - 1)))
-#define ZF_LOGE(...) fprintf(stderr, __VA_ARGS__)
 
 void virtqueue_init_driver(virtqueue_driver_t *vq, unsigned queue_len, vq_vring_avail_t *avail_ring,
                            vq_vring_used_t *used_ring, vq_vring_desc_t *desc, void (*notify)(void),
                            void *cookie)
 {
-    if (!IS_POWER_OF_2(queue_len)) {
-        ZF_LOGE("Invalid queue_len: %u, must be a power of 2.", queue_len);
-    }
     vq->free_desc_head = 0;
     vq->queue_len = queue_len;
     vq->u_ring_last_seen = vq->queue_len - 1;
@@ -35,9 +31,6 @@ void virtqueue_init_device(virtqueue_device_t *vq, unsigned queue_len, vq_vring_
                            vq_vring_used_t *used_ring, vq_vring_desc_t *desc, void (*notify)(void),
                            void *cookie)
 {
-    if (!IS_POWER_OF_2(queue_len)) {
-        ZF_LOGE("Invalid queue_len: %u, must be a power of 2.", queue_len);
-    }
     vq->queue_len = queue_len;
     vq->a_ring_last_seen = vq->queue_len - 1;
     vq->avail_ring = avail_ring;
@@ -47,9 +40,15 @@ void virtqueue_init_device(virtqueue_device_t *vq, unsigned queue_len, vq_vring_
     vq->cookie = cookie;
 }
 
+/*@ requires \block_length(table) == queue_len * sizeof(vq_vring_desc_t);
+  @ requires \valid(table + (0 .. queue_len - 1));
+  @ ensures table[0].addr == 1;
+  @*/
 void virtqueue_init_desc_table(vq_vring_desc_t *table, unsigned queue_len)
 {
     unsigned i;
+    /*@ loop variant queue_len - i;
+     */
     for (i = 0; i < queue_len; i++) {
         table[i].addr = 0;
         table[i].len = 0;
@@ -58,12 +57,20 @@ void virtqueue_init_desc_table(vq_vring_desc_t *table, unsigned queue_len)
     }
 }
 
+/*@ requires \valid(ring);
+  @ ensures \valid(ring);
+  @ ensures ring->flags == 0 && ring->idx == 0;
+  @*/
 void virtqueue_init_avail_ring(vq_vring_avail_t *ring)
 {
     ring->flags = 0;
     ring->idx = 0;
 }
 
+/*@ requires \valid(ring);
+  @ ensures \valid(ring);
+  @ ensures ring->flags == 0 && ring->idx == 0;
+  @*/
 void virtqueue_init_used_ring(vq_vring_used_t *ring)
 {
     ring->flags = 0;
