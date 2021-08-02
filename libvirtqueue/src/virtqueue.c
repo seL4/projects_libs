@@ -42,19 +42,18 @@ void virtqueue_init_device(virtqueue_device_t *vq, unsigned queue_len, vq_vring_
 
 /*@ requires \block_length(table) == queue_len * sizeof(vq_vring_desc_t);
   @ requires \valid(table + (0 .. queue_len - 1));
-  @ ensures table[0].addr == 1;
   @*/
 void virtqueue_init_desc_table(vq_vring_desc_t *table, unsigned queue_len)
 {
     unsigned i;
-    /*@ loop variant queue_len - i;
-     */
+    /*@ loop variant queue_len - i; */
     for (i = 0; i < queue_len; i++) {
         table[i].addr = 0;
         table[i].len = 0;
         table[i].flags = 0;
         table[i].next = i + 1;
     }
+    /*@ assert table[0].addr == 0; */
 }
 
 /*@ requires \valid(ring);
@@ -65,6 +64,8 @@ void virtqueue_init_avail_ring(vq_vring_avail_t *ring)
 {
     ring->flags = 0;
     ring->idx = 0;
+  /*@ assert \valid(ring); */
+  /*@ assert ring->flags == 0 && ring->idx == 0; */
 }
 
 /*@ requires \valid(ring);
