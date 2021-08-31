@@ -38,13 +38,14 @@ typedef struct vswitch_virtqueues_ {
     virtqueue_device_t *recv_queue;
 } vswitch_virtqueues_t;
 
-extern struct ether_addr null_macaddr, bcast_macaddr;
+extern struct ether_addr null_macaddr, bcast_macaddr, ipv6_multicast_macaddr;
 
 static inline bool
-mac802_addr_eq(struct ether_addr *addr0,
-               struct ether_addr *addr1)
+mac802_addr_eq_num(struct ether_addr *addr0,
+                   struct ether_addr *addr1, unsigned int num)
 {
-    for (int i = 0; i < ETH_ALEN; i++) {
+    assert(num <= ETH_ALEN);
+    for (int i = 0; i < num; i++) {
         if (addr0->ether_addr_octet[i] != addr1->ether_addr_octet[i]) {
             return false;
         }
@@ -53,9 +54,22 @@ mac802_addr_eq(struct ether_addr *addr0,
 }
 
 static inline bool
+mac802_addr_eq(struct ether_addr *addr0,
+               struct ether_addr *addr1)
+{
+    mac802_addr_eq_num(addr0, addr1, ETH_ALEN);
+}
+
+static inline bool
 mac802_addr_eq_bcast(struct ether_addr *addr)
 {
     return mac802_addr_eq(addr, &bcast_macaddr);
+}
+
+static inline bool
+mac802_addr_eq_ipv6_mcast(struct ether_addr *addr)
+{
+    return mac802_addr_eq_num(addr, &ipv6_multicast_macaddr, 2);
 }
 
 typedef struct vswitch_node_ {
