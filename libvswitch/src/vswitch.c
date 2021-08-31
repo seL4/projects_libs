@@ -18,6 +18,10 @@ struct ether_addr bcast_macaddr = { .ether_addr_octet = {
         0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
     }
 };
+struct ether_addr ipv6_multicast_macaddr = { .ether_addr_octet = {
+        0x33, 0x33, 0x0, 0x0, 0x0, 0x0
+    }
+};
 
 static int vswitch_find_free_slot(vswitch_t *lib)
 {
