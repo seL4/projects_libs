@@ -22,6 +22,7 @@
 
 #include <netif/etharp.h>
 #include <lwip/stats.h>
+#include <lwip/snmp.h>
 
 #include "../services.h"
 
