@@ -23,16 +23,16 @@ static inline void *usb_malloc(size_t size)
 {
     int ret;
 
-	if (ps_malloc_ops && ps_malloc_ops->calloc) {
-		void *ptr;
-		ret = ps_calloc(ps_malloc_ops, 1, size, &ptr);
-		if (!ret) {
-			ZF_LOGF("Malloc error\n");
-		}
-		return ptr;
-	} else {
-		return calloc(1, size);
-	}
+    if (ps_malloc_ops && ps_malloc_ops->calloc) {
+        void *ptr;
+        ret = ps_calloc(ps_malloc_ops, 1, size, &ptr);
+        if (0 != ret) {
+            ZF_LOGF("Malloc error %d\n", ret);
+        }
+        return ptr;
+    } else {
+        return calloc(1, size);
+    }
 }
 
 static inline void usb_free(void *ptr)
