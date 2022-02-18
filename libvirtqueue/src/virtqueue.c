@@ -7,6 +7,8 @@
 #include <utils/util.h>
 #include <virtqueue.h>
 
+int num_used_buffs = 0;
+
 void virtqueue_init_driver(virtqueue_driver_t *vq, unsigned queue_len, vq_vring_avail_t *avail_ring,
                            vq_vring_used_t *used_ring, vq_vring_desc_t *desc, void (*notify)(void),
                            void *cookie)
@@ -129,6 +131,7 @@ int virtqueue_add_available_buf(virtqueue_driver_t *vq, virtqueue_ring_object_t 
         vq->avail_ring->ring[vq->avail_ring->idx] = idx;
         vq->avail_ring->idx = (vq->avail_ring->idx + 1) & (vq->queue_len - 1);
     }
+
     return 1;
 }
 
@@ -153,6 +156,7 @@ int virtqueue_add_used_buf(virtqueue_device_t *vq, virtqueue_ring_object_t *robj
     vq->used_ring->ring[cur].id = robj->first;
     vq->used_ring->ring[cur].len = len;
     vq->used_ring->idx = (cur + 1) & (vq->queue_len - 1);
+
     return 1;
 }
 
@@ -214,4 +218,16 @@ int virtqueue_gather_used(virtqueue_driver_t *vq, virtqueue_ring_object_t *robj,
     }
     robj->cur = vq_pop_desc(vq, robj->cur, buf, len, flag);
     return 1;
+}
+
+int virtqueue_get_num_used() {
+    return num_used_buffs;
+}
+
+void add_rx_used_count() {
+    num_used_buffs++;
+}
+
+void decrement_rx_used_count() {
+    num_used_buffs--;
 }

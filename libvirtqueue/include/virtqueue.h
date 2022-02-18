@@ -189,3 +189,7 @@ int virtqueue_gather_available(virtqueue_device_t *vq, virtqueue_ring_object_t *
  */
 int virtqueue_gather_used(virtqueue_driver_t *vq, virtqueue_ring_object_t *robj,
                           void **buf, unsigned *len, vq_flags_t *flag);
+
+int virtqueue_get_num_used();
+void add_rx_used_count();
+void decrement_rx_used_count();

@@ -10,7 +10,7 @@ libvirtqueue
 **_This implementation is currently a work in progress_**
 
 This directory contains a library implementation of a virtqueue inspired from
-the virtio specification. This is intended to be used as a communication
+the  specification. This is intended to be used as a communication
 mechanism between system components for bulk data transfer.
 The goal of this implementation is to provide a generic interface for manipulating
 and managing a 'virtqueue' connection. This library doesn't contain any code that
