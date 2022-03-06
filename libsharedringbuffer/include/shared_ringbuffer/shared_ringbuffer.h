@@ -1,6 +1,5 @@
 /*
- * Copyright 2022, UNSW
- * University of New South Wales (UNSW)
+ * Copyright 2022, UNSW ???
  */
 
 #pragma once 
@@ -38,21 +37,21 @@ typedef struct ring_handle {
 
 
 /**
- * Initialise the shared ring buffer
+ * Initialise the shared ring buffer.
  *
- * @param ring ring handle to use
- * @param avail pointer to available ring in shared memory
- * @param used pointer to 'used' ring in shared memory
- * @param notify function pointer used to notify the other user
+ * @param ring ring handle to use.
+ * @param avail pointer to available ring in shared memory.
+ * @param used pointer to 'used' ring in shared memory.
+ * @param notify function pointer used to notify the other user.
  * @param buffer_init 1 indicates the read and write indices in shared memory need to be initialised.
  *                    0 inidicates they do not. Only one side of the shared memory regions needs to do this. 
  */
 void ring_init(ring_handle_t *ring, ring_buffer_t *avail, ring_buffer_t *used, notify_fn notify, int buffer_init);
 
 /**
- * Check if the ring buffer is empty
+ * Check if the ring buffer is empty.
  *
- * @param ring ring buffer to check
+ * @param ring ring buffer to check.
  *
  * @return true indicates the buffer is empty, false otherwise.
  */
@@ -64,7 +63,7 @@ static inline int ring_empty(ring_buffer_t *ring)
 /**
  * Check if the ring buffer is full
  *
- * @param ring ring buffer to check
+ * @param ring ring buffer to check.
  *
  * @return true indicates the buffer is full, false otherwise.
  */
@@ -73,6 +72,12 @@ static inline int ring_full(ring_buffer_t *ring)
     return !((ring->write_idx - ring->read_idx + 1) % CONFIG_LIB_SHARED_RINGBUFFER_DESC_COUNT);
 }
 
+/**
+ * Notify the other user of changes to the shared ring buffers.
+ * 
+ * @param ring the ring handle used.
+ *
+ */
 static inline void notify(ring_handle_t *ring) 
 {
     return ring->notify();
@@ -81,12 +86,12 @@ static inline void notify(ring_handle_t *ring)
 /**
  * Enqueue an element to a ring buffer
  *
- * @param ring Ring buffer to enqueue into
+ * @param ring Ring buffer to enqueue into.
  * @param buffer address into shared memory where data is stored.
- * @param len length of data inside the buffer above
+ * @param len length of data inside the buffer above.
  * @param cookie optional pointer to data required on dequeueing. 
  *
- * @return -1 when ring is empty, 0 on success
+ * @return -1 when ring is empty, 0 on success.
  */
 static inline int enqueue(ring_buffer_t *ring, uintptr_t buffer, unsigned int len, void *cookie) 
 {
@@ -106,14 +111,14 @@ static inline int enqueue(ring_buffer_t *ring, uintptr_t buffer, unsigned int le
 }
 
 /**
- * Dequeue an element to a ring buffer
+ * Dequeue an element to a ring buffer.
  *
- * @param ring Ring buffer to Dequeue from
+ * @param ring Ring buffer to Dequeue from.
  * @param buffer pointer to the address of where to store buffer address.
- * @param len pointer to variable to store length of data dequeueing
+ * @param len pointer to variable to store length of data dequeueing.
  * @param cookie pointer optional pointer to data required on dequeueing. 
  *
- * @return -1 when ring is empty, 0 on success
+ * @return -1 when ring is empty, 0 on success.
  */
 static inline int dequeue(ring_buffer_t *ring, uintptr_t *addr, unsigned int *len, void **cookie) 
 {
@@ -133,15 +138,15 @@ static inline int dequeue(ring_buffer_t *ring, uintptr_t *addr, unsigned int *le
 }
 
 /**
- * Enqueue an element into an available ring buffer
+ * Enqueue an element into an available ring buffer.
  * This indicates the buffer address parameter is currently available for use. 
  *
- * @param ring Ring handle to enqueue into
+ * @param ring Ring handle to enqueue into.
  * @param buffer address into shared memory where data is stored.
- * @param len length of data inside the buffer above
+ * @param len length of data inside the buffer above.
  * @param cookie optional pointer to data required on dequeueing. 
  *
- * @return -1 when ring is empty, 0 on success
+ * @return -1 when ring is empty, 0 on success.
  */
 static inline int enqueue_avail(ring_handle_t *ring, uintptr_t addr, unsigned int len, void *cookie) 
 {
@@ -149,15 +154,15 @@ static inline int enqueue_avail(ring_handle_t *ring, uintptr_t addr, unsigned in
 }
 
 /**
- * Enqueue an element into a used ring buffer 
+ * Enqueue an element into a used ring buffer.
  * This indicates the buffer address parameter is currently in use.
  *
- * @param ring Ring handle to enqueue into
+ * @param ring Ring handle to enqueue into.
  * @param buffer address into shared memory where data is stored.
- * @param len length of data inside the buffer above
+ * @param len length of data inside the buffer above.
  * @param cookie optional pointer to data required on dequeueing. 
  *
- * @return -1 when ring is empty, 0 on success
+ * @return -1 when ring is empty, 0 on success.
  */
 static inline int enqueue_used(ring_handle_t *ring, uintptr_t addr, unsigned int len, void *cookie) 
 {
@@ -165,14 +170,14 @@ static inline int enqueue_used(ring_handle_t *ring, uintptr_t addr, unsigned int
 }
 
 /**
- * Dequeue an element from an available ring buffer
+ * Dequeue an element from an available ring buffer.
  *
- * @param ring Ring handle to dequeue from
+ * @param ring Ring handle to dequeue from.
  * @param buffer pointer to the address of where to store buffer address.
- * @param len pointer to variable to store length of data dequeueing
+ * @param len pointer to variable to store length of data dequeueing.
  * @param cookie pointer optional pointer to data required on dequeueing. 
  *
- * @return -1 when ring is empty, 0 on success
+ * @return -1 when ring is empty, 0 on success.
  */
 static inline int dequeue_avail(ring_handle_t *ring, uintptr_t *addr, unsigned int *len, void **cookie) 
 {
@@ -180,16 +185,47 @@ static inline int dequeue_avail(ring_handle_t *ring, uintptr_t *addr, unsigned i
 }
 
 /**
- * Dequeue an element from a used ring buffer
+ * Dequeue an element from a used ring buffer.
  *
- * @param ring Ring handle to dequeue from
+ * @param ring Ring handle to dequeue from.
  * @param buffer pointer to the address of where to store buffer address.
- * @param len pointer to variable to store length of data dequeueing
+ * @param len pointer to variable to store length of data dequeueing.
  * @param cookie pointer optional pointer to data required on dequeueing. 
  *
- * @return -1 when ring is empty, 0 on success
+ * @return -1 when ring is empty, 0 on success.
  */
 static inline int dequeue_used(ring_handle_t *ring, uintptr_t *addr, unsigned int *len, void **cookie) 
 {
     return dequeue(ring->used_ring, addr, len, cookie);
+}
+
+/**
+ * Dequeue an element from a ring buffer.
+ * This function is intended for use by the driver, to collect a pointer
+ * into this structure to be passed around as a cookie. 
+ *
+ * @param ring Ring buffer to dequeue from.
+ * @param addr pointer to the address of where to store buffer address.
+ * @param len pointer to variable to store length of data dequeueing.
+ * @param cookie pointer to store a pointer to this particular entry.
+ *
+ * @return -1 when ring is empty, 0 on success.
+ */
+
+static int driver_dequeue(ring_buffer_t *ring, uintptr_t *addr, unsigned int *len, void **cookie)
+{
+    if (!((ring->write_idx - ring->read_idx) % CONFIG_LIB_SHARED_RINGBUFFER_DESC_COUNT)) {
+        ZF_LOGW("write idx = %d, read idx = %d", ring->write_idx, ring->read_idx);
+        ZF_LOGW("Ring is empty");
+        return -1;
+    }
+
+    *addr = ring->buffers[ring->read_idx % CONFIG_LIB_SHARED_RINGBUFFER_DESC_COUNT].encoded_addr;
+    *len = ring->buffers[ring->read_idx % CONFIG_LIB_SHARED_RINGBUFFER_DESC_COUNT].len;
+    *cookie = &ring->buffers[ring->read_idx % CONFIG_LIB_SHARED_RINGBUFFER_DESC_COUNT];
+
+    THREAD_MEMORY_RELEASE();
+    ring->read_idx++;
+
+    return 0;
 }

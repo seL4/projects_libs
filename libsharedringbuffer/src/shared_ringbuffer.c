@@ -1,6 +1,5 @@
 /*
- * Copyright 2022, UNSW
- * University of New South Wales (UNSW)
+ * Copyright 2022, UNSW ??
  */
 
 #include <shared_ringbuffer/shared_ringbuffer.h>
