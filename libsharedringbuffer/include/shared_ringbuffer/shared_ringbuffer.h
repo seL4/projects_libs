@@ -22,9 +22,9 @@ typedef struct buff_desc {
 
 /* Circular buffer containing descriptors */
 typedef struct ring_buffer {
-    buff_desc_t buffers[CONFIG_LIB_SHARED_RINGBUFFER_DESC_COUNT]; 
     uint32_t write_idx;
     uint32_t read_idx;
+    buff_desc_t buffers[CONFIG_LIB_SHARED_RINGBUFFER_DESC_COUNT];
 } ring_buffer_t;
 
 /* A ring handle for enqueing/dequeuing into  */

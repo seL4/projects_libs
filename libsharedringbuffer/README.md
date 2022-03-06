@@ -16,9 +16,9 @@ memory regions and notification/signalling handlers to this library.
 To use this library in a project you can link `shared_ringbuffer` in your
 target applications CMake configuration.
 
-This libary is intented to be used by both a producer and consumer. For 
+This libary is intended to be used by both a producer and consumer. For 
 example, an ethernet driver produces data for a network stack to consume.
-2 seperate shared memory regions are required for each ring handle; one
+2 separate shared memory regions are required for each ring handle; one
 to store available buffers and one to store used buffers. Each ring buffer
 contains a separate read index and write index. The reader only ever 
 increments the read index, and the writer the write index. As read and 
@@ -36,7 +36,7 @@ This library is intended to be used with a separate shared memory region,
 usually allocated for DMA for a driver. The ring buffers can then contain
 pointers into this shared memory, indicating which buffers are in use or
 available to be used by either component. 
-Typically, 2 shared ring buffers are required, with seperate structures
+Typically, 2 shared ring buffers are required, with separate structures
 required on the recieve path and transmit path. Thus there are 4 regions
 of shared memory required: 1 storing pointers to available RX buffers, 
 1 storing pointers to used RX buffers, 1 storing pointers to TX 
