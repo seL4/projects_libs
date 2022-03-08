@@ -1,6 +1,6 @@
 #
-# Copyright 2022, Trustworthy Systems, UNSW
-#
+# Copyright 2022, UNSW
+# SPDX-License-Identifier: BSD-2-Clause
 #
 
 cmake_minimum_required(VERSION 3.7.2)

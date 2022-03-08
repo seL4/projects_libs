@@ -129,7 +129,6 @@ int virtqueue_add_available_buf(virtqueue_driver_t *vq, virtqueue_ring_object_t 
         vq->avail_ring->ring[vq->avail_ring->idx] = idx;
         vq->avail_ring->idx = (vq->avail_ring->idx + 1) & (vq->queue_len - 1);
     }
-
     return 1;
 }
 
@@ -154,7 +153,6 @@ int virtqueue_add_used_buf(virtqueue_device_t *vq, virtqueue_ring_object_t *robj
     vq->used_ring->ring[cur].id = robj->first;
     vq->used_ring->ring[cur].len = len;
     vq->used_ring->idx = (cur + 1) & (vq->queue_len - 1);
-
     return 1;
 }
 

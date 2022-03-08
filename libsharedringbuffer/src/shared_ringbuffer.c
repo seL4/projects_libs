@@ -1,5 +1,6 @@
 /*
- * Copyright 2022, UNSW ??
+ * Copyright 2022, UNSW
+ * SPDX-License-Identifier: BSD-2-Clause
  */
 
 #include <shared_ringbuffer/shared_ringbuffer.h>
