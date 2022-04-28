@@ -190,8 +190,18 @@ static void register_power_domains_dependency(fdtgen_context_t *handle,  int off
     int done = 0;
     while (lenp > done) {
         data = (data_ + done);
+        int phandle = fdt32_ld(data);
+        int refers_to = fdt_node_offset_by_phandle(dtb, phandle);
+        int len;
+        const void *power_domain_cells = fdt_getprop(dtb, refers_to, "#power-domain-cells", &len);
+        int cells = 0;
+        if(NULL != power_domain_cells)
+        {
+            cells = fdt32_ld(power_domain_cells);
+        }
+
         register_single_dependency(handle, offset, lenp, data, this);
-        done += 4;
+        done += 4 + cells * 4;
     }
 }
 
