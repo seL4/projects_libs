@@ -15,8 +15,7 @@
  * prevent this would introduce a back channel from the receiver to the sender.
  */
 
-#ifndef _RINGBUFFER_RINGBUFFER_H_
-#define _RINGBUFFER_RINGBUFFER_H_
+#pragma once
 
 #include <sys/types.h>
 
@@ -84,5 +83,3 @@ size_t rb_transmit(ringbuffer_t *r, const void *src, size_t len);
  * Returns the number of bytes received.
  */
 size_t rb_receive(ringbuffer_t *r, void *dest, size_t len);
-
-#endif
