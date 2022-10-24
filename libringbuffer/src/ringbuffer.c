@@ -15,19 +15,21 @@ struct ringbuffer {
     off_t offset;
 };
 
-ringbuffer_t *rb_new(void *base, size_t size) {
+ringbuffer_t *rb_new(void *base, size_t size)
+{
     ringbuffer_t *r = malloc(sizeof(*r));
     if (r == NULL) {
         return NULL;
     }
 
-    r->base = (volatile unsigned char*)base;
+    r->base = (volatile unsigned char *)base;
     r->size = size;
     r->offset = 0;
     return r;
 }
 
-void rb_transmit_byte(ringbuffer_t *r, unsigned char c) {
+void rb_transmit_byte(ringbuffer_t *r, unsigned char c)
+{
     /* We can't send 0s. */
     if (c == 0) {
         return;
@@ -45,7 +47,8 @@ void rb_transmit_byte(ringbuffer_t *r, unsigned char c) {
     r->offset = next;
 }
 
-unsigned char rb_poll_byte(ringbuffer_t *r) {
+unsigned char rb_poll_byte(ringbuffer_t *r)
+{
     if (r->base[r->offset] != 0) {
 
         /* Read the data that's now available and increment to the next slot.
@@ -58,7 +61,8 @@ unsigned char rb_poll_byte(ringbuffer_t *r) {
     return 0;
 }
 
-unsigned char rb_receive_byte(ringbuffer_t *r) {
+unsigned char rb_receive_byte(ringbuffer_t *r)
+{
     unsigned char c;
 
     /* Busy wait for available data. */
@@ -67,11 +71,13 @@ unsigned char rb_receive_byte(ringbuffer_t *r) {
     return c;
 }
 
-void rb_destroy(ringbuffer_t *r) {
+void rb_destroy(ringbuffer_t *r)
+{
     free(r);
 }
 
-size_t rb_transmit_string(ringbuffer_t *r, const char *s) {
+size_t rb_transmit_string(ringbuffer_t *r, const char *s)
+{
     size_t sent = 0;
     while (*s != '\0') {
         rb_transmit_byte(r, (unsigned char)*s);
@@ -81,7 +87,8 @@ size_t rb_transmit_string(ringbuffer_t *r, const char *s) {
     return sent;
 }
 
-size_t rb_receive_string(ringbuffer_t *r, char *s, size_t len) {
+size_t rb_receive_string(ringbuffer_t *r, char *s, size_t len)
+{
     size_t received = 0;
     while (len > 0) {
         *s = (char)rb_receive_byte(r);
@@ -91,9 +98,10 @@ size_t rb_receive_string(ringbuffer_t *r, char *s, size_t len) {
     return received;
 }
 
-size_t rb_transmit(ringbuffer_t *r, const void *src, size_t len) {
+size_t rb_transmit(ringbuffer_t *r, const void *src, size_t len)
+{
     size_t sent = 0;
-    unsigned char *s = (unsigned char*)src;
+    unsigned char *s = (unsigned char *)src;
     while (len > 0) {
         rb_transmit_byte(r, *s);
         s++;
@@ -102,9 +110,10 @@ size_t rb_transmit(ringbuffer_t *r, const void *src, size_t len) {
     return sent;
 }
 
-size_t rb_receive_data(ringbuffer_t *r, void *dest, size_t len) {
+size_t rb_receive_data(ringbuffer_t *r, void *dest, size_t len)
+{
     size_t received = 0;
-    unsigned char *d = (unsigned char*)dest;
+    unsigned char *d = (unsigned char *)dest;
     while (len > 0) {
         *d = rb_receive_byte(r);
         d++;
