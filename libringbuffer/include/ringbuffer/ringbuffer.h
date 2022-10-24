@@ -29,6 +29,12 @@ typedef struct ringbuffer ringbuffer_t;
  */
 ringbuffer_t *rb_new(void *base, size_t size);
 
+/* Check if ring buffer has data
+ *  r - Buffer to check
+ * Returns Boolean representing if ringbuffer has data.
+ */
+int rb_has_data(ringbuffer_t *r);
+
 /* Send a byte.
  *  r - Buffer to send via.
  *  c - Byte to send.
