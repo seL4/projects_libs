@@ -28,6 +28,11 @@ ringbuffer_t *rb_new(void *base, size_t size)
     return r;
 }
 
+int rb_has_data(ringbuffer_t *r)
+{
+    return (r->base[r->offset] == 0);
+}
+
 void rb_transmit_byte(ringbuffer_t *r, unsigned char c)
 {
     /* We can't send 0s. */
