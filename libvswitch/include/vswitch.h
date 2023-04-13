@@ -57,7 +57,7 @@ static inline bool
 mac802_addr_eq(struct ether_addr *addr0,
                struct ether_addr *addr1)
 {
-    mac802_addr_eq_num(addr0, addr1, ETH_ALEN);
+    return mac802_addr_eq_num(addr0, addr1, ETH_ALEN);
 }
 
 static inline bool
