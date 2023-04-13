@@ -40,9 +40,8 @@ typedef struct vswitch_virtqueues_ {
 
 extern struct ether_addr null_macaddr, bcast_macaddr, ipv6_multicast_macaddr;
 
-static inline bool
-mac802_addr_eq_num(struct ether_addr *addr0,
-                   struct ether_addr *addr1, unsigned int num)
+static inline bool mac802_addr_eq_num(struct ether_addr *addr0,
+                                      struct ether_addr *addr1, unsigned int num)
 {
     assert(num <= ETH_ALEN);
     for (int i = 0; i < num; i++) {
@@ -53,21 +52,18 @@ mac802_addr_eq_num(struct ether_addr *addr0,
     return true;
 }
 
-static inline bool
-mac802_addr_eq(struct ether_addr *addr0,
-               struct ether_addr *addr1)
+static inline bool mac802_addr_eq(struct ether_addr *addr0,
+                                  struct ether_addr *addr1)
 {
     return mac802_addr_eq_num(addr0, addr1, ETH_ALEN);
 }
 
-static inline bool
-mac802_addr_eq_bcast(struct ether_addr *addr)
+static inline bool mac802_addr_eq_bcast(struct ether_addr *addr)
 {
     return mac802_addr_eq(addr, &bcast_macaddr);
 }
 
-static inline bool
-mac802_addr_eq_ipv6_mcast(struct ether_addr *addr)
+static inline bool mac802_addr_eq_ipv6_mcast(struct ether_addr *addr)
 {
     return mac802_addr_eq_num(addr, &ipv6_multicast_macaddr, 2);
 }
@@ -138,9 +134,8 @@ int vswitch_get_destnode_index_by_macaddr(vswitch_t *lib,
 vswitch_node_t *vswitch_get_destnode_by_index(vswitch_t *lib,
                                               size_t index);
 
-static inline vswitch_node_t *
-vswitch_get_destnode_by_macaddr(vswitch_t *lib,
-                                struct ether_addr *mac)
+static inline vswitch_node_t *vswitch_get_destnode_by_macaddr(vswitch_t *lib,
+                                                              struct ether_addr *mac)
 {
     int idx = vswitch_get_destnode_index_by_macaddr(lib, mac);
     if (idx < 0) {
