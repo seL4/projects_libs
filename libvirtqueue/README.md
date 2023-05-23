@@ -52,7 +52,7 @@ ASCII art explanation
 ----------
 
 Empty rings and desc table:
-
+```
 A [ ]<- first available entry                         [ ]
 V [ ]                                                 [ ] D
 A [ ]                                                 [ ] E
@@ -75,9 +75,11 @@ I [ ]                                                 [ ]
 N [ ]                                                 [ ]
 G [ ]                                                 [ ]
   [ ]                                                 [ ]
+```
 
 Creating an available entry:
 
+```
 A [x]                                                 [ ]
 V [ ]<- first available entry                         [ ] D
 A [ ]                                                 [ ] E
@@ -100,9 +102,11 @@ I [ ]                                                 [ ]
 N [ ]                                                 [ ]
 G [ ]                                                 [ ]
   [ ]                                                 [ ]
+```
 
 Adding one buffer linked to the entry:
 
+```
 A [x]------------------------------------------------>[x]
 V [ ]<- first available entry                         [ ] D
 A [ ]                                                 [ ] E
@@ -125,9 +129,11 @@ I [ ]                                                 [ ]
 N [ ]                                                 [ ]
 G [ ]                                                 [ ]
   [ ]                                                 [ ]
+```
 
 Chaining more buffers:
 
+```
 A [x]------------------------------------------------>[x]-\
 V [ ]<- first available entry                       /-[x]-/
 A [ ]                                               \-[x]-\
@@ -150,10 +156,12 @@ I [ ]                                                 [ ]
 N [ ]                                                 [ ]
 G [ ]                                                 [ ]
   [ ]                                                 [ ]
+```
 
 The device pops the available entry and gets a handle which links to the head of
 the list of buffers, through which it can iterate.
 
+```
 A [ ]                             handle ------------>[x]-\
 V [ ]<- first available entry                       /-[x]-/
 A [ ]                                               \-[x]-\
@@ -176,9 +184,11 @@ I [ ]                                                 [ ]
 N [ ]                                                 [ ]
 G [ ]                                                 [ ]
   [ ]                                                 [ ]
+```
 
 It pushes it back into the used ring.
 
+```
 A [ ]                                   /------------>[x]-\
 V [ ]<- first available entry           |           /-[x]-/
 A [ ]                                   |           \-[x]-\
@@ -201,5 +211,6 @@ I [ ]                                                 [ ]
 N [ ]                                                 [ ]
 G [ ]                                                 [ ]
   [ ]                                                 [ ]
+```
 
 The driver side then pops the used entry and frees the buffers.
