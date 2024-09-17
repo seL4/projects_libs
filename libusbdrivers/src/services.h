@@ -41,7 +41,7 @@ static inline void usb_free(void *ptr)
 
     if (ps_malloc_ops && ps_malloc_ops->free) {
         ret = ps_free(ps_malloc_ops, 1, ptr);
-        if (!ret) {
+        if (ret != 0) {
             ZF_LOGF("Free error\n");
         }
     } else {
