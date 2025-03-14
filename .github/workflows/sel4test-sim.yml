@@ -1,0 +1,21 @@
+# Copyright 2021, Proofcraft Pty Ltd
+#
+# SPDX-License-Identifier: BSD-2-Clause
+
+# sel4test simulation runs
+#
+# See sel4test-sim/builds.yml in the repo seL4/ci-actions for configs.
+
+name: seL4Test
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'LICENSES/**'
+      - '*.md'
+  workflow_dispatch:
+
+jobs:
+  sim:
+    name: Sim
+    uses: seL4/ci-actions/.github/workflows/sel4test-sim.yml@master
