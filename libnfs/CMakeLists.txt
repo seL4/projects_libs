@@ -44,7 +44,11 @@ if(LibNfs)
     add_definitions(-U__linux__)
 
     # find libnfs
-    find_file(LIBNFS_PATH libnfs PATHS ${CMAKE_SOURCE_DIR} CMAKE_FIND_ROOT_PATH_BOTH)
+    find_file(
+        LIBNFS_PATH libnfs
+        PATHS ${CMAKE_SOURCE_DIR}
+        CMAKE_FIND_ROOT_PATH_BOTH
+    )
     mark_as_advanced(FORCE LIBNFS_PATH)
     if("${LIBNFS_PATH}" STREQUAL "LIBNFS_PATH-NOTFOUND")
         message(FATAL_ERROR "Failed to find libnfs. Consider cmake -DLIBNFS_PATH=/path/to/libnfs")
