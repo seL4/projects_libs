@@ -4,7 +4,10 @@
 # SPDX-License-Identifier: BSD-2-Clause
 #
 
-set(PROJECTS_LIBS_DIR "${CMAKE_CURRENT_LIST_DIR}" CACHE STRING "")
+set(PROJECTS_LIBS_DIR
+    "${CMAKE_CURRENT_LIST_DIR}"
+    CACHE STRING ""
+)
 mark_as_advanced(PROJECTS_LIBS_DIR)
 
 function(projects_libs_import_libraries)

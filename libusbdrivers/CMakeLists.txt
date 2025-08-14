@@ -15,12 +15,12 @@ if(LibUSB)
 
     file(
         GLOB
-            deps
-            src/*.c
-            src/drivers/*.c
-            src/drivers/arch/${KernelArch}/*.c
-            src/ehci/*.c
-            src/plat/${KernelPlatform}/*.c
+        deps
+        src/*.c
+        src/drivers/*.c
+        src/drivers/arch/${KernelArch}/*.c
+        src/ehci/*.c
+        src/plat/${KernelPlatform}/*.c
     )
 
     list(SORT deps)
