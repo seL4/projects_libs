@@ -44,7 +44,7 @@
 # the source directory.
 # The rest is down to the usual make process.
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.16.0)
 # required for exports? cmake_minimum_required (VERSION 2.8.6)
 project(jansson C)
 
