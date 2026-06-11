@@ -91,7 +91,7 @@ struct usb_cdc_device {
 	struct endpoint *ep_in;	 //BULK in endpoint
 	struct endpoint *ep_out; //BULK out endpoint
 	struct xact read_xact;   //Current read request
-	circ_buf_t read_buf;     //Read buffer
+	circ_buf_t *read_buf;    //Read buffer
 	int read_in_progress;
 };
 
@@ -158,8 +158,8 @@ static int usb_cdc_read_cb(void *token, enum usb_xact_status stat, int rbytes)
 	if (stat == XACTSTAT_SUCCESS) {
 		buf = (char*)xact_get_vaddr(&cdc->read_xact);
 		for (int i = 0; i < CDC_READ_XACT_SIZE - rbytes; i++) {
-			if (!circ_buf_is_full(&cdc->read_buf)) {
-				circ_buf_put(&cdc->read_buf, buf[i]);
+			if (!circ_buf_is_full(cdc->read_buf)) {
+				circ_buf_put(cdc->read_buf, buf[i]);
 			} else {
 				break;
 			}
@@ -213,17 +213,17 @@ int usb_cdc_bind(usb_dev_t *udev)
 		}
 	}
 
-	char *buf = usb_malloc(CDC_READ_BUFFER_SIZE);
-	if (!buf) {
+	cdc->read_buf = usb_malloc(sizeof(*cdc->read_buf) + CDC_READ_BUFFER_SIZE);
+	if (!cdc->read_buf) {
 		ZF_LOGD("Failed to allocate circular buffer!\n");
 		usb_free(cdc);
 		return -1;
 	}
 
-	err = circ_buf_new(buf, CDC_READ_BUFFER_SIZE, &cdc->read_buf);
+	err = circ_buf_init(CDC_READ_BUFFER_SIZE, cdc->read_buf);
 	if (err) {
 		ZF_LOGD("Failed to allocate circular buffer!\n");
-		usb_free(buf);
+		usb_free(cdc->read_buf);
 		usb_free(cdc);
 		return -1;
 	}
@@ -231,8 +231,7 @@ int usb_cdc_bind(usb_dev_t *udev)
 	class = usbdev_get_class(udev);
 	if (class != USB_CLASS_CDCDATA && class != USB_CLASS_COMM) {
 		ZF_LOGD("Not a CDC device(%d)\n", class);
-		circ_buf_free(&cdc->read_buf);
-		usb_free(buf);
+		usb_free(cdc->read_buf);
 		usb_free(cdc);
 		return -1;
 	}
@@ -289,8 +288,8 @@ int usb_cdc_read(usb_dev_t *udev, void *buf, int len)
 
 	/* Get data from the read buffer */
 	while (len--) {
-		if (!circ_buf_is_empty(&cdc->read_buf)) {
-			*((char*)buf + cnt) = circ_buf_get(&cdc->read_buf);
+		if (!circ_buf_is_empty(cdc->read_buf)) {
+			*((char*)buf + cnt) = circ_buf_get(cdc->read_buf);
 			cnt++;
 		} else {
 			break;
